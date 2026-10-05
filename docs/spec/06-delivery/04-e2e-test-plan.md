@@ -17264,3 +17264,15 @@ host-created files. The full app's file-preview viewer is covered separately.
 - **Steps:** Save a 500K user context limit for a model whose catalog publishes 1M. Open the Composer model list, then send a short message and inspect context usage. Repeat with a catalog-owned limit and with discovery unavailable.
 - **Expected:** The user-configured row and context inspector show 500K; a catalog-owned row follows the published limit; a configured model without discovery retains its saved context label. Model selection remains unchanged.
 - **Status:** Automated unit regression in `apps/desktop/test/composer-models.test.mjs` covers user overrides, catalog inheritance, and missing discovery; the full save → picker → message → context-inspector path remains a manual validation scenario.
+#### E2E-CHAT-subagent-direct-stop
+
+- Environment: isolated Desktop profile, real Main/sidecar/Host and a local
+  streaming provider fixture; no real API account or user data.
+- Start two delegates, open A's detail panel and stop A. Verify B and the parent
+  remain active, A's partial output remains readable, and no model request was
+  needed. Stop all from the group header; B stops and the parent remains active.
+- Terminal cards remove their Stop controls and persisted Task snapshots record
+  `stopped`. An empty explicit ID list is rejected rather than stopping all.
+- Run `node scripts/e2e-subagent-stop.mjs`. Runtime tests additionally cover
+  cross-session isolation and uncooperative cancellation remaining pending;
+  `e2e-subagent-parent-error.mjs` covers explicit cancellation/resume semantics.
