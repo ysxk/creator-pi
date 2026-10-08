@@ -184,7 +184,7 @@ test("the published record is not shaped by the stored override", () => {
   // the binding to it would make an override its own justification.
   assert.match(
     mainSource,
-    /modalities: operationMetadata\?\.modalities \?\? catalogModelConfig\.modalities \?\? \{ input: \["text"\], output: \["text"\] \}/,
+    /modalities:\s*operationMetadata\?\.modalities \?\?\s*\(discoveredOnly && discoveredInput\.size > 1\s*\? \{ input: \[\.\.\.discoveredInput\], output: \["text"\] as const \}\s*: catalogModelConfig\.modalities \?\? \{ input: \["text"\], output: \["text"\] \}\)/,
   );
   const decorate = mainSource.slice(
     mainSource.indexOf("const decorate ="),
