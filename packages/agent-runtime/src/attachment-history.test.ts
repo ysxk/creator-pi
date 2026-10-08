@@ -154,4 +154,110 @@ describe("hydrateAttachmentHistory", () => {
       expect(hydrated[0]?.content).toContain("sample.png");
     });
   });
+
+  it("inlines video attachments only when the model supports video", async () => {
+    await withTempDir(async (tmp) => {
+      const clipPath = resolve(tmp, "clip.mp4");
+      await writeFile(clipPath, "fake-mp4");
+      const history = [
+        userMessage("msg-1", [
+          {
+            name: "clip.mp4",
+            ref: clipPath,
+            kind: "video",
+            mimeType: "video/mp4",
+            size: 8,
+          },
+        ]),
+      ];
+
+      const visionOnly = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+      });
+      expect(visionOnly[0]?.attachments?.[0]?.data).toBeUndefined();
+      expect(visionOnly[0]?.attachments?.[0]?.kind).toBe("video");
+      expect(visionOnly[0]?.content).toContain("clip.mp4");
+
+      const videoCapable = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+      });
+      expect(videoCapable[0]?.attachments?.[0]?.data).toBe("ZmFrZS1tcDQ=");
+    });
+  });
+
+  it("upgrades a legacy file-kind video row to the video pool", async () => {
+    await withTempDir(async (tmp) => {
+      const clipPath = resolve(tmp, "legacy.mp4");
+      await writeFile(clipPath, "legacy-mp4");
+      const history = [
+        userMessage("msg-1", [
+          {
+            name: "legacy.mp4",
+            ref: clipPath,
+            kind: "file",
+            mimeType: "video/mp4",
+            size: 9,
+          },
+        ]),
+      ];
+
+      const hydrated = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+      });
+      expect(hydrated[0]?.attachments?.[0]?.kind).toBe("video");
+      expect(hydrated[0]?.attachments?.[0]?.data).toBe("bGVnYWN5LW1wNA==");
+    });
+  });
+
+  it("keeps the video budget independent of the image budget", async () => {
+    await withTempDir(async (tmp) => {
+      const imgPath = resolve(tmp, "a.png");
+      const clipPath = resolve(tmp, "b.mp4");
+      await writeFile(imgPath, "x");
+      await writeFile(clipPath, "yy");
+      const history = [
+        userMessage("msg-1", [
+          {
+            name: "a.png",
+            ref: imgPath,
+            kind: "image",
+            mimeType: "image/png",
+            size: 1,
+          },
+          {
+            name: "b.mp4",
+            ref: clipPath,
+            kind: "video",
+            mimeType: "video/mp4",
+            size: 2,
+          },
+        ]),
+      ];
+
+      // The image pool is exhausted; the clip still inlines from its own pool.
+      const hydrated = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+        maxInlinedImageBytes: 0,
+      });
+      expect(hydrated[0]?.attachments?.[0]?.data).toBeUndefined();
+      expect(hydrated[0]?.attachments?.[1]?.data).toBe("eXk=");
+
+      // And the reverse: the video pool cannot evict an image.
+      const reversed = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+        maxInlinedVideoBytes: 0,
+      });
+      expect(reversed[0]?.attachments?.[0]?.data).toBe("eA==");
+      expect(reversed[0]?.attachments?.[1]?.data).toBeUndefined();
+    });
+  });
 });

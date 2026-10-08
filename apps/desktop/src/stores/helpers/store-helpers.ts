@@ -9,7 +9,7 @@ import type {
   SessionSummary,
   UiMessage,
 } from "@pi-desktop/shared";
-import { isRenderableAttachment, modeForProposalKind } from "@pi-desktop/shared";
+import { isRenderableAttachment, isVideoAttachment, modeForProposalKind } from "@pi-desktop/shared";
 import type { ComposerDraftSnapshot } from "../../lib/composer-smart-stop";
 import { normalizeProjectPath } from "../../lib/sidebar-session-groups";
 import {
@@ -32,11 +32,13 @@ export function promptAttachmentsFromDraft(
       reference.kind ??
       (/\.(avif|bmp|gif|heic|jpe?g|png|tiff?|webp)$/i.test(reference.path)
         ? "image"
-        : "file");
-    // Inline chips use tokens for both files and images. Ordinary file chips
-    // already serialize to @path text (the model can Read them); only image
-    // chips need the structured transport for vision/fallback handling.
-    if (reference.token && kind !== "image") return [];
+        : isVideoAttachment(undefined, reference.path)
+          ? "video"
+          : "file");
+    // Inline chips use tokens for both files and media. Ordinary file chips
+    // already serialize to @path text (the model can Read them); only image and
+    // video chips need the structured transport for vision/fallback handling.
+    if (reference.token && kind !== "image" && kind !== "video") return [];
     return [
       {
         path: reference.path,

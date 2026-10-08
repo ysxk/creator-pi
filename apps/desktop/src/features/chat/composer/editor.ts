@@ -1,6 +1,7 @@
 import {
   fileReferenceLabel,
   formatFileInsert,
+  isVideoAttachment,
 } from "@pi-desktop/shared";
 import type { ComposerPluginPart } from "../../../lib/composer-smart-stop";
 import type { ComposerFileReference } from "./model";
@@ -39,7 +40,7 @@ export function createFileReference(
   preferredName?: string,
   sessionId = "",
   metadata?: {
-    kind?: "image" | "file" | "session";
+    kind?: "image" | "video" | "file" | "session";
     mimeType?: string;
     token?: string;
     plugin?: ComposerPluginPart;
@@ -57,7 +58,13 @@ export function createFileReference(
       isPluginMark(metadata) || metadata?.kind === "session"
         ? (preferredName ?? "")
         : fileReferenceLabel(path, preferredName),
-    kind: metadata?.kind ?? (isImageFilePath(path) ? "image" : "file"),
+    kind:
+      metadata?.kind ??
+      (isImageFilePath(path)
+        ? "image"
+        : isVideoAttachment(undefined, path)
+          ? "video"
+          : "file"),
     ...(metadata?.mimeType ? { mimeType: metadata.mimeType } : {}),
     ...(metadata?.token ? { token: metadata.token } : {}),
     ...(metadata?.plugin ? { plugin: metadata.plugin } : {}),

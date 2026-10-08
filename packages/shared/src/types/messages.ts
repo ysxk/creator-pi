@@ -49,7 +49,7 @@ export type UsageOperation = Omit<MessageUsage, "operations" | "aggregation"> & 
 export { addUsage, withUsageIdentity } from "../message-usage.js";
 
 export type MessageAttachment = {
-  kind: "image" | "file" | "session";
+  kind: "image" | "video" | "file" | "session";
   name: string;
   /** Workspace-relative path, session-scratch absolute path, or a session id. */
   ref: string;
