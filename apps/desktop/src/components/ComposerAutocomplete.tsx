@@ -13,6 +13,7 @@ import {
   IconSlash,
   IconSparkles,
 } from "./icons";
+import { SubagentAvatar } from "./SubagentAvatar";
 import { AnchoredMenu } from "./settings/AnchoredMenu";
 
 /**
@@ -90,7 +91,9 @@ export function ComposerAutocomplete({
           ? `c:${item.command.kind}:${item.command.name}`
           : item.kind === "plugin"
             ? `pl:${item.pluginId}:${index}`
-            : `p:${item.entry.path}`,
+            : item.kind === "subagent"
+              ? `a:${item.agent.name}`
+              : `p:${item.entry.path}`,
       type: "button" as const,
       role: "option" as const,
       "aria-selected": active,
@@ -135,6 +138,24 @@ export function ComposerAutocomplete({
         </button>
       );
     }
+    if (item.kind === "subagent") {
+      return (
+        <button
+          {...commonProps}
+          title={item.agent.description || item.agent.name}
+        >
+          <span className="composer-ac-icon subagent-ac-avatar">
+            <SubagentAvatar name={item.agent.name} size={18} />
+          </span>
+          <span className="composer-ac-name">
+            @<Highlighted text={item.agent.name} ranges={item.match.ranges} />
+          </span>
+          {item.agent.description ? (
+            <span className="composer-ac-desc">{item.agent.description}</span>
+          ) : null}
+        </button>
+      );
+    }
     const isDir = item.entry.kind === "dir";
     const name = item.entry.path.split("/").pop() ?? item.entry.path;
     const displayName = `${name}${isDir ? "/" : ""}`;
@@ -162,6 +183,15 @@ export function ComposerAutocomplete({
         rows.push(
           <div key={`g:${group}`} className="composer-model-group-label">
             {t(GROUP_KEYS[group])}
+          </div>,
+        );
+      }
+    } else if (item.kind === "subagent") {
+      if (lastGroup !== "subagents") {
+        lastGroup = "subagents";
+        rows.push(
+          <div key="g:subagents" className="composer-model-group-label">
+            {t("chat.atGroupAgents")}
           </div>,
         );
       }

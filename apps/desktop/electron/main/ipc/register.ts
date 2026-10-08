@@ -439,6 +439,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
   registerSkillsIpc({
     registrar,
     getHost,
+    dataDir,
     searchSkillMarket,
     fetchSkillMarketDocument,
     optionalWorkspaceRoot,

@@ -274,6 +274,7 @@ export const ptBR = {
     slashCommandSourceUnavailable: "A lista de comandos está indisponível; nada foi enviado. Tente novamente.",
     sessionTranscriptEmpty: "Não foi possível ler o histórico desta sessão. Reabra-a para tentar novamente.",
     fileMenu: "Referências a arquivos",
+    atGroupAgents: "Agentes",
     removeFileReference: "Remover referência de arquivo {{name}}",
     removePluginMark: "Remover {{name}}",
     pluginTriggerMenu: "Sugestões de plugins",
@@ -2342,6 +2343,12 @@ export const ptBR = {
       errorTooBig: "O documento ultrapassa o limite de tamanho."
     },
     subagents: {
+      avatar: "Avatar",
+      avatarHint: "Exibido nas configurações, no menu @ e nos cartões de delegação. Gerado a partir do nome; o botão de IA desenha um PNG com o modelo de imagem configurado.",
+      avatarGenerate: "Gerar com IA",
+      avatarRegenerate: "Regenerar",
+      avatarGenerating: "Desenhando…",
+      avatarReset: "Usar marca gerada",
       fallbackModels: "Modelos alternativos",
       fallbackModelsHint: "Tente os modelos na ordem indicada depois que as tentativas com o modelo atual falharem. Os resultados de ferramentas concluídas são mantidos; Parar cancela a tarefa inteira.",
       fallbackAdd: "Adicionar modelo alternativo",

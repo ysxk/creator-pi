@@ -3956,3 +3956,17 @@
 .sklm-page-jump::placeholder {
   color: var(--ds-text-muted);
 }
+
+/* Subagent editor: avatar preview with generate/reset actions. */
+.subagent-avatar-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subagent-avatar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

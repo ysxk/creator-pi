@@ -13,6 +13,7 @@ import {
   type ComposerTrigger,
   type FsIndexEntry,
   type FuzzyMatch,
+  type SubagentDefinition,
 } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
@@ -29,7 +30,8 @@ const SOURCE_TTL_MS = 10_000;
 
 export type AutocompleteItem =
   | { kind: "command"; command: ComposerCommand; match: FuzzyMatch }
-  | { kind: "path"; entry: FsIndexEntry; match: FuzzyMatch };
+  | { kind: "path"; entry: FsIndexEntry; match: FuzzyMatch }
+  | { kind: "subagent"; agent: SubagentDefinition; match: FuzzyMatch };
 
 /** Module-level TTL caches so re-triggering stays IPC-free. */
 let commandsCache: { key: string; at: number; commands: ComposerCommand[] } | null =
@@ -40,6 +42,7 @@ let filesCache: {
   entries: FsIndexEntry[];
   truncated: boolean;
 } | null = null;
+let subagentsCache: { at: number; agents: SubagentDefinition[] } | null = null;
 
 const COMMAND_GROUP_ORDER = {
   template: 0,
@@ -108,6 +111,35 @@ function filterFiles(entries: FsIndexEntry[], query: string): AutocompleteItem[]
 }
 
 /**
+ * Delegation candidates in the @ menu. A subagent name is matched like a
+ * command name; its description may surface a row the name alone misses.
+ */
+function filterSubagents(agents: SubagentDefinition[], query: string): AutocompleteItem[] {
+  const matched: Array<{ agent: SubagentDefinition; match: FuzzyMatch }> = [];
+  for (const agent of agents) {
+    const byName = fuzzyMatchCommand(query, agent.name);
+    if (byName) {
+      matched.push({ agent, match: byName });
+      continue;
+    }
+    const byDescription = agent.description
+      ? fuzzyMatchCommand(query, agent.description)
+      : null;
+    if (byDescription) {
+      matched.push({ agent, match: { score: Math.max(0, byDescription.score - 20), ranges: [] } });
+    }
+  }
+  return matched
+    .sort((a, b) =>
+      compareMatches(
+        { score: a.match.score, text: a.agent.name },
+        { score: b.match.score, text: b.agent.name },
+      ),
+    )
+    .map(({ agent, match }) => ({ kind: "subagent", agent, match }));
+}
+
+/**
  * Result of resolving one typed "/name" at send time.
  *
  * `unavailable` is the branch that keeps a failed source read from looking like
@@ -169,6 +201,7 @@ export function useComposerAutocomplete({
     entries: FsIndexEntry[];
     truncated: boolean;
   } | null>(null);
+  const [subagents, setSubagents] = useState<SubagentDefinition[] | null>(null);
   const [highlight, setHighlight] = useState(0);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const frozenRef = useRef<ComposerTrigger | null>(null);
@@ -223,6 +256,25 @@ export function useComposerAutocomplete({
       setFiles({ entries: [], truncated: false });
       return;
     }
+    // The @ menu offers delegation candidates above the file index; the
+    // catalog is a bounded host read, so it shares the TTL discipline.
+    if (subagentsCache && now - subagentsCache.at < SOURCE_TTL_MS) {
+      setSubagents(subagentsCache.agents);
+    } else {
+      let cancelledAgents = false;
+      void api
+        .subagentCatalog()
+        .then((res) => {
+          subagentsCache = { at: Date.now(), agents: res.subagents };
+          if (!cancelledAgents) setSubagents(res.subagents);
+        })
+        .catch(() => {
+          if (!cancelledAgents) setSubagents([]);
+        });
+      return () => {
+        cancelledAgents = true;
+      };
+    }
     if (
       filesCache &&
       filesCache.key === workspaceKey &&
@@ -256,8 +308,10 @@ export function useComposerAutocomplete({
     if (trigger.mode === "slash") {
       return commands ? filterCommands(commands, trigger.query, trigger.tokenStart > 0) : [];
     }
-    return files ? filterFiles(files.entries, trigger.query) : [];
-  }, [trigger, dismissed, commands, files]);
+    if (!files) return [];
+    const agentItems = subagents ? filterSubagents(subagents, trigger.query) : [];
+    return [...agentItems, ...filterFiles(files.entries, trigger.query)];
+  }, [trigger, dismissed, commands, files, subagents]);
 
   // New query or mode restarts keyboard navigation at the top hit.
   const itemsKey = trigger ? `${trigger.mode}:${trigger.query}` : "";
@@ -267,7 +321,9 @@ export function useComposerAutocomplete({
 
   const sourceReady =
     !!trigger &&
-    (trigger.mode === "slash" ? commands !== null : files !== null);
+    (trigger.mode === "slash"
+      ? commands !== null
+      : files !== null && subagents !== null);
   const open = !!trigger && !dismissed && sourceReady;
 
   const close = useCallback(() => {
@@ -287,6 +343,11 @@ export function useComposerAutocomplete({
       if (!trigger) return null;
       const item = items[index];
       if (!item) return null;
+      if (item.kind === "subagent") {
+        // A delegation mention is prompt text: the model's Task catalog lists
+        // the same names, so `@name` is the signal to delegate to it.
+        return applyCompletion(value, trigger, formatFileInsert(item.agent.name, "file"));
+      }
       if (item.kind === "path" && item.entry.kind === "file") {
         return {
           ...applyCompletion(value, trigger, ""),

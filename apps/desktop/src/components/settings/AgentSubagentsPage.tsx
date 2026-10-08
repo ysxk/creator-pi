@@ -40,6 +40,7 @@ import {
   IconPlus,
   IconTrash,
 } from "../icons";
+import { SubagentAvatar } from "../SubagentAvatar";
 import { TooltipButton } from "../ui";
 const GLOBAL_SUBAGENTS_PATH = "~/.agents/subagents";
 
@@ -267,7 +268,7 @@ export function AgentSubagentsPage() {
     return (
       <CapabilityRow
         key={`builtin:${handle}`}
-        glyph={<IconBot size={16} />}
+        glyph={<SubagentAvatar name={handle} size={16} />}
         name={name}
         off={!definition.enabled}
         command={t("extensions.subagents.handle", { name: handle })}
@@ -342,7 +343,7 @@ export function AgentSubagentsPage() {
     return (
       <CapabilityRow
         key={subagent.id}
-        glyph={<IconBot size={16} />}
+        glyph={<SubagentAvatar name={subagent.name} size={16} />}
         name={name}
         off={!subagent.enabled}
         menuOpen={menuFor === subagent.id}

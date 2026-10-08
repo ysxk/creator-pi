@@ -275,6 +275,7 @@ export const es = {
 "slashCommandSourceUnavailable": "La lista de comandos no está disponible, así que no se envió nada. Inténtalo de nuevo.",
     "sessionTranscriptEmpty": "No se pudo leer el historial de esta sesión. Vuelve a abrirla para intentarlo de nuevo.",
     "fileMenu": "Referencias de archivos",
+    "atGroupAgents": "Agentes",
     "removeFileReference": "Eliminar referencia de archivo {{name}}",
     "removePluginMark": "Eliminar {{name}}",
     "pluginTriggerMenu": "Sugerencias de plugins",
@@ -2385,6 +2386,12 @@ sklm: {
       "errorTooBig": "El documento supera el límite de tamaño."
     },
     "subagents": {
+      "avatar": "Avatar",
+      "avatarHint": "Se muestra en Ajustes, el menú @ y las tarjetas de delegación. Se genera a partir del nombre; el botón de IA dibuja un PNG con el modelo de imagen configurado.",
+      "avatarGenerate": "Generar con IA",
+      "avatarRegenerate": "Regenerar",
+      "avatarGenerating": "Dibujando…",
+      "avatarReset": "Usar marca generada",
       fallbackModels: "Modelos de respaldo",
       fallbackModelsHint: "Se prueban en orden cuando fallan los reintentos. Se conservan los resultados de herramientas; Detener cancela toda la tarea.",
       fallbackAdd: "Añadir modelo de respaldo",

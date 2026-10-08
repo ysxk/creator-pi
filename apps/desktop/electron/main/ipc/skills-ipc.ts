@@ -2,6 +2,11 @@ import { app, dialog, shell } from "electron";
 import { importSkillFolders, readLastSkillImportDirectory, writeLastSkillImportDirectory } from "../skill-folder-import";
 import { ErrorCodes, IPC, type ActivationScope, type AgentCapabilityMove, type AgentCapabilityQuery, type UserSkillRecord, type UserSubagentRecord } from "@pi-desktop/shared";
 import { loadSubagentDefinitions, type UserSubagentDocument } from "@pi-desktop/agent-runtime";
+import {
+  deleteSubagentIcon,
+  generateSubagentIcon,
+  readSubagentIcon,
+} from "../services/subagent-icon-service";
 import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
 import type {
@@ -18,6 +23,8 @@ import type { IpcRegistrar } from "./types";
 export type SkillsIpcDependencies = {
   registrar: IpcRegistrar;
   getHost: () => HostProcess | null;
+  /** Application data root; subagent icon PNGs live under it. */
+  dataDir: string;
   optionalWorkspaceRoot: () => Promise<string | null>;
   activeUserSubagentDocuments: (projectPath: string | undefined) => Promise<UserSubagentDocument[]>;
   /** Handles whose shipped definition the user turned off (builtin activation). */
@@ -33,6 +40,7 @@ export type SkillsIpcDependencies = {
 export function registerSkillsIpc({
   registrar,
   getHost,
+  dataDir,
   optionalWorkspaceRoot,
   activeUserSubagentDocuments,
   disabledBuiltinSubagents,
@@ -334,6 +342,52 @@ export function registerSkillsIpc({
       diagnostics,
       projectPath: projectPath ?? null,
     };
+  });
+
+  /**
+   * The stored avatar PNG for one subagent, or none — the deterministic SVG
+   * is the renderer's default and needs no IPC.
+   */
+  handle(IPC.invoke.subagentIcon, async (input: { name?: unknown } = {}) => {
+    const name = String(input.name ?? "").trim();
+    if (!name) {
+      throw Object.assign(new Error("name required"), {
+        errorCode: ErrorCodes.INVALID_ARGUMENT,
+      });
+    }
+    return readSubagentIcon(dataDir, name);
+  });
+
+  /**
+   * Draw one subagent's avatar with the configured image-generation model and
+   * store it as the PNG that replaces the deterministic SVG.
+   */
+  handle(
+    IPC.invoke.subagentGenerateIcon,
+    async (input: { name?: unknown; description?: unknown } = {}) => {
+      const name = String(input.name ?? "").trim();
+      const description =
+        typeof input.description === "string" ? input.description : undefined;
+      const result = await generateSubagentIcon({
+        dataDir,
+        name,
+        description,
+        getHost,
+      });
+      if (!result.ok) {
+        throw Object.assign(new Error(result.message), {
+          errorCode: result.errorCode,
+        });
+      }
+      return { dataUrl: result.dataUrl };
+    },
+  );
+
+  /** Drop the stored PNG; the deterministic SVG takes over again. */
+  handle(IPC.invoke.subagentDeleteIcon, async (input: { name?: unknown } = {}) => {
+    const name = String(input.name ?? "").trim();
+    if (name) await deleteSubagentIcon(dataDir, name);
+    return { ok: true };
   });
 
   handle(IPC.invoke.subagentCreate, async (subagent: Record<string, unknown>) => {

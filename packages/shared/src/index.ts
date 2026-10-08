@@ -55,6 +55,7 @@ export * from "./network-proxy.js";
 export * from "./attachment-limits.js";
 export * from "./attachment-formats.js";
 export * from "./media-protocol.js";
+export * from "./subagent-avatar.js";
 export * from "./speech.js";
 export * from "./image-generation.js";
 export * from "./font-size.js";

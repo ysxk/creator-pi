@@ -275,6 +275,7 @@ export const de = {
 "slashCommandSourceUnavailable": "Befehlsliste nicht verfügbar, es wurde nichts gesendet. Bitte erneut versuchen.",
     "sessionTranscriptEmpty": "Der Verlauf dieser Sitzung konnte nicht gelesen werden. Bitte die Sitzung erneut öffnen.",
     "fileMenu": "Dateiverweise",
+    "atGroupAgents": "Agenten",
     "removeFileReference": "Dateiverweis {{name}} entfernen",
     "removePluginMark": "{{name}} entfernen",
     "pluginTriggerMenu": "Plugin-Vorschläge",
@@ -2385,6 +2386,12 @@ sklm: {
       "errorTooBig": "Das Dokument überschreitet die Größenbeschränkung."
     },
     "subagents": {
+      "avatar": "Avatar",
+      "avatarHint": "Erscheint in den Einstellungen, im @-Menü und auf Delegationskarten. Standardmäßig aus dem Namen erzeugt; die KI-Schaltfläche zeichnet ein PNG mit dem konfigurierten Bildmodell.",
+      "avatarGenerate": "Mit KI erzeugen",
+      "avatarRegenerate": "Neu erzeugen",
+      "avatarGenerating": "Wird gezeichnet…",
+      "avatarReset": "Standardzeichen verwenden",
       fallbackModels: "Ersatzmodelle",
       fallbackModelsHint: "Nach fehlgeschlagenen Modellwiederholungen der Reihe nach versuchen. Werkzeugergebnisse bleiben erhalten; Stopp beendet die gesamte Aufgabe.",
       fallbackAdd: "Ersatzmodell hinzufügen",

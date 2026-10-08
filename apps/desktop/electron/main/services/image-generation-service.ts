@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { createImageBinding, generateImageBatch, type ImageOperationMetadata } from "@pi-desktop/agent-runtime";
+import { createImageBinding, generateImageBatch, type ImageBinding, type ImageOperationMetadata } from "@pi-desktop/agent-runtime";
 import type { ImageApi, ImageModel } from "@earendil-works/pi-ai";
 import type { VendorOAuth } from "../oauth";
 import {
@@ -133,4 +133,70 @@ export function createImageGenerationTool(options: {
       },
     };
   };
+}
+
+/**
+ * Resolve the configured image-generation endpoint: settings binding, provider
+ * row, credential, and the transport binding the image pipeline runs on. The
+ * agent tool and the host's own icon generator share this so the two paths
+ * cannot disagree about which model a settings row names.
+ */
+export async function resolveImageGenerationEndpoint(options: {
+  getHost: () => Pick<HostProcess, "call"> | null;
+  allowFakeIp?: () => boolean;
+  resolveAuth?: VendorOAuth["resolveAuth"];
+  resolveImageModel?: (provider: ProviderPublic, modelId: string) => Promise<ImageModel<ImageApi> | undefined>;
+}): Promise<
+  | { ok: true; binding: ImageBinding }
+  | { ok: false; errorCode: string; message: string }
+> {
+  const host = options.getHost();
+  if (!host) return { ok: false, errorCode: "HOST_UNAVAILABLE", message: "Host unavailable." };
+  const settings = await host.call<AppSettings>("settings.get");
+  const parsed = parseImageGenerationBinding(settings.imageGeneration);
+  if (!parsed) {
+    return {
+      ok: false,
+      errorCode: "IMAGE_NOT_CONFIGURED",
+      message: "Configure an image generation model in Settings > Models > Image generation model before generating images.",
+    };
+  }
+  const { provider } = await host.call<{ provider?: ProviderPublic }>("providers.get", {
+    id: parsed.providerId,
+  });
+  if (
+    !provider?.enabled ||
+    !provider.baseUrl ||
+    !imageModelOfferedByProvider(provider, parsed.modelId)
+  ) {
+    return {
+      ok: false,
+      errorCode: "IMAGE_MODEL_UNAVAILABLE",
+      message: "The configured image model is unavailable. Update Settings > Models > Image generation model.",
+    };
+  }
+  const { value } = provider.authKind === "oauth" || provider.authKind === "none"
+    ? { value: undefined }
+    : await host.call<{ value?: string }>("providers.getSecret", { id: provider.id });
+  if (provider.authKind !== "none" && provider.authKind !== "oauth" && !value)
+    return { ok: false, errorCode: "IMAGE_AUTH_FAILED", message: "The image provider needs an API key." };
+  const downloadOptions = { allowFakeIp: options.allowFakeIp?.() === true };
+  const codexImages = provider.authKind === "oauth" &&
+    provider.vendorKey === CODEX_IMAGE_VENDOR_KEY;
+  const headers = codexImages ? { originator: "pi", ...provider.headers } : provider.headers;
+  try {
+    const binding = createImageBinding({
+      nativeModel: await options.resolveImageModel?.(provider, parsed.modelId),
+      providerId: provider.id, vendorKey: provider.vendorKey, authKind: provider.authKind,
+      baseUrl: provider.baseUrl, modelId: parsed.modelId, apiKey: value, headers,
+      ...(provider.authKind === "oauth" && options.resolveAuth
+        ? { resolveAuth: () => options.resolveAuth!(provider.id) }
+        : {}),
+    }, downloadOptions);
+    return { ok: true, binding };
+  } catch (error) {
+    if (error && typeof error === "object" && "errorCode" in error && error.errorCode === "IMAGE_AUTH_UNSUPPORTED")
+      return { ok: false, errorCode: "IMAGE_AUTH_UNSUPPORTED", message: "The selected account has no supported image operation." };
+    throw error;
+  }
 }
