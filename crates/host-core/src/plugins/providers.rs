@@ -289,10 +289,9 @@ pub(crate) fn sync_plugin_providers(
         // The manifest's editability flags travel with the row so Settings and
         // `providers.setPluginEndpoint` can see them without re-reading the
         // manifest on every list.
-        let existing_config_value: serde_json::Value = serde_json::from_str(
-            existing_config.as_deref().unwrap_or("{}"),
-        )
-        .unwrap_or_else(|_| serde_json::json!({}));
+        let existing_config_value: serde_json::Value =
+            serde_json::from_str(existing_config.as_deref().unwrap_or("{}"))
+                .unwrap_or_else(|_| serde_json::json!({}));
         let user_owned = existing_config_value
             .get("pluginEndpointUserOwned")
             .cloned()
@@ -322,7 +321,9 @@ pub(crate) fn sync_plugin_providers(
                 .as_deref()
                 .is_some_and(is_known_api_style)
         {
-            existing_api_style.clone().unwrap_or_else(|| provider.api_style.clone())
+            existing_api_style
+                .clone()
+                .unwrap_or_else(|| provider.api_style.clone())
         } else {
             provider.api_style.clone()
         };

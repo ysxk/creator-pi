@@ -998,13 +998,19 @@ fn user_edited_endpoint_survives_the_next_sync() {
     let provider = providers::get_provider(&db, &secrets, &row_id)
         .unwrap()
         .expect("row exists");
-    assert_eq!(provider.base_url.as_deref(), Some("http://10.0.0.5:9000/v1"));
-    assert_eq!(provider.api_style.as_deref(), Some("openai_codex_responses"));
+    assert_eq!(
+        provider.base_url.as_deref(),
+        Some("http://10.0.0.5:9000/v1")
+    );
+    assert_eq!(
+        provider.api_style.as_deref(),
+        Some("openai_codex_responses")
+    );
 }
 
 #[test]
 fn set_plugin_endpoint_refuses_locked_and_invalid_edits() {
-    let (dir, db, secrets) = test_context();
+    let (_dir, db, secrets) = test_context();
     // A user-owned row is not plugin-declared.
     let user_row = providers::create_provider(
         &db,
@@ -1046,9 +1052,7 @@ fn set_plugin_endpoint_refuses_locked_and_invalid_edits() {
     assert!(err.to_string().contains("PROVIDER_ENDPOINT_LOCKED"));
 
     // An editable row still refuses a non-http(s) address and an unknown style.
-    drop(plain);
-    let _ = dir;
-    let (dir2, db2, secrets2) = test_context();
+    let (_dir2, db2, secrets2) = test_context();
     let declared = declared_providers(&editable_manifest());
     sync_plugin_providers(&db2, &secrets2, "demo.plugin", &declared, true).unwrap();
     let row_id = plugin_provider_row_id("demo.plugin", "demo");

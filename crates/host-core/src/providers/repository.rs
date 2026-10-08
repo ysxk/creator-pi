@@ -589,7 +589,10 @@ pub fn set_plugin_endpoint(
         return Ok(None);
     };
     if current.owner_plugin_id.is_none() {
-        bail!("PROVIDER_NOT_PLUGIN_OWNED: provider {} is not plugin-declared", input.id);
+        bail!(
+            "PROVIDER_NOT_PLUGIN_OWNED: provider {} is not plugin-declared",
+            input.id
+        );
     }
     let raw_config: String = db.conn().query_row(
         "SELECT config_json FROM providers WHERE id = ?1",
@@ -598,7 +601,10 @@ pub fn set_plugin_endpoint(
     )?;
     let mut config: serde_json::Value =
         serde_json::from_str(&raw_config).unwrap_or_else(|_| serde_json::json!({}));
-    let editable = config.get("pluginEndpoint").cloned().unwrap_or(serde_json::json!({}));
+    let editable = config
+        .get("pluginEndpoint")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     let base_url_editable = editable
         .get("baseUrlEditable")
         .and_then(serde_json::Value::as_bool)
@@ -612,7 +618,10 @@ pub fn set_plugin_endpoint(
         Some(value) => {
             let trimmed = value.trim();
             if !base_url_editable {
-                bail!("PROVIDER_ENDPOINT_LOCKED: provider {} does not allow base URL edits", input.id);
+                bail!(
+                    "PROVIDER_ENDPOINT_LOCKED: provider {} does not allow base URL edits",
+                    input.id
+                );
             }
             if trimmed.is_empty() {
                 bail!("PROVIDER_INVALID: base URL must not be empty");
@@ -628,7 +637,10 @@ pub fn set_plugin_endpoint(
         Some(value) => {
             let trimmed = value.trim();
             if !api_style_editable {
-                bail!("PROVIDER_ENDPOINT_LOCKED: provider {} does not allow apiStyle edits", input.id);
+                bail!(
+                    "PROVIDER_ENDPOINT_LOCKED: provider {} does not allow apiStyle edits",
+                    input.id
+                );
             }
             if !crate::plugins::is_known_api_style(trimmed) {
                 bail!("PROVIDER_INVALID: unsupported apiStyle {trimmed}");
@@ -638,11 +650,12 @@ pub fn set_plugin_endpoint(
         None => None,
     };
 
-    let endpoint_changed = next_base_url.as_deref().is_some_and(|value| {
-        value != current.base_url.as_deref().unwrap_or("")
-    }) || next_api_style
+    let endpoint_changed = next_base_url
         .as_deref()
-        .is_some_and(|value| Some(value) != current.api_style.as_deref());
+        .is_some_and(|value| value != current.base_url.as_deref().unwrap_or(""))
+        || next_api_style
+            .as_deref()
+            .is_some_and(|value| Some(value) != current.api_style.as_deref());
 
     // Record which fields are now the user's: the next manifest sync keeps
     // them instead of restoring the declared default.
