@@ -312,6 +312,10 @@ type ProviderConfig = {
   }
   defaultModelId?: string
   models: ModelBinding[]        // selected models and per-model settings
+  // Present only on plugin-declared rows whose manifest marked the endpoint
+  // user-editable (ADR 0325); `providers.setPluginEndpoint` is the write path.
+  baseUrlEditable?: boolean
+  apiStyleEditable?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -338,6 +342,13 @@ type ModelBinding = {
   thinkingLevels: ThinkingLevel[]
   defaultThinkingLevel: SessionThinkingLevel | null
   thinkingProtocol?: "legacy" | "adaptive"
+  // Three-state attachment overrides; null/absent follows the published
+  // models.dev capability, an explicit boolean is pinned. `supportsVideos`
+  // gates inline base64 video transport the same way `supportsImages` gates
+  // images; documents stay file references either way.
+  supportsImages?: boolean | null
+  supportsVideos?: boolean | null
+  supportsDocuments?: boolean | null
   availableForSubagents?: boolean // opt-in for AI-driven delegation
 }
 

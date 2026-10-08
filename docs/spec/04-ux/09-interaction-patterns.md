@@ -1251,6 +1251,11 @@ Project drag/drop follows these patterns:
   caret, backed by the full `entry.path`; that confirmation does not send.
   Accepting a directory keeps the full literal path in the draft so deeper
   completion can continue.
+- Above the file rows, file mode lists delegation candidates (D657): the
+  subagents `Task` would offer, each row showing its avatar (the deterministic
+  mark or an AI-drawn PNG), handle, and description. Accepting one inserts
+  plain `@<name>` prompt text — the Task catalog the model reads lists the
+  same names, so the mention is the delegation signal; nothing is attached.
 
 ### 8a.2 Reference chips and clipboard files
 

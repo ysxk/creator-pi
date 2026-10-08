@@ -127,6 +127,7 @@ to an absolute path before it reaches host-core as a child-process variable.
  ├── secrets/             # encrypted secret blobs + .machine-key (unchanged)
  ├── config-sync/         # encrypted sync base/pending bundles — host-core only
  ├── attachments/         # content-addressed blobs (sha256 name), refs from messages
+ ├── agent-capabilities/  # activation state; subagent-icons/<name>.png avatars
  ├── plugins/             # code + data + registry.json (unchanged, spec 07-11)
  ├── logs/                # NDJSON app/<category>, host/<category>, agent/<category> logs
  ├── cache/               # disposable caches
@@ -924,7 +925,7 @@ type Block =
       status: "ok" | "error" | "denied"; result?: unknown;
       completedAt?: string; durationMs?: number;
       toolUsage?: ToolTokenUsage }
-  | { type: "attachment"; kind: "image" | "file" | "session"; name: string;
+  | { type: "attachment"; kind: "image" | "video" | "file" | "session"; name: string;
       ref: string /* attachments/<sha256>, absolute path, or session id */;
       mimeType?: string; size?: number;
       text?: string /* bounded referenced-conversation excerpt */ }
@@ -946,7 +947,11 @@ type Block =
   turn is dispatched; transient base64 used to build a pi-ai
   image block never enters the transcript, database, or renderer message.
   Non-vision and oversized-image turns retain a safe scratch/project `@path`
-  fallback for the model. Replayed content-store images use
+  fallback for the model. Video follows the same contract with its own inline
+  bound (20 MB raw, 60 MB aggregate on history replay) and its own capability
+  gate (published `video` input modality or the binding's `supportsVideos`
+  override): the block's `kind` is `video`, bytes are content-addressed the
+  same way, and a non-video or oversized turn keeps the `@path` fallback. Replayed content-store images use
   `scratch/<sessionId>/replayed/` when a path fallback is required. Images
   above the inline bound are hashed and copied with streaming file operations;
   startup and history hydration must not load the whole image into memory.
