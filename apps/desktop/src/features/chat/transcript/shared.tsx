@@ -15,11 +15,12 @@ import type {
 import {
   formatCompactTokenCount,
   isCertificateVerificationError,
+  mediaViewUrl,
 } from "@pi-desktop/shared";
 import { useOpenChatFileRef, useOpenPreviewTarget } from "../../../hooks/use-preview-target";
 import { useChatFileMenu } from "../../../hooks/use-chat-file-menu";
 import { ContextMenu } from "../../../components/ContextMenu";
-import { ImageHoverCard, type ImageHoverAnchor } from "../../../components/ImageHoverCard";
+import { ImageHoverCard, VideoHoverCard, type ImageHoverAnchor } from "../../../components/ImageHoverCard";
 import { useDisclosureAnchorNotifier } from "../../../lib/disclosure-anchor-context";
 import { isThinkingActive, resolveThinkingDisplayMode } from "../../../lib/turn-process";
 import { TranscriptSearchContext } from "../../../lib/transcript-search-context";
@@ -399,7 +400,7 @@ export function ToolActionIcon({ action }: { action: ToolAction }) {
 /** Actions whose path/url argument makes sense to preview in the panel. */
 export const PREVIEWABLE_ACTIONS = new Set<ToolAction>(["read", "write", "edit", "fetch"]);
 
-export function fileChipIcon(name: string, kind?: "image" | "file") {
+export function fileChipIcon(name: string, kind?: "image" | "video" | "file") {
   if (kind === "image" || /\.(avif|bmp|gif|heic|jpe?g|png|tiff?|webp)$/i.test(name)) {
     return IconImage;
   }
@@ -430,7 +431,7 @@ export function FileRefChip({
 }: {
   name: string;
   path: string;
-  kind?: "image" | "file";
+  kind?: "image" | "video" | "file";
   mimeType?: string;
   onOpen: (
     path: string,
@@ -572,6 +573,56 @@ export function MessageAttachmentImage({
         />
       </span>
       <ImageHoverCard src={dataUrl} anchor={anchor} onDismiss={dismiss} />
+    </>
+  );
+}
+
+/**
+ * User-message video attachment: the same compact chip as any other file
+ * reference, with a hover (or focus) player card. The clip streams from the
+ * host-owned pi-media: scheme, which confines and re-resolves the ref on every
+ * request; a file the resolver refuses simply keeps the chip. Clicking opens
+ * the clip in the OS player via the same contained ref.
+ */
+export function MessageAttachmentVideo({
+  attachment,
+  onOpenFile,
+  inline = false,
+}: {
+  attachment: MessageAttachment;
+  onOpenFile: (path: string, baseDir?: string, mimeType?: string) => void;
+  /** Inline placement inside the message prose; only the trailing list has a list parent. */
+  inline?: boolean;
+}) {
+  const [anchor, setAnchor] = useState<ImageHoverAnchor | null>(null);
+  const chipRef = useRef<HTMLSpanElement>(null);
+  const reveal = () => {
+    const element = chipRef.current;
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    setAnchor({ left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width });
+  };
+  const dismiss = () => setAnchor(null);
+  return (
+    <>
+      <span
+        ref={chipRef}
+        className="message-attachment-image-chip"
+        role={inline ? undefined : "listitem"}
+        onPointerEnter={reveal}
+        onPointerLeave={dismiss}
+        onFocus={reveal}
+        onBlur={dismiss}
+      >
+        <FileRefChip
+          name={attachment.name}
+          path={attachment.ref}
+          kind="video"
+          mimeType={attachment.mimeType}
+          onOpen={onOpenFile}
+        />
+      </span>
+      <VideoHoverCard src={mediaViewUrl(attachment.ref)} anchor={anchor} onDismiss={dismiss} />
     </>
   );
 }

@@ -47,7 +47,7 @@ test("user message image attachments render as chips with a hover card", () => {
   // One shared preview card serves the draft and the transcript.
   assert.match(
     transcript,
-    /import \{ ImageHoverCard, type ImageHoverAnchor \} from "\.\.\/\.\.\/\.\.\/components\/ImageHoverCard";/,
+    /import \{ ImageHoverCard, VideoHoverCard, type ImageHoverAnchor \} from "\.\.\/\.\.\/\.\.\/components\/ImageHoverCard";/,
   );
   assert.match(transcript, /<ImageHoverCard src=\{dataUrl\} anchor=\{anchor\} onDismiss=\{dismiss\} \/>/);
   assert.match(

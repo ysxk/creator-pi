@@ -35,6 +35,7 @@ import {
   resolveRealOpenablePath,
 } from "@pi-desktop/host-runtime";
 import { openableMp4Path } from "../open-attachment-video";
+import { installMediaProtocol } from "../media-protocol";
 import { isChatRefOutsideRoots, resolveChatFileRef } from "../chat-ref-resolve";
 import { getWorkspaceFileIndex } from "../fs-index";
 import {
@@ -813,6 +814,24 @@ export function registerWorkspaceIpc({
       return null;
     }
   };
+
+  // Transcript media streams over the host-owned pi-media: scheme. Every
+  // request re-resolves the reference against the same confined roots the
+  // open/read IPC uses; the resolver below is intentionally the fsOpen one.
+  installMediaProtocol(async (ref) => {
+    const requested = ref.trim();
+    if (!requested) return null;
+    const workspaceRoot = await optionalWorkspaceRoot();
+    try {
+      return await resolveRealOpenablePath(
+        requested,
+        workspaceRoot,
+        await fsExtraRoots(workspaceRoot),
+      );
+    } catch {
+      return null;
+    }
+  });
 
   handle(
     IPC.invoke.fsRead,

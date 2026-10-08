@@ -57,3 +57,49 @@ export function ImageHoverCard({ src, anchor, onDismiss }: {
     </div>,
   );
 }
+
+/**
+ * Hover player for a video chip: same placement discipline as the image card,
+ * but the card takes pointer events because the controls are the point. The
+ * stream comes from the host-owned pi-media: scheme, so the renderer never
+ * loads a raw filesystem path.
+ */
+export function VideoHoverCard({ src, anchor, onDismiss }: {
+  src: string | null;
+  anchor: ImageHoverAnchor | null;
+  onDismiss?: () => void;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<"above" | "below">("above");
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!anchor || !card) return;
+    setPlacement(anchor.top - card.offsetHeight - PREVIEW_GAP < 0 ? "below" : "above");
+  }, [anchor, src]);
+  useEffect(() => {
+    if (!anchor || !src || !onDismiss) return;
+    const dismiss = () => onDismiss();
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    return () => {
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+    };
+  }, [anchor, src, onDismiss]);
+  if (!anchor || !src) return null;
+  return portalToBody(
+    <div
+      ref={cardRef}
+      className="image-hover-card is-interactive"
+      data-placement={placement}
+      role="presentation"
+      style={{
+        left: anchor.left + anchor.width / 2,
+        top: placement === "above" ? anchor.top - PREVIEW_GAP : anchor.bottom + PREVIEW_GAP,
+      }}
+      onPointerLeave={onDismiss}
+    >
+      <video src={src} controls preload="metadata" />
+    </div>,
+  );
+}

@@ -21,3 +21,14 @@
   border-radius: var(--radius-2xs);
   object-fit: contain;
 }
+
+/* The video card takes pointer events: the controls are the point. */
+.image-hover-card.is-interactive { pointer-events: auto; }
+
+.image-hover-card video {
+  display: block;
+  max-width: min(380px, 60vw);
+  max-height: min(260px, 40dvh);
+  border-radius: var(--radius-2xs);
+  background: #000;
+}
