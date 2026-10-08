@@ -618,6 +618,18 @@ export type PluginProviderContrib = {
   baseUrl?: string;
   apiStyle?: PluginProviderApiStyle;
   authKind?: PluginProviderAuthKind;
+  /**
+   * Let the user edit this row's base URL in Settings
+   * (`providers.setPluginEndpoint`). For endpoints whose address is a local
+   * deployment detail — a self-hosted proxy on another host or port — rather
+   * than a fixed cloud API.
+   */
+  baseUrlEditable?: boolean;
+  /**
+   * Let the user switch this row's apiStyle in Settings. For proxy endpoints
+   * that expose more than one wire protocol.
+   */
+  apiStyleEditable?: boolean;
   /** OAuth sign-in metadata; valid only when `authKind` is `oauth`. */
   oauth?: PluginProviderOAuthContrib;
   /** Up to 64 models with unique ids. An empty list enables endpoint discovery after key setup. */
@@ -1889,6 +1901,21 @@ export function validateContributions(
       if (!(PLUGIN_PROVIDER_AUTH_KINDS as readonly string[]).includes(provider.authKind)) {
         return `provider "${provider.id}" has unsupported authKind ${provider.authKind}`;
       }
+    }
+    if (
+      provider.baseUrlEditable !== undefined &&
+      typeof provider.baseUrlEditable !== "boolean"
+    ) {
+      return `provider "${provider.id}" baseUrlEditable must be a boolean`;
+    }
+    if (provider.baseUrlEditable === true && !provider.baseUrl) {
+      return `provider "${provider.id}" baseUrlEditable requires a declared baseUrl default`;
+    }
+    if (
+      provider.apiStyleEditable !== undefined &&
+      typeof provider.apiStyleEditable !== "boolean"
+    ) {
+      return `provider "${provider.id}" apiStyleEditable must be a boolean`;
     }
     const oauth = (provider as { oauth?: unknown }).oauth;
     if (oauth !== undefined) {

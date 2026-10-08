@@ -767,6 +767,8 @@ sklm: {
     "pluginProviderKey": "Clé API",
     "pluginProviderKeyHint":
       "Stockée dans PI-Desktop et utilisée par l'environnement d'exécution. Le plugin ne la reçoit jamais.",
+    "pluginProviderEndpoint": "Adresse du serveur",
+    "pluginProviderEndpointHint": "Adresse où écoute votre instance CLIProxyAPI. La découverte de modèles et les requêtes utilisent cette adresse.",
     "pluginProviderKeyRemove": "Supprimer la clé",
     "pluginProviderKeySaved": "Clé API enregistrée",
     "pluginProviderKeyRemoved": "Clé API supprimée",

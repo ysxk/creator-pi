@@ -47,8 +47,25 @@ export type ProviderPublic = {
    * `providers.delete` refuse it.
    */
   ownerPluginId?: string;
+  /**
+   * True when the owning plugin's manifest allows the user to edit this row's
+   * base URL through `providers.setPluginEndpoint`. Absent for user rows and
+   * locked plugin declarations.
+   */
+  baseUrlEditable?: boolean;
+  /** Same contract as `baseUrlEditable`, for the request apiStyle. */
+  apiStyleEditable?: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+/** Endpoint edits a user may make on a plugin-owned provider row. */
+export type ProviderPluginEndpointInput = {
+  id: string;
+  /** Absolute http(s) URL; validated before it replaces the declared default. */
+  baseUrl?: string;
+  /** One of the plugin provider api styles. */
+  apiStyle?: string;
 };
 
 export type ProviderCreateInput = {

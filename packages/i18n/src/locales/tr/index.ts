@@ -775,6 +775,8 @@ sklm: {
       "Bu servis, uç noktasını ve modellerini sağlayan “{{plugin}}” eklentisinden gelir. “Uzantılar” sayfasından açıp kapatabilirsiniz.",
     pluginProviderKey: "API anahtarı",
     pluginProviderKeyHint: "PI-Desktop’ta saklanır ve çalışma zamanı tarafından kullanılır. Eklenti bu anahtarı asla almaz.",
+    pluginProviderEndpoint: "Sunucu adresi",
+    pluginProviderEndpointHint: "CLIProxyAPI örneğinizin dinlediği adres. Model keşfi ve istekler bu adresi kullanır.",
     pluginProviderKeyRemove: "Anahtarı kaldır",
     pluginProviderKeySaved: "API anahtarı kaydedildi",
     pluginProviderKeyRemoved: "API anahtarı kaldırıldı",

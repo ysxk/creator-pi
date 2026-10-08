@@ -207,6 +207,21 @@ export function registerProviderIpc({
         : result;
     },
   );
+  handle(
+    IPC.invoke.providersSetPluginEndpoint,
+    async (input: { id: string; baseUrl?: string; apiStyle?: string }) => {
+      if (!host) throw new Error("host unavailable");
+      const result = await host.call<{ provider?: RuntimeProvider | null }>(
+        "providers.setPluginEndpoint",
+        input,
+      );
+      await onProviderInvalidated?.(input.id);
+      await modelsDevCatalog.ensureLoaded();
+      return result.provider
+        ? { ...result, provider: enrichProvider(result.provider) }
+        : result;
+    },
+  );
   handle(IPC.invoke.providersDelete, async (id: string) => {
     if (!host) throw new Error("host unavailable");
     const result = await host.call("providers.delete", { id });
@@ -396,9 +411,10 @@ export function registerProviderIpc({
           modelId: string;
           displayName: string;
           capabilities?: string[];
-          input?: readonly ("text" | "image")[];
+          input?: readonly string[];
           contextWindow?: number;
           maxTokens?: number;
+          reasoningLevels?: string[];
           source?: "bundled" | "discovered" | "user";
         },
         // Vendor accounts can span wire APIs, so a model may need a style of
@@ -422,6 +438,45 @@ export function registerProviderIpc({
         });
         const modelConfig = catalogModelConfig;
         const operationMetadata = modelsDevCatalog.settingsMetadataFor?.({ providerId: provider?.id, vendorKey: catalogVendorKey, baseUrl: catalogBaseUrl, modelId: model.modelId });
+        /*
+          A proxy-style endpoint publishes its own facts (CLIProxyAPI-style
+          `context_window`, `input_modalities`, `supported_reasoning_levels`).
+          They only speak for a row the catalog has no record for: a published
+          models.dev entry stays the authority for a known id.
+        */
+        const discoveredOnly = !modelsDevModel && !operationMetadata;
+        const discoveredInput = new Set(["text"]);
+        for (const modality of model.input ?? []) {
+          if (modality === "image" || modality === "audio" || modality === "video" || modality === "pdf") {
+            discoveredInput.add(modality);
+          }
+        }
+        const DISCOVERED_CAPABILITY_NAMES = [
+          "text",
+          "vision",
+          "audio",
+          "video",
+          "pdf",
+          "imagegen",
+        ] as const;
+        type DiscoveredCapability = (typeof DISCOVERED_CAPABILITY_NAMES)[number];
+        const discoveredCapabilities = new Set<DiscoveredCapability>(["text"]);
+        if (discoveredOnly) {
+          for (const capability of model.capabilities ?? []) {
+            if (
+              (DISCOVERED_CAPABILITY_NAMES as readonly string[]).includes(capability)
+            ) {
+              discoveredCapabilities.add(capability as DiscoveredCapability);
+            }
+          }
+          if (discoveredInput.has("image")) discoveredCapabilities.add("vision");
+        }
+        const discoveredThinkingLevels = (model.reasoningLevels ?? [])
+          .filter((level): level is "off" | "low" | "medium" | "high" | "xhigh" | "max" =>
+            ["off", "low", "medium", "high", "xhigh", "max"].includes(level))
+          .sort((a, b) =>
+            ["off", "low", "medium", "high", "xhigh", "max"].indexOf(a) -
+            ["off", "low", "medium", "high", "xhigh", "max"].indexOf(b));
         const info = modelsDevModel
           ? modelInfoFromModelsDev(modelsDevModel, provider?.id ?? "")
           : operationMetadata ?? {
@@ -443,22 +498,35 @@ export function registerProviderIpc({
               supportedThinkingLevels: [...(catalogModelConfig.supportedThinkingLevels ?? [])],
               source: model.source ?? ("discovered" as const),
             };
-        return {
+        const fallbackInfo = modelsDevModel || operationMetadata ? info : {
           ...info,
+          // Endpoint-published facts fill the gap the catalog left.
+          ...(discoveredThinkingLevels.length ? { supportedThinkingLevels: discoveredThinkingLevels } : {}),
+          capabilities: discoveredCapabilities.size > 1 ? [...discoveredCapabilities] : info.capabilities,
+        };
+        return {
+          ...fallbackInfo,
           // Catalog enrichment must not turn a configured-only row into
           // evidence that the endpoint still serves it.
           source: model.source ?? info.source,
           modelId: model.modelId,
           displayName: info.displayName || modelConfig.name,
           providerId: provider?.id ?? "",
-          contextWindow: operationMetadata?.contextWindow ?? modelConfig.contextWindow,
+          contextWindow:
+            operationMetadata?.contextWindow ??
+            (discoveredOnly && model.contextWindow ? model.contextWindow : modelConfig.contextWindow),
           maxTokens: operationMetadata?.maxTokens ?? modelConfig.maxTokens,
           // Published modalities, taken before the binding is applied. This
           // record is what the settings panel compares its checkboxes against,
           // so letting a stored override shape it would make the override its
           // own justification and the panel could never show what models.dev
-          // actually says.
-          modalities: operationMetadata?.modalities ?? catalogModelConfig.modalities ?? { input: ["text"], output: ["text"] },
+          // actually says. Endpoint-published modalities only apply where no
+          // catalog record exists at all.
+          modalities:
+            operationMetadata?.modalities ??
+            (discoveredOnly && discoveredInput.size > 1
+              ? { input: [...discoveredInput], output: ["text"] as const }
+              : catalogModelConfig.modalities ?? { input: ["text"], output: ["text"] }),
           // ModelInfo is catalog metadata. Keep its published reasoning fields
           // intact; Composer and runtime resolve the exact user binding when
           // they need effective per-provider capabilities.

@@ -753,6 +753,8 @@ export const ptBR = {
     pluginProviderManaged: "Este provedor é gerenciado pelo plugin “{{plugin}}”, que fornece seu endpoint e modelos. Ative-o ou desative-o na página Extensões.",
     pluginProviderKey: "Chave API",
     pluginProviderKeyHint: "Armazenada no PI-Desktop e usada pelo ambiente de execução. O plugin nunca a recebe.",
+    pluginProviderEndpoint: "Endereço do servidor",
+    pluginProviderEndpointHint: "Endereço onde sua instância do CLIProxyAPI escuta. A descoberta de modelos e as requisições usam este endereço.",
     pluginProviderKeyRemove: "Excluir chave",
     pluginProviderKeySaved: "Chave API salva",
     pluginProviderKeyRemoved: "Chave API excluída",

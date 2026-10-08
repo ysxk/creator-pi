@@ -22,7 +22,10 @@ use crate::permissions::{PermissionDecision, PermissionEvaluationParams, Permiss
 use crate::plans;
 use crate::plugin_sessions;
 use crate::plugin_usage;
-use crate::providers::{self, DiscoveredModelInput, ProviderCreateInput, ProviderUpdateInput};
+use crate::providers::{
+    self, DiscoveredModelInput, ProviderCreateInput, ProviderPluginEndpointInput,
+    ProviderUpdateInput,
+};
 use crate::review;
 use crate::scratch;
 use crate::sessions::{self, UiMessage};
@@ -2387,6 +2390,16 @@ async fn handle_request(
             let st = state.lock().await;
             let provider = providers::set_provider_secret(&st.db, &st.secrets, id, secret_value)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(json!({ "provider": provider }))
+        }
+        // Endpoint edits on a plugin-declared provider whose manifest marked
+        // the base URL / apiStyle as user-editable deployment details.
+        "providers.setPluginEndpoint" => {
+            let input: ProviderPluginEndpointInput = serde_json::from_value(params)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let provider = providers::set_plugin_endpoint(&st.db, &st.secrets, &input)
+                .map_err(provider_rpc_err)?;
             Ok(json!({ "provider": provider }))
         }
         "providers.listModels" => {

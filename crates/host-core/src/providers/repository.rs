@@ -57,6 +57,18 @@ pub(crate) fn provider_from_row(
             .ok()
             .and_then(|raw| config_limit_f64(&raw, "temperature")),
         owner_plugin_id: row.get(14)?,
+        base_url_editable: serde_json::from_str::<serde_json::Value>(&config_raw)
+            .ok()
+            .as_ref()
+            .and_then(|value| value.get("pluginEndpoint"))
+            .and_then(|value| value.get("baseUrlEditable"))
+            .and_then(serde_json::Value::as_bool),
+        api_style_editable: serde_json::from_str::<serde_json::Value>(&config_raw)
+            .ok()
+            .as_ref()
+            .and_then(|value| value.get("pluginEndpoint"))
+            .and_then(|value| value.get("apiStyleEditable"))
+            .and_then(serde_json::Value::as_bool),
         created_at: ms_to_ts(row.get(12)?),
         updated_at: ms_to_ts(row.get(13)?),
     })
@@ -107,6 +119,11 @@ fn hydrate_dynamic_plugin_models(db: &Database, provider: &mut ProviderPublic) -
                     .capabilities
                     .iter()
                     .any(|value| value == "vision")
+                    .then_some(true),
+                supports_videos: model
+                    .capabilities
+                    .iter()
+                    .any(|value| value == "video")
                     .then_some(true),
                 supports_documents: None,
                 available_for_subagents: None,
@@ -553,6 +570,128 @@ pub fn set_provider_secret(
     }
     get_provider(db, secrets, id)
 }
+
+/// Edit the endpoint of a plugin-owned provider row (ADR 0259 follow-up).
+///
+/// A plugin declaration is authoritative for its own fields, but a manifest may
+/// mark the base URL and/or apiStyle as user-editable deployment details — a
+/// self-hosted proxy runs wherever the user runs it. This is the only path that
+/// writes those fields on a plugin row: it validates against the manifest's
+/// `pluginEndpoint` config (written by the plugin sync), records the field as
+/// user-owned so the next sync preserves it, and drops the previous endpoint's
+/// discovered model cache exactly like a user-owned row's edit does.
+pub fn set_plugin_endpoint(
+    db: &Database,
+    secrets: &SecretStore,
+    input: &ProviderPluginEndpointInput,
+) -> Result<Option<ProviderPublic>> {
+    let Some(current) = get_provider(db, secrets, &input.id)? else {
+        return Ok(None);
+    };
+    if current.owner_plugin_id.is_none() {
+        bail!("PROVIDER_NOT_PLUGIN_OWNED: provider {} is not plugin-declared", input.id);
+    }
+    let raw_config: String = db.conn().query_row(
+        "SELECT config_json FROM providers WHERE id = ?1",
+        params![input.id],
+        |row| row.get(0),
+    )?;
+    let mut config: serde_json::Value =
+        serde_json::from_str(&raw_config).unwrap_or_else(|_| serde_json::json!({}));
+    let editable = config.get("pluginEndpoint").cloned().unwrap_or(serde_json::json!({}));
+    let base_url_editable = editable
+        .get("baseUrlEditable")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let api_style_editable = editable
+        .get("apiStyleEditable")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+
+    let next_base_url = match input.base_url.as_deref() {
+        Some(value) => {
+            let trimmed = value.trim();
+            if !base_url_editable {
+                bail!("PROVIDER_ENDPOINT_LOCKED: provider {} does not allow base URL edits", input.id);
+            }
+            if trimmed.is_empty() {
+                bail!("PROVIDER_INVALID: base URL must not be empty");
+            }
+            if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+                bail!("PROVIDER_INVALID: base URL must be an http(s) URL");
+            }
+            Some(trimmed.to_string())
+        }
+        None => None,
+    };
+    let next_api_style = match input.api_style.as_deref() {
+        Some(value) => {
+            let trimmed = value.trim();
+            if !api_style_editable {
+                bail!("PROVIDER_ENDPOINT_LOCKED: provider {} does not allow apiStyle edits", input.id);
+            }
+            if !crate::plugins::is_known_api_style(trimmed) {
+                bail!("PROVIDER_INVALID: unsupported apiStyle {trimmed}");
+            }
+            Some(trimmed.to_string())
+        }
+        None => None,
+    };
+
+    let endpoint_changed = next_base_url.as_deref().is_some_and(|value| {
+        value != current.base_url.as_deref().unwrap_or("")
+    }) || next_api_style
+        .as_deref()
+        .is_some_and(|value| Some(value) != current.api_style.as_deref());
+
+    // Record which fields are now the user's: the next manifest sync keeps
+    // them instead of restoring the declared default.
+    let mut user_owned = config
+        .get("pluginEndpointUserOwned")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
+    if next_base_url.is_some() {
+        user_owned["baseUrl"] = serde_json::json!(true);
+    }
+    if next_api_style.is_some() {
+        user_owned["apiStyle"] = serde_json::json!(true);
+    }
+    config["pluginEndpointUserOwned"] = user_owned;
+    let protocol = match next_api_style.as_deref() {
+        Some(style) => crate::plugins::protocol_for_api_style(style),
+        None => current.protocol.as_str(),
+    };
+    db.conn()
+        .prepare_cached(
+            "UPDATE providers SET
+                base_url = COALESCE(?1, base_url),
+                api_style = COALESCE(?2, api_style),
+                protocol = ?3,
+                config_json = ?4,
+                updated_at = ?5
+             WHERE id = ?6",
+        )?
+        .execute(params![
+            next_base_url,
+            next_api_style,
+            protocol,
+            config.to_string(),
+            now_ms(),
+            input.id
+        ])?;
+    if endpoint_changed {
+        // The discovered answer belongs to the endpoint that produced it; the
+        // configured bindings are the configuration this edit keeps.
+        let configured: Vec<String> = current
+            .models
+            .iter()
+            .map(|binding| binding.id.clone())
+            .collect();
+        forget_missing_discovered_models(db, &input.id, &configured)?;
+    }
+    get_provider(db, secrets, &input.id)
+}
+
 pub fn get_provider(
     db: &Database,
     secrets: &SecretStore,

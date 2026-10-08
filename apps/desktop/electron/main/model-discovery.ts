@@ -24,6 +24,23 @@ import {
 export type DiscoveredModel = {
   modelId: string;
   displayName: string;
+  /**
+   * Context window the endpoint itself published for this model, when it did
+   * (CLIProxyAPI-style `context_window`). Only consulted when no catalog
+   * record exists for the id.
+   */
+  contextWindow?: number;
+  /**
+   * Input/output modality facts the endpoint published, in ModelInfo's
+   * capability vocabulary (`vision`, `audio`, `video`, `pdf`, `imagegen`).
+   */
+  capabilities?: string[];
+  /**
+   * Thinking-effort names the endpoint published (`supported_reasoning_levels`
+   * entries like `low`/`medium`/`high`). Filtered to the known vocabulary by
+   * the consumer; kept raw here so parsing stays pure.
+   */
+  reasoningLevels?: string[];
 };
 
 export const DISCOVERY_TIMEOUT_MS = 10_000;
@@ -72,6 +89,74 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+/** A positive integer suitable for a context-window binding, or undefined. */
+function positiveInt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.filter(
+    (item): item is string => typeof item === "string" && item.trim().length > 0,
+  );
+  return items.length ? items.map((item) => item.trim().toLowerCase()) : undefined;
+}
+
+const INPUT_MODALITY_CAPABILITIES: Record<string, string> = {
+  image: "vision",
+  audio: "audio",
+  video: "video",
+  pdf: "pdf",
+};
+
+/**
+ * Modality and effort metadata a proxy-style endpoint attaches to its rows.
+ * CLIProxyAPI publishes `context_window`, `input_modalities`,
+ * `output_modalities`, and `supported_reasoning_levels`; OpenAI-style
+ * deployments usually publish none of these, and unknown shapes stay ignored.
+ */
+function discoveredModelMetadata(item: Record<string, unknown>): {
+  contextWindow?: number;
+  capabilities?: string[];
+  reasoningLevels?: string[];
+} {
+  const contextWindow =
+    positiveInt(item.context_window) ?? positiveInt(item.contextWindow);
+  const input = stringArray(
+    item.input_modalities ?? item.inputModalities ?? item.input_list ?? item.input,
+  );
+  const output = stringArray(
+    item.output_modalities ?? item.outputModalities ?? item.output,
+  );
+  const capabilities = new Set<string>();
+  for (const modality of input ?? []) {
+    const capability = INPUT_MODALITY_CAPABILITIES[modality];
+    if (capability) capabilities.add(capability);
+  }
+  // An endpoint that takes no image input but produces image output is an
+  // image-generation model (e.g. a proxied `gemini-*-image` id).
+  if (output?.includes("image") && !(input ?? []).includes("image")) {
+    capabilities.add("imagegen");
+  }
+  const reasoning = item.supported_reasoning_levels ?? item.supportedReasoningLevels;
+  const reasoningLevels = Array.isArray(reasoning)
+    ? reasoning
+        .flatMap((entry) => {
+          const record = asRecord(entry);
+          if (record && typeof record.effort === "string") return [record.effort];
+          return typeof entry === "string" ? [entry] : [];
+        })
+        .filter((effort) => effort.trim().length > 0)
+    : undefined;
+  return {
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
+    ...(capabilities.size ? { capabilities: [...capabilities] } : {}),
+    ...(reasoningLevels?.length ? { reasoningLevels } : {}),
+  };
 }
 
 function dedupeSort(models: DiscoveredModel[]): DiscoveredModel[] {
@@ -128,11 +213,14 @@ export function normalizeModelList(
       const item = asRecord(entry);
       const modelId = listedModelId(item);
       if (!modelId) return [];
+      if (typeof item?.visibility === "string" && item.visibility.trim().toLowerCase() === "hide") {
+        return [];
+      }
       const displayName =
         typeof item?.display_name === "string" && item.display_name
           ? item.display_name
           : modelId;
-      return [{ modelId, displayName }];
+      return [{ modelId, displayName, ...discoveredModelMetadata(item ?? {}) }];
     }),
   );
 }

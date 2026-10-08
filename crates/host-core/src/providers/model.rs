@@ -55,8 +55,27 @@ pub struct ProviderPublic {
     /// `providers.update` / `providers.delete` refuse it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner_plugin_id: Option<String>,
+    /// True when the owning plugin's manifest allows the user to edit this
+    /// row's base URL through `providers.setPluginEndpoint`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url_editable: Option<bool>,
+    /// Same contract as `base_url_editable`, for the request apiStyle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_style_editable: Option<bool>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+/// Endpoint edits a user may make on a plugin-owned provider row. Each field
+/// is only accepted while the manifest declares it editable.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderPluginEndpointInput {
+    pub id: String,
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
+    pub api_style: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,6 +178,8 @@ pub struct ModelBinding {
     /// capability, so a models.dev correction still reaches a saved binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supports_images: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_videos: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supports_documents: Option<bool>,
     /// Whether this model may be selected for AI-driven subagent delegation.

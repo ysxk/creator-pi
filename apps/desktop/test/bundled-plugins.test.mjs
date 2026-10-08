@@ -170,3 +170,33 @@ test("bundled plugins are packaged and located at runtime", () => {
   assert.match(hostProcessSource, /PI_DESKTOP_BUILTIN_PLUGINS_DIR/);
   assert.match(hostProcessSource, /join\(process\.resourcesPath \|\| "", "plugins"\)/);
 });
+
+/*
+  The CLIProxyAPI provider ships as a bundled declaration-only plugin (ADR
+  0259): the manifest registers the provider row, the host-owned setup form
+  collects the key, and the endpoint's own model list populates the picker.
+*/
+const CLIPROXYAPI = "resources/plugins/pi.cliproxyapi";
+const proxyManifest = JSON.parse(read(`${CLIPROXYAPI}/manifest.json`));
+
+test("the CLIProxyAPI provider ships as an ordinary declaration-only plugin", () => {
+  assert.equal(proxyManifest.id, "pi.cliproxyapi");
+  assert.equal(proxyManifest.main, "main.js");
+  assert.ok(existsSync(resolve(`${CLIPROXYAPI}/main.js`)));
+  // Exactly the permission a third party would declare for the same
+  // contribution — nothing host-only.
+  assert.deepEqual(proxyManifest.permissions, ["provider.register"]);
+  const [provider] = proxyManifest.contributes.providers;
+  assert.equal(provider.id, "cliproxyapi");
+  assert.equal(provider.authKind, "api_key");
+  assert.equal(provider.apiStyle, "chat_completions");
+  assert.ok(provider.baseUrl.startsWith("http://"));
+  // An empty model list opts the row into endpoint discovery after key setup.
+  assert.deepEqual(provider.models, []);
+  // A self-hosted proxy runs wherever the user runs it.
+  assert.equal(provider.baseUrlEditable, true);
+  assert.equal(provider.apiStyleEditable, true);
+  // Localized chooser copy for both shipped locales.
+  assert.equal(typeof proxyManifest.i18n.en.description, "string");
+  assert.equal(typeof proxyManifest.i18n["zh-CN"].description, "string");
+});

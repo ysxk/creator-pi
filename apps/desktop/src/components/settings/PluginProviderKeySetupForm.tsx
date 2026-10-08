@@ -1,11 +1,28 @@
 /** Host-owned API-key setup for a provider selected from a plugin catalog. */
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { bindingFromModelInfo, normalizeApiStyle, type ProviderPublic } from "@pi-desktop/shared";
+import {
+  bindingFromModelInfo,
+  normalizeApiStyle,
+  type CatalogApiStyle,
+  type ProviderPublic,
+} from "@pi-desktop/shared";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../stores/app-store";
-import { Button } from "../ui";
+import { Button, Field, Input } from "../ui";
 import { ProviderConnectionFields } from "./ProviderConnectionFields";
+import { SettingsMenuSelect } from "./SettingsMenuSelect";
+import {
+  API_STYLE_LABEL_KEYS,
+  CUSTOM_PROVIDER_API_STYLES,
+} from "./provider-api-style";
+
+/** Styles a plugin row may be switched between, including account-only ones
+ * (a proxy endpoint serves them without a vendor account). */
+const PLUGIN_EDITABLE_API_STYLES: CatalogApiStyle[] = [
+  ...CUSTOM_PROVIDER_API_STYLES,
+  "openai_codex_responses",
+];
 
 export type PluginProviderKeySetupFormProps = {
   provider: ProviderPublic;
@@ -23,6 +40,12 @@ export function PluginProviderKeySetupForm({
   const { t } = useTranslation();
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
+  const baseUrlEditable = provider.baseUrlEditable === true;
+  const apiStyleEditable = provider.apiStyleEditable === true;
+  const [baseUrl, setBaseUrl] = useState(provider.baseUrl ?? "");
+  const [apiStyle, setApiStyle] = useState<CatalogApiStyle>(
+    normalizeApiStyle(provider.apiStyle),
+  );
   const showToast = useAppStore((state) => state.showToast);
   const apiKeyRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -31,6 +54,21 @@ export function PluginProviderKeySetupForm({
     if (!apiKey.trim() || saving) return;
     setSaving(true);
     try {
+      // Endpoint edits land first: the model discovery that follows must ask
+      // the address the user actually runs, not the declared default.
+      if (
+        baseUrlEditable &&
+        baseUrl.trim() &&
+        baseUrl.trim() !== (provider.baseUrl ?? "")
+      ) {
+        await api.setProviderPluginEndpoint({ id: provider.id, baseUrl: baseUrl.trim() });
+      }
+      if (
+        apiStyleEditable &&
+        apiStyle !== normalizeApiStyle(provider.apiStyle)
+      ) {
+        await api.setProviderPluginEndpoint({ id: provider.id, apiStyle });
+      }
       const result = await api.setProviderSecret({ id: provider.id, secretValue: apiKey });
       if (!result.provider) {
         showToast(t("settings.providerUnavailable"), { variant: "error" });
@@ -98,7 +136,7 @@ export function PluginProviderKeySetupForm({
           editing={false}
           saving={saving}
           serviceLabel={provider.name}
-          serviceBaseUrl={provider.baseUrl ?? ""}
+          serviceBaseUrl={baseUrl.trim() || (provider.baseUrl ?? "")}
           apiKeyHint={t("settings.pluginProviderKeyHint")}
           lockedService
           onChangeService={() => {}}
@@ -116,6 +154,44 @@ export function PluginProviderKeySetupForm({
           accountOnlyApiStyle={false}
           requiresApiStyleChoice={false}
         />
+        {baseUrlEditable || apiStyleEditable ? (
+          <div className="provider-setup-field-row">
+            {baseUrlEditable ? (
+              <div className="provider-setup-base-url">
+                <Field
+                  label={t("settings.pluginProviderEndpoint")}
+                  hint={t("settings.pluginProviderEndpointHint")}
+                >
+                  <Input
+                    value={baseUrl}
+                    type="url"
+                    inputMode="url"
+                    autoComplete="url"
+                    className="font-mono text-sm-plus"
+                    placeholder="http://127.0.0.1:8317/v1"
+                    disabled={saving}
+                    onChange={(event) => setBaseUrl(event.target.value)}
+                  />
+                </Field>
+              </div>
+            ) : null}
+            {apiStyleEditable ? (
+              <Field label={t("settings.apiStyle")}>
+                <SettingsMenuSelect
+                  fullWidth
+                  label={t("settings.apiStyle")}
+                  value={apiStyle}
+                  disabled={saving}
+                  onChange={(id) => setApiStyle(id as CatalogApiStyle)}
+                  options={PLUGIN_EDITABLE_API_STYLES.map((style) => ({
+                    id: style,
+                    label: t(API_STYLE_LABEL_KEYS[style]),
+                  }))}
+                />
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </>
   );

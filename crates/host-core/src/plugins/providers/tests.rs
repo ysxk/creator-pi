@@ -937,3 +937,141 @@ fn malformed_thinking_level_fields_are_rejected_by_manifest_validation() {
     write_plugin(&root, value);
     assert!(read_manifest_err(&root).contains("defaultThinkingLevel must be a string"));
 }
+
+/// A declaration that marks its endpoint editable.
+fn editable_manifest() -> PluginManifest {
+    let mut value = serde_json::to_value(manifest()).unwrap();
+    value["contributes"]["providers"][0]["baseUrlEditable"] = json!(true);
+    value["contributes"]["providers"][0]["apiStyleEditable"] = json!(true);
+    serde_json::from_value(value).unwrap()
+}
+
+fn synced_editable_provider() -> (tempfile::TempDir, Database, SecretStore, String) {
+    let (dir, db, secrets) = test_context();
+    let declared = declared_providers(&editable_manifest());
+    let written = sync_plugin_providers(&db, &secrets, "demo.plugin", &declared, true).unwrap();
+    assert_eq!(written, 1);
+    let row_id = plugin_provider_row_id("demo.plugin", "demo");
+    (dir, db, secrets, row_id)
+}
+
+#[test]
+fn editable_endpoint_flags_travel_with_the_row() {
+    let (_dir, db, secrets, row_id) = synced_editable_provider();
+    let provider = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(provider.base_url_editable, Some(true));
+    assert_eq!(provider.api_style_editable, Some(true));
+
+    // A declaration without the flags keeps the row locked.
+    let plain = declared_providers(&manifest());
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &plain, true).unwrap();
+    let provider = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(provider.base_url_editable, None);
+    assert_eq!(provider.api_style_editable, None);
+}
+
+#[test]
+fn user_edited_endpoint_survives_the_next_sync() {
+    let (_dir, db, secrets, row_id) = synced_editable_provider();
+    let edited = providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: Some("http://10.0.0.5:9000/v1".to_string()),
+            api_style: Some("openai_codex_responses".to_string()),
+        },
+    )
+    .unwrap()
+    .expect("provider returned");
+    assert_eq!(edited.base_url.as_deref(), Some("http://10.0.0.5:9000/v1"));
+    assert_eq!(edited.api_style.as_deref(), Some("openai_codex_responses"));
+
+    // The manifest's declared default must not restore itself over the
+    // user's deployment address.
+    let declared = declared_providers(&editable_manifest());
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &declared, true).unwrap();
+    let provider = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(provider.base_url.as_deref(), Some("http://10.0.0.5:9000/v1"));
+    assert_eq!(provider.api_style.as_deref(), Some("openai_codex_responses"));
+}
+
+#[test]
+fn set_plugin_endpoint_refuses_locked_and_invalid_edits() {
+    let (dir, db, secrets) = test_context();
+    // A user-owned row is not plugin-declared.
+    let user_row = providers::create_provider(
+        &db,
+        &secrets,
+        serde_json::from_value(json!({
+            "name": "User provider",
+            "baseUrl": "https://api.example.com/v1",
+            "apiStyle": "chat_completions"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let err = providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: user_row.id.clone(),
+            base_url: Some("http://elsewhere.test/v1".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_NOT_PLUGIN_OWNED"));
+
+    // A plugin row without the editable flag refuses the edit.
+    let plain = declared_providers(&manifest());
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &plain, true).unwrap();
+    let locked_id = plugin_provider_row_id("demo.plugin", "demo");
+    let err = providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: locked_id.clone(),
+            base_url: Some("http://elsewhere.test/v1".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_ENDPOINT_LOCKED"));
+
+    // An editable row still refuses a non-http(s) address and an unknown style.
+    drop(plain);
+    let _ = dir;
+    let (dir2, db2, secrets2) = test_context();
+    let declared = declared_providers(&editable_manifest());
+    sync_plugin_providers(&db2, &secrets2, "demo.plugin", &declared, true).unwrap();
+    let row_id = plugin_provider_row_id("demo.plugin", "demo");
+    let err = providers::set_plugin_endpoint(
+        &db2,
+        &secrets2,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: Some("ftp://nope.test".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_INVALID"));
+    let err = providers::set_plugin_endpoint(
+        &db2,
+        &secrets2,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: None,
+            api_style: Some("carrier_pigeon".to_string()),
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_INVALID"));
+}

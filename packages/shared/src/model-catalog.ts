@@ -313,6 +313,7 @@ export function bindingFromModelInfo(model: ModelInfo): ModelBinding {
     // Absent overrides keep following models.dev, so a catalog correction still
     // reaches an already saved binding.
     supportsImages: null,
+    supportsVideos: null,
     supportsDocuments: null,
   };
 }

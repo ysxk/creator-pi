@@ -767,6 +767,8 @@ sklm: {
     "pluginProviderKey": "Clave API",
     "pluginProviderKeyHint":
       "Se guarda en PI-Desktop y lo usa el entorno de ejecución. El complemento nunca lo recibe.",
+    "pluginProviderEndpoint": "Dirección del servidor",
+    "pluginProviderEndpointHint": "Dirección donde escucha su instancia de CLIProxyAPI. El descubrimiento de modelos y las peticiones usan esta dirección.",
     "pluginProviderKeyRemove": "Eliminar clave",
     "pluginProviderKeySaved": "Clave API guardada",
     "pluginProviderKeyRemoved": "Clave API eliminada",

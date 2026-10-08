@@ -767,6 +767,8 @@ sklm: {
     pluginProviderKey: "API 金鑰",
     pluginProviderKeyHint: "儲存在 PI-Desktop 中，由執行環境使用。外掛拿不到此金鑰。",
     pluginProviderKeyRemove: "移除金鑰",
+    pluginProviderEndpoint: "伺服器位址",
+    pluginProviderEndpointHint: "你的 CLIProxyAPI 實例監聽的位址，模型探索與請求都走這裡。",
     pluginProviderKeySaved: "API 金鑰已儲存",
     pluginProviderKeyRemoved: "API 金鑰已移除",
     delete: "刪除",

@@ -21,14 +21,14 @@ mod validation;
 pub use catalog::{cache_discovered_models, list_models};
 pub use credentials::get_secret_for_provider;
 pub use model::{
-    DiscoveredModelInput, ModelBinding, ModelCatalogItem, ProviderCreateInput, ProviderPublic,
-    ProviderUpdateInput,
+    DiscoveredModelInput, ModelBinding, ModelCatalogItem, ProviderCreateInput,
+    ProviderPluginEndpointInput, ProviderPublic, ProviderUpdateInput,
 };
 pub use order::{reorder_providers, ProviderReorderInput};
 pub(crate) use repository::create_provider_with_id;
 pub use repository::{
-    create_provider, delete_provider, get_provider, list_providers, set_provider_secret,
-    update_provider,
+    create_provider, delete_provider, get_provider, list_providers, set_plugin_endpoint,
+    set_provider_secret, update_provider,
 };
 pub(crate) use repository::{delete_provider_row, provider_exists, provider_owner_plugin};
 

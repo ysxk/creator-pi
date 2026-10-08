@@ -734,6 +734,19 @@ export const api = {
       IPC.invoke.providersSetSecret,
       input,
     ),
+  /**
+   * Edit the base URL / apiStyle of a plugin-declared provider whose manifest
+   * marked those fields user-editable (self-hosted proxy deployments).
+   */
+  setProviderPluginEndpoint: (input: {
+    id: string;
+    baseUrl?: string;
+    apiStyle?: string;
+  }) =>
+    invoke<{ provider: ProviderPublic | null }>(
+      IPC.invoke.providersSetPluginEndpoint,
+      input,
+    ),
   testProvider: (id: string) => invoke(IPC.invoke.providersTest, id),
   /**
    * Discover models from the provider's own endpoint. Saved providers pass

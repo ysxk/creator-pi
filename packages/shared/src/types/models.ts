@@ -352,6 +352,7 @@ export type ModelInfo = {
     | "pdf"
     | "attachments"
     | "temperature"
+    | "imagegen"
   >;
   supportedThinkingLevels?: ThinkingLevel[];
   source: "bundled" | "discovered" | "user";

@@ -775,6 +775,8 @@ sklm: {
       "이 프로바이더는 플러그인 “{{plugin}}”에서 제공하며 엔드포인트와 모델도 함께 제공합니다. “확장 기능” 페이지에서 켜거나 끌 수 있습니다.",
     pluginProviderKey: "API 키",
     pluginProviderKeyHint: "PI-Desktop에 저장되고 런타임에서 사용됩니다. 플러그인은 이 키를 받지 않습니다.",
+    pluginProviderEndpoint: "서버 주소",
+    pluginProviderEndpointHint: "CLIProxyAPI 인스턴스가 수신하는 주소입니다. 모델 탐색과 요청이 이 주소를 사용합니다.",
     pluginProviderKeyRemove: "키 제거",
     pluginProviderKeySaved: "API 키가 저장됨",
     pluginProviderKeyRemoved: "API 키 제거됨",
