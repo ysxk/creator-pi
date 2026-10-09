@@ -352,11 +352,11 @@
   color: #abb2bf;
 }
 
-/* Shiki one-light plate + ink. The Shiki theme owns this pair
-   (apps/desktop/src/lib/shiki.ts); see the guard header. */
+/* Shiki one-light ink on the card surface: in the light theme a code block is
+   a white card with a hairline, like every other card, not a grey plate. */
 :root[data-theme="light"] .prose-chat pre {
-  background: #fafafa;
-  box-shadow: none;
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
   color: #383a42;
 }
 
@@ -449,9 +449,11 @@
   color: #abb2bf;
 }
 
-/* Shiki one-light plate + ink, the same pair as the bare `pre` fallback. */
+/* Shiki one-light ink on the card surface, the same pair as the bare `pre`
+   fallback: white with a hairline. */
 :root[data-theme="light"] .code-block {
-  --code-block-bg: #fafafa; /* one-light editor background */
+  --code-block-bg: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
   color: #383a42;
 }
 
@@ -714,9 +716,10 @@
   box-shadow: none;
 }
 
-/* Shiki one-light plate + ink, the same pair as the code card above. */
+/* Shiki one-light ink on the card surface, the same pair as the code card. */
 :root[data-theme="light"] .prose-chat .mermaid-source {
-  background: #fafafa;
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
   color: #383a42;
 }
 

@@ -81,7 +81,7 @@ test("code blocks use one-dark-pro with a single surface background", () => {
   assert.match(stylesSource, /\.code-block\s*\{[\s\S]*?--code-block-bg:\s*#282c34/);
   assert.match(
     stylesSource,
-    /:root\[data-theme="light"\] \.code-block\s*\{[\s\S]*?--code-block-bg:\s*#fafafa/,
+    /:root\[data-theme="light"\] \.code-block\s*\{[\s\S]*?--code-block-bg:\s*var\(--ds-card\);\s*box-shadow:\s*inset 0 0 0 1px var\(--ds-card-stroke\)/,
   );
 
   // No nested wash on pre/code/token spans.
