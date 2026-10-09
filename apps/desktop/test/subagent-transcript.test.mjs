@@ -239,7 +239,9 @@ test("every Task row renders as one accessible delegation topology", () => {
     transcriptSource,
     /<SubagentTopology\s+key="subagent-topology"\s+items=\{delegateItems\}\s+delegationStatuses=\{delegationStatuses\}\s+delegationTimings=\{delegationTimings\}\s+onUserInteraction=\{onUserInteraction\}\s*\/>/,
   );
-  assert.match(transcriptSource, /className="subagent-topology" aria-labelledby=/);
+  // Labelled directly: there is no main-agent node left to borrow a name from.
+  assert.match(transcriptSource, /className="subagent-topology" aria-label=\{t\("chat\.subagentTopology"\)\}/);
+  assert.doesNotMatch(transcriptSource, /subagent-topology-root|subagent-topology-connector/);
   assert.match(transcriptSource, /className="subagent-topology-agents"/);
   assert.match(transcriptSource, /role="list"/);
   assert.match(transcriptSource, /variant="topology"/);
@@ -314,8 +316,10 @@ test("the topology uses semantic low-noise surfaces and responsive connectors", 
   assert.match(messagesCss, /\.tool-activity-group\.has-subagents \{[^}]*background: var\(--ds-tile\)/);
   assert.doesNotMatch(messagesCss, /\.tool-activity-group\.has-subagents \{[^}]*border:/);
   assert.doesNotMatch(messagesCss, /\.subagent-topology \{[^}]*background-image/);
-  assert.match(messagesCss, /\.subagent-topology-connector \{[^}]*background: var\(--ds-tile-deep\)/);
-  assert.match(messagesCss, /\.subagent-topology-node::before \{[^}]*height: 2px/);
+  // The card sits inside the main agent's turn, so it draws no node for the
+  // main agent and no connectors to one; the delegates are a plain list.
+  assert.doesNotMatch(messagesCss, /\.subagent-topology-(root|connector)\b/);
+  assert.doesNotMatch(messagesCss, /\.subagent-topology-(node|agents)::before/);
   assert.match(messagesCss, /\.subagent-topology-node\.outcome-completed/);
   assert.match(messagesCss, /\.subagent-topology-node\.outcome-failed/);
   assert.match(messagesCss, /\.subagent-topology-node\.outcome-timed-out/);

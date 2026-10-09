@@ -2182,29 +2182,16 @@
   margin-bottom: 12px;
 }
 
-/* Nodes are raised tiles on the group's tile; connectors are tinted 2px bars
-   rather than hairlines, and the dotted canvas is gone (D297). */
+/* The delegates of one fan-out as raised tiles on the group's tile, one per
+   row. There is no node for the main agent and so nothing to connect (D297
+   already took the dotted canvas away). */
 .subagent-topology {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(138px, 0.58fr) 34px minmax(248px, 1.42fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
   padding: 8px 16px 16px;
 }
 
-.subagent-topology-root {
-  display: flex;
-  min-width: 0;
-  min-height: 72px;
-  align-items: flex-start;
-  gap: 9px;
-  border-radius: var(--radius-md);
-  background: var(--ds-raised);
-  padding: 11px;
-  box-shadow: var(--ds-raised-shadow);
-}
-
-.subagent-topology-root-icon,
 .subagent-topology-avatar {
   position: relative;
   display: inline-flex;
@@ -2218,7 +2205,6 @@
   color: var(--ds-text-secondary);
 }
 
-.subagent-topology-root-copy,
 .subagent-topology-node-copy {
   display: flex;
   min-width: 0;
@@ -2226,45 +2212,10 @@
   flex-direction: column;
 }
 
-.subagent-topology-root-copy strong {
-  overflow: hidden;
-  color: var(--ds-text-primary);
-  font-size: var(--text-sm-plus);
-  font-weight: var(--font-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.subagent-topology-root-copy > span {
-  margin-top: 4px;
-  color: var(--ds-text-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-
-.subagent-topology-connector {
-  height: 2px;
-  border-radius: var(--radius-full);
-  background: var(--ds-tile-deep);
-}
-
 .subagent-topology-agents {
-  position: relative;
   display: grid;
   min-width: 0;
   gap: 10px;
-  padding-left: 14px;
-}
-
-.subagent-topology-agents::before {
-  position: absolute;
-  top: 36px;
-  bottom: 36px;
-  left: 0;
-  width: 2px;
-  border-radius: var(--radius-full);
-  background: var(--ds-tile-deep);
-  content: "";
 }
 
 .subagent-topology-node {
@@ -2274,16 +2225,6 @@
   border-radius: var(--radius-md);
   background: var(--ds-raised);
   box-shadow: var(--ds-raised-shadow);
-}
-
-.subagent-topology-node::before {
-  position: absolute;
-  top: 35px;
-  right: 100%;
-  width: 15px;
-  height: 2px;
-  background: var(--ds-tile-deep);
-  content: "";
 }
 
 .subagent-topology-node-header {
@@ -2478,29 +2419,6 @@
     margin-left: 20px;
   }
 
-  .subagent-topology {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .subagent-topology-connector {
-    width: 2px;
-    height: 18px;
-    margin-left: 28px;
-  }
-
-  .subagent-topology-agents {
-    padding-left: 28px;
-  }
-
-  .subagent-topology-agents::before {
-    top: 0;
-    bottom: 36px;
-    left: 14px;
-  }
-
-  .subagent-topology-node::before {
-    width: 14px;
-  }
 }
 
 /* A tool row claims the conversation column whatever its parent displays as:
