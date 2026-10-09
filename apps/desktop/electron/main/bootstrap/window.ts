@@ -1367,6 +1367,18 @@ export async function createWindow({
             `);
             await new Promise((r) => setTimeout(r, 450));
             await shot("pi-delegation-cards");
+            // The same delegations as lanes: the topbar board, opened by its button.
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.querySelector('.subagent-board-button')?.dispatchEvent(
+                new MouseEvent('click', { bubbles: true }),
+              );
+            `);
+            await new Promise((r) => setTimeout(r, 1200));
+            await shot("pi-subagent-board");
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            `);
+            await new Promise((r) => setTimeout(r, 150));
             await windowState.mainWindow!.webContents.executeJavaScript(
               `window.__PI_DESKTOP__?.setThemeAttr("dark")`,
             );

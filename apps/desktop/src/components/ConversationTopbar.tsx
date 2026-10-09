@@ -17,6 +17,7 @@ import {
   IconSearch,
 } from "./icons";
 import { TooltipButton } from "./ui";
+import { SubagentBoardButton } from "../features/chat/subagents/SubagentBoard";
 
 function projectName(path?: string | null, name?: string | null) {
   if (name) return name;
@@ -160,6 +161,7 @@ export function ConversationTopbar({
 
       <div className="ct-right">
         <div className="ct-actions">
+          <SubagentBoardButton />
           <TooltipButton
             type="button"
             className="ct-icon-btn"

@@ -3369,7 +3369,8 @@
 .subagent-avatar {
   display: inline-block;
   flex: none;
-  border-radius: var(--radius-2xs);
+  /* A portrait in a ring; a generated PNG is cropped to the same disc. */
+  border-radius: var(--radius-full);
   object-fit: cover;
   user-select: none;
 }
