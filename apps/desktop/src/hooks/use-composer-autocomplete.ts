@@ -256,24 +256,24 @@ export function useComposerAutocomplete({
       setFiles({ entries: [], truncated: false });
       return;
     }
-    // The @ menu offers delegation candidates above the file index; the
-    // catalog is a bounded host read, so it shares the TTL discipline.
+    // The @ menu offers delegation candidates above the file index. Both
+    // sources start in parallel and share one cleanup: returning from the
+    // cold-cache branch before fsIndex() launched would leave the first @
+    // open with no files, because the effect's inputs do not change while
+    // the user keeps typing.
+    let cancelled = false;
     if (subagentsCache && now - subagentsCache.at < SOURCE_TTL_MS) {
       setSubagents(subagentsCache.agents);
     } else {
-      let cancelledAgents = false;
       void api
         .subagentCatalog()
         .then((res) => {
           subagentsCache = { at: Date.now(), agents: res.subagents };
-          if (!cancelledAgents) setSubagents(res.subagents);
+          if (!cancelled) setSubagents(res.subagents);
         })
         .catch(() => {
-          if (!cancelledAgents) setSubagents([]);
+          if (!cancelled) setSubagents([]);
         });
-      return () => {
-        cancelledAgents = true;
-      };
     }
     if (
       filesCache &&
@@ -281,23 +281,22 @@ export function useComposerAutocomplete({
       now - filesCache.at < SOURCE_TTL_MS
     ) {
       setFiles({ entries: filesCache.entries, truncated: filesCache.truncated });
-      return;
+    } else {
+      void api
+        .fsIndex()
+        .then((res) => {
+          filesCache = {
+            key: workspaceKey,
+            at: Date.now(),
+            entries: res.entries,
+            truncated: res.truncated,
+          };
+          if (!cancelled) setFiles({ entries: res.entries, truncated: res.truncated });
+        })
+        .catch(() => {
+          if (!cancelled) setFiles({ entries: [], truncated: false });
+        });
     }
-    let cancelled = false;
-    void api
-      .fsIndex()
-      .then((res) => {
-        filesCache = {
-          key: workspaceKey,
-          at: Date.now(),
-          entries: res.entries,
-          truncated: res.truncated,
-        };
-        if (!cancelled) setFiles({ entries: res.entries, truncated: res.truncated });
-      })
-      .catch(() => {
-        if (!cancelled) setFiles({ entries: [], truncated: false });
-      });
     return () => {
       cancelled = true;
     };
