@@ -87,6 +87,12 @@ export function ContextUsageInspector({
     (total, row) => total + row.totalTokens,
     0,
   );
+  // Shares for the bars, each a whole percent of the thing it sits in.
+  const share = (part: number, whole: number) =>
+    whole > 0 && part > 0 ? Math.min(100, Math.max(1, Math.round((part / whole) * 100))) : 0;
+  const toolShare = share(toolTotal, context.usedTokens);
+  const inputShare = share(usage.inputTokens, usage.inputTokens + usage.outputTokens);
+  const compactionShare = compaction ? share(compaction.summaryTokens, contextWindow) : 0;
   const level =
     context.remainingPercent <= 10
       ? "critical"
@@ -244,6 +250,7 @@ export function ContextUsageInspector({
     <div
       ref={popoverRef}
       className={`context-inspector-popover${popoverPosition ? " is-open" : ""}`}
+      data-level={level}
       id={panelId}
       role="dialog"
       aria-label={t("chat.usageContextLabel")}
@@ -259,28 +266,40 @@ export function ContextUsageInspector({
     >
       <div className="context-inspector-heading">
         <strong className="context-inspector-heading-value">
-          {display.display === "used"
-            ? t("chat.usageContextSpent", {
-                count: formatCompactTokenCount(display.tokens),
-              })
-            : t("chat.usageContextLeft", {
-                count: formatCompactTokenCount(display.tokens),
-              })}
+          {t("chat.usageContextCapacity")}
         </strong>
-        <strong className="context-inspector-heading-percent">
-          {display.percent}%
-        </strong>
+        <span className="context-inspector-heading-percent">
+          {t("chat.usageContextUsedRemaining", {
+            used: context.usedPercent,
+            remaining: context.remainingPercent,
+          })}
+        </span>
+      </div>
+      {/* One bar for the whole window, read like a storage meter: the filled
+          part is what is used, its paler head the share tools put there. */}
+      <div className="context-inspector-capacity" aria-hidden="true">
+        <span
+          className="context-inspector-capacity-used"
+          style={{ width: `${Math.max(context.usedTokens > 0 ? 1 : 0, context.usedPercent)}%` }}
+        >
+          {toolShare > 0 ? (
+            <span
+              className="context-inspector-capacity-tools"
+              style={{ width: `${toolShare}%` }}
+            />
+          ) : null}
+        </span>
       </div>
       <div className="context-inspector-window">
-        <span>{t("chat.usageContextWindow")}</span>
-        <strong>
-          {t("chat.usageContextTokens", {
-            used: formatCompactTokenCount(context.usedTokens),
+        <span>
+          <strong>{formatCompactTokenCount(context.usedTokens)}</strong>{" "}
+          {t("chat.usageContextUsedLabel")}
+        </span>
+        <span className="context-inspector-window-percent">
+          {t("chat.usageContextRemainingOfWindow", {
+            remaining: formatCompactTokenCount(context.remainingTokens),
             window: formatCompactTokenCount(contextWindow),
           })}
-        </strong>
-        <span className="context-inspector-window-percent">
-          {context.usedPercent}%
         </span>
       </div>
       <div className="context-inspector-kpis">
@@ -288,7 +307,7 @@ export function ContextUsageInspector({
           <span>{t("chat.usageTurnTotal")}</span>
           <strong>{formatCompactTokenCount(turnTotal)}</strong>
         </div>
-        <div>
+        <div data-kpi="throughput">
           <span>{t("chat.usageThroughputLabel")}</span>
           <strong>
             {throughput === undefined
@@ -307,11 +326,14 @@ export function ContextUsageInspector({
       <div className="context-inspector-summary">
         <div className="context-inspector-summary-row">
           <strong>{t("chat.usageProviderUsage")}</strong>
+          <span className="context-inspector-bar" data-bar="model" aria-hidden="true">
+            <span style={{ width: `${inputShare}%` }} />
+          </span>
           <span className="context-inspector-summary-values">
             <span>
               {t("chat.usageInput")} {formatCompactTokenCount(usage.inputTokens)}
             </span>
-            <span>
+            <span data-figure="output">
               {t("chat.usageOutput")} {formatCompactTokenCount(usage.outputTokens)}
             </span>
             {usage.cacheReadTokens !== undefined ? (
@@ -338,6 +360,9 @@ export function ContextUsageInspector({
         </div>
         <div className="context-inspector-summary-row">
           <strong>{t("chat.usageTools")}</strong>
+          <span className="context-inspector-bar" data-bar="tools" aria-hidden="true">
+            <span style={{ width: `${toolShare}%` }} />
+          </span>
           <span className="context-inspector-summary-values">
             {toolRows.length > 0
               ? t("chat.usageToolsSummary", {
@@ -348,15 +373,21 @@ export function ContextUsageInspector({
               : t("chat.usageNoTools")}
           </span>
         </div>
+        {compaction ? (
+          <div className="context-inspector-summary-row">
+            <strong>{t("chat.usageCompaction", { times: compaction.generation })}</strong>
+            <span className="context-inspector-bar" data-bar="compaction" aria-hidden="true">
+              <span style={{ width: `${compactionShare}%` }} />
+            </span>
+            <span
+              className="context-inspector-summary-values"
+              title={compaction.summarized && !compaction.fallback && compaction.summary?.trim() ? compaction.summary : undefined}
+            >
+              ~{formatCompactTokenCount(compaction.summaryTokens)}
+            </span>
+          </div>
+        ) : null}
       </div>
-      {compaction ? (
-        <div className="context-inspector-compaction">
-          <span>
-            {t("chat.usageCompaction", { times: compaction.generation })}
-          </span>
-          <strong title={compaction.summarized && !compaction.fallback && compaction.summary?.trim() ? compaction.summary : undefined}>~{formatCompactTokenCount(compaction.summaryTokens)}</strong>
-        </div>
-      ) : null}
     </div>
   ) : null;
 

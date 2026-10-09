@@ -473,7 +473,14 @@ test("assistant context inspector keeps a compact summary and retry action wired
   assert.match(inspectorSource, /chat\.usageToolsSummary/);
   assert.match(inspectorSource, /context-inspector-kpis/);
   assert.match(inspectorSource, /context-inspector-window-percent/);
-  assert.match(inspectorSource, /chat\.usageContextLeft/);
+  // The heading names the thing and states both sides of it once; the bar and
+  // its scale say the rest, so nobody subtracts one percentage from another.
+  assert.match(inspectorSource, /chat\.usageContextCapacity/);
+  assert.match(inspectorSource, /chat\.usageContextUsedRemaining/);
+  assert.match(inspectorSource, /context-inspector-capacity-used/);
+  assert.match(inspectorSource, /chat\.usageContextRemainingOfWindow/);
+  assert.match(inspectorSource, /data-bar="model"/);
+  assert.match(inspectorSource, /data-bar="tools"/);
   assert.match(inspectorSource, /chat\.usageThroughput/);
   assert.match(inspectorSource, /calculateCacheRate/);
   assert.match(inspectorSource, /chat\.usageCacheRate/);
