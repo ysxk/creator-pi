@@ -97,6 +97,11 @@ test("the composer hands arrow keys to the panel only when it takes them", async
   // A key the panel declines is never swallowed.
   assert.match(input, /if \(next !== null\) \{\s*event\.preventDefault\(\);\s*composerAc\.setHighlight\(next\);/);
   // The explanation renders in the card's flow, under the strip.
-  assert.match(popup, /\{focusedAgent \? <AgentDetail t=\{t\} agent=\{focusedAgent\} \/> : null\}/);
+  // The card rises above the portrait it describes, before the strip in the
+  // column, so opening it grows the panel upward and moves nothing below.
+  assert.match(
+    popup,
+    /<AgentDetail t=\{t\} agent=\{focusedAgent\} position=\{focusedPosition\} \/>[\s\S]*?className="composer-ac-agent-strip"/,
+  );
   assert.match(popup, /className="composer-ac-agent-strip"/);
 });

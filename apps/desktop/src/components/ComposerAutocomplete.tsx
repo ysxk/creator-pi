@@ -67,14 +67,27 @@ const GROUP_KEYS: Record<ComposerCommand["kind"], string> = {
 /**
  * What one subagent is, in the terms its definition is written in: the handle
  * `Task` takes, whether it can change files, the model it runs on, what it is
- * for, and the tools it was granted. It sits in a fixed slot under the strip,
- * so choosing a subagent never moves the file list.
+ * for, and the tools it was granted. It rises above the portrait it describes;
+ * the panel grows upward from the composer, so choosing a subagent never moves
+ * the strip or the file list.
  */
-function AgentDetail({ t, agent }: { t: TFunction; agent: SubagentDefinition }) {
+function AgentDetail({
+  t,
+  agent,
+  position,
+}: {
+  t: TFunction;
+  agent: SubagentDefinition;
+  /** The portrait's place in the strip, counted from the left. */
+  position: number;
+}) {
   const tools = agent.inheritTools ? ["inherit", ...agent.tools] : agent.tools;
   const description = subagentDisplayDescription(t, agent);
   return (
-    <div className="composer-ac-agent-detail">
+    <div
+      className="composer-ac-agent-detail"
+      style={{ "--agent-position": position } as React.CSSProperties}
+    >
       <div className="composer-ac-agent-detail-head">
         <code className="composer-ac-agent-handle">Task({agent.name})</code>
         <span className="composer-ac-agent-tag">{t(subagentReachKey(agent))}</span>
@@ -248,6 +261,8 @@ export function ComposerAutocomplete({
 
   const highlighted = ac.items[ac.highlight];
   const focusedAgent = highlighted?.kind === "subagent" ? highlighted.agent : null;
+  // Subagents lead the items, so the highlight index is the strip position.
+  const focusedPosition = focusedAgent ? ac.highlight : 0;
 
   const emptyKey =
     ac.mode === "file"
@@ -278,11 +293,13 @@ export function ComposerAutocomplete({
     >
       {strip.length > 0 ? (
         <div className="composer-ac-agents">
+          {focusedAgent ? (
+            <AgentDetail t={t} agent={focusedAgent} position={focusedPosition} />
+          ) : null}
           <div className="composer-ac-agents-head">
             <span className="composer-model-group-label">{t("chat.atGroupAgents")}</span>
           </div>
           <div className="composer-ac-agent-strip">{strip}</div>
-          {focusedAgent ? <AgentDetail t={t} agent={focusedAgent} /> : null}
         </div>
       ) : null}
       <div className="composer-ac-card">

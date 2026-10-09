@@ -72,15 +72,14 @@
   justify-content: space-between;
 }
 
-/* With no surface behind them, the labels carry their own: a halo in the
-   pane's color keeps them legible over whatever the transcript shows. */
+/* With no surface behind them, the labels carry their own: an outline in the
+   pane's color, painted under the glyphs, knocks each letter out of whatever
+   the transcript shows behind it. */
 .composer-ac-agents-head,
 .composer-ac-agent-name,
 .composer-ac-agent-handle-line {
-  text-shadow:
-    0 0 2px var(--ds-bg-primary),
-    0 0 6px var(--ds-bg-primary),
-    0 0 10px var(--ds-bg-primary);
+  -webkit-text-stroke: 4px var(--ds-bg-primary);
+  paint-order: stroke fill;
 }
 
 .composer-ac-agent-strip {
@@ -157,11 +156,18 @@
   white-space: nowrap;
 }
 
+/* 90px is one portrait and its gap; the card stays inside the panel. */
 .composer-ac-agent-detail {
   display: flex;
+  width: min(100%, 340px);
   flex-direction: column;
   gap: 5px;
-  margin: 2px 2px 0;
+  margin: 0 0 4px
+    clamp(
+      0px,
+      calc(var(--agent-position, 0) * 90px),
+      calc(100% - min(100%, 340px))
+    );
   padding: 9px 12px;
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-md);
