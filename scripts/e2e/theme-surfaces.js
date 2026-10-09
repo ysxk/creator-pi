@@ -1,7 +1,7 @@
 /** Real CSS cascade probe; fixture classes use the built app's complete stylesheet. */
 // Built-in sRGB paint; the settings rail shares the sidebar's opaque fallback.
-const DEFAULT_RGBA = {"light":{"rail":[243,243,243,255],"search":[255,255,255,255],"active":[224,224,225,255],"knob":[255,255,255,255],"composer":[255,255,255,255],"pluginSearch":[243,243,243,255],"capabilitySearch":[243,243,243,255],"pluginFocus":[255,255,255,255],"capabilityFocus":[255,255,255,255],"scrim":[25,29,32,71],"modalVeil":[25,28,31,82],"toolRow":[51,51,51,5],"toolRowPlain":[51,51,51,5],"toolRowError":[51,51,51,5],"codeHead":[28,28,28,9],"mermaidCanvas":[255,255,255,255],"thinkingCode":[240,240,240,255],"sendDisabled":[142,142,144,255],"kbd":[26,26,26,20]},"dark":{"rail":[0,0,0,255],"search":[33,33,33,255],"active":[255,255,255,26],"knob":[24,24,24,255],"composer":[33,33,33,245],"pluginSearch":[255,255,255,13],"capabilitySearch":[255,255,255,13],"pluginFocus":[255,255,255,18],"capabilityFocus":[255,255,255,18],"scrim":[0,0,0,115],"modalVeil":[24,24,24,199],"toolRow":[255,255,255,9],"toolRowPlain":[0,0,0,0],"toolRowError":[255,99,99,18],"codeHead":[255,255,255,10],"mermaidCanvas":[35,35,35,255],"thinkingCode":[255,255,255,11],"sendDisabled":[255,255,255,46],"kbd":[255,255,255,20]}};
-const DEFAULT_SHADOWS = {"light":{"knob":"rgba(0, 0, 0, 0.22) 0px 1px 2px 0px","composer":"rgba(0, 0, 0, 0.04) 0px 3px 7.5px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px","pluginFocus":"oklab(0.22559 -0.00131416 -0.00642684 / 0.35) 0px 0px 0px 1px","capabilityFocus":"oklab(0.22559 -0.00131416 -0.00642684 / 0.35) 0px 0px 0px 1px"},"dark":{"knob":"rgba(0, 0, 0, 0.16) 0px 1px 2px 0px","composer":"rgba(0, 0, 0, 0.04) 0px 3px 7.5px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px","pluginFocus":"oklab(0.999994 0.0000455678 0.0000200868 / 0.45) 0px 0px 0px 1px","capabilityFocus":"oklab(0.999994 0.0000455678 0.0000200868 / 0.45) 0px 0px 0px 1px"}};
+const DEFAULT_RGBA = {"light":{"rail":[255,255,255,255],"search":[255,255,255,255],"active":[0,153,102,20],"knob":[255,255,255,255],"composer":[255,255,255,255],"pluginSearch":[248,250,252,255],"capabilitySearch":[248,250,252,255],"pluginFocus":[255,255,255,255],"capabilityFocus":[255,255,255,255],"scrim":[14,22,43,71],"modalVeil":[16,22,44,82],"toolRow":[0,0,51,5],"toolRowPlain":[0,0,51,5],"toolRowError":[0,0,51,5],"codeHead":[0,32,32,8],"mermaidCanvas":[255,255,255,255],"thinkingCode":[241,245,249,255],"sendDisabled":[203,213,225,255],"kbd":[14,28,42,18]},"dark":{"rail":[0,0,0,255],"search":[33,33,33,255],"active":[255,255,255,26],"knob":[24,24,24,255],"composer":[33,33,33,245],"pluginSearch":[255,255,255,13],"capabilitySearch":[255,255,255,13],"pluginFocus":[255,255,255,18],"capabilityFocus":[255,255,255,18],"scrim":[0,0,0,115],"modalVeil":[24,24,24,199],"toolRow":[255,255,255,9],"toolRowPlain":[0,0,0,0],"toolRowError":[255,99,99,18],"codeHead":[255,255,255,10],"mermaidCanvas":[35,35,35,255],"thinkingCode":[255,255,255,11],"sendDisabled":[255,255,255,46],"kbd":[255,255,255,20]}};
+const DEFAULT_SHADOWS = {"light":{"knob":"rgba(0, 0, 0, 0.22) 0px 1px 2px 0px","composer":"rgba(15, 23, 42, 0.04) 0px 2px 12px 0px, oklab(0.207682 -0.00294792 -0.0397151 / 0.12) 0px 0px 0px 1px","pluginFocus":"oklab(0.595965 -0.121967 0.0367818 / 0.35) 0px 0px 0px 1px","capabilityFocus":"oklab(0.595965 -0.121967 0.0367818 / 0.35) 0px 0px 0px 1px"},"dark":{"knob":"rgba(0, 0, 0, 0.16) 0px 1px 2px 0px","composer":"rgba(0, 0, 0, 0.04) 0px 3px 7.5px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px","pluginFocus":"oklab(0.999994 0.0000455678 0.0000200868 / 0.45) 0px 0px 0px 1px","capabilityFocus":"oklab(0.999994 0.0000455678 0.0000200868 / 0.45) 0px 0px 0px 1px"}};
 /**
  * Surface entries are `[selector, token]` for a surface the token fills,
  * `[selector, token, "ink"]` when the token paints the element's text colour, or
@@ -45,8 +45,8 @@ const surfaces = {
 // so its built-in paint is pinned to fully transparent rather than to a token.
 // Sampled the same way as the table above.
 Object.assign(DEFAULT_RGBA.light, {
-  asktoolCard: [255, 255, 255, 255],
-  asktoolOption: [26, 26, 26, 20],
+  asktoolCard: [255,  255,  255,  255],
+  asktoolOption: [14,  28,  42,  18],
   dockMask: [0, 0, 0, 0],
 });
 Object.assign(DEFAULT_RGBA.dark, {
@@ -55,7 +55,9 @@ Object.assign(DEFAULT_RGBA.dark, {
   dockMask: [0, 0, 0, 0],
 });
 const COMPOSER_SHADOW = "rgba(0, 0, 0, 0.04) 0px 3px 7.5px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px";
-Object.assign(DEFAULT_SHADOWS.light, { asktoolCard: COMPOSER_SHADOW });
+// The light composer plate has its own soft lift (and a hairline the question
+// card does not repeat), so its shadow is no longer the shared constant.
+Object.assign(DEFAULT_SHADOWS.light, { asktoolCard: "rgba(15, 23, 42, 0.04) 0px 2px 12px 0px" });
 Object.assign(DEFAULT_SHADOWS.dark, { asktoolCard: COMPOSER_SHADOW });
 const customColors = {
   "--ds-bg-primary": "#26313d",
