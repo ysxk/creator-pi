@@ -26,6 +26,7 @@ import {
   emptyMarkdownBlockCache,
   markdownRemarkPlugins,
 } from "../lib/markdown-blocks";
+import { mediaViewUrl } from "@pi-desktop/shared";
 import {
   MAX_STREAMING_MARKDOWN_TAIL_CODE_UNITS,
   MAX_SYNC_MARKDOWN_CODE_UNITS,
@@ -794,25 +795,88 @@ function AudioBlock({
   ...rest
 }: ComponentProps<"audio"> & { node?: unknown }) {
   const source = typeof src === "string" ? src : "";
+  const isRemote = /^https?:/i.test(source);
+  const localSrc = isRemote ? null : mediaLocalSource(source);
   return (
     <div className="chat-audio">
-      <audio controls preload="metadata" src={source} {...rest} />
+      <audio
+        controls
+        preload="metadata"
+        src={localSrc ?? source}
+        {...rest}
+      />
     </div>
   );
 }
 
-/** Inline video player for video URLs in markdown. */
+/**
+ * Inline video player for video URLs in markdown. Remote URLs play directly;
+ * a local path the agent referenced or generated streams over the host-owned
+ * pi-media: scheme, which confines and re-resolves the file per request.
+ */
 function VideoBlock({
   node: _node,
   src,
   ...rest
 }: ComponentProps<"video"> & { node?: unknown }) {
+  const root = useAppStore((s) => s.workspace?.path);
+  const baseDir = useContext(MarkdownBaseDirContext);
+  const openFileRef = useOpenChatFileRef();
+  const [failed, setFailed] = useState(false);
   const source = typeof src === "string" ? src : "";
+  const isRemote = /^https?:/i.test(source);
+  const decoded = safeDecodeUri(source);
+  const rel = isRemote ? null : toWorkspaceRel(decoded, root, baseDir);
+  const attachmentRef =
+    !isRemote && /^attachments\/[0-9a-f]{64}$/i.test(decoded.replace(/\\/g, "/"))
+      ? decoded.replace(/\\/g, "/")
+      : null;
+  const localRef = (isRemote ? null : absoluteImagePath(source)) ?? rel ?? attachmentRef;
+  if (!isRemote && localRef) {
+    const mediaSrc = mediaViewUrl(localRef);
+    if (failed) {
+      return (
+        <button
+          type="button"
+          className="chat-image-chip"
+          title={localRef}
+          onClick={() => openFileRef(localRef, baseDir)}
+        >
+          <IconImage size={14} aria-hidden />
+          <span>{localRef.split("/").pop()}</span>
+        </button>
+      );
+    }
+    return (
+      <div className="chat-video">
+        <video
+          controls
+          preload="metadata"
+          src={mediaSrc}
+          title={rel ?? localRef}
+          onError={() => setFailed(true)}
+          {...rest}
+        />
+      </div>
+    );
+  }
   return (
     <div className="chat-video">
       <video controls preload="metadata" src={source} {...rest} />
     </div>
   );
+}
+
+/** The streaming source for a local audio reference, when it has one. */
+function mediaLocalSource(source: string): string | null {
+  const decoded = safeDecodeUri(source);
+  if (isAttachmentBlobRefText(decoded)) return mediaViewUrl(decoded.replace(/\\/g, "/"));
+  if (/^([A-Za-z]:[\\/]|\/)/.test(decoded)) return mediaViewUrl(decoded);
+  return null;
+}
+
+function isAttachmentBlobRefText(value: string): boolean {
+  return /^attachments\/[0-9a-f]{64}$/i.test(value.replace(/\\/g, "/"));
 }
 
 const markdownComponents: Components = {

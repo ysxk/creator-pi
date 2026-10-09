@@ -233,6 +233,11 @@ export const IPC = {
      * needing the credential its declaration asks for.
      */
     providersSetSecret: "pi-desktop/providers/setSecret",
+    /**
+     * Edit the base URL / apiStyle of a plugin-declared provider whose manifest
+     * marked those fields as user-editable deployment details.
+     */
+    providersSetPluginEndpoint: "pi-desktop/providers/setPluginEndpoint",
     providersTest: "pi-desktop/providers/testConnection",
     /**
      * Check a TypeSafe key before the Jev settings row keeps it.
@@ -332,6 +337,9 @@ export const IPC = {
     skillReveal: "pi-desktop/skill/reveal",
     subagentList: "pi-desktop/subagent/list",
     subagentCatalog: "pi-desktop/subagent/catalog",
+    subagentIcon: "pi-desktop/subagent/icon",
+    subagentGenerateIcon: "pi-desktop/subagent/generateIcon",
+    subagentDeleteIcon: "pi-desktop/subagent/deleteIcon",
     subagentCreate: "pi-desktop/subagent/create",
     subagentUpdate: "pi-desktop/subagent/update",
     subagentRead: "pi-desktop/subagent/read",

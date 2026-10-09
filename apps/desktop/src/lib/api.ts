@@ -734,6 +734,19 @@ export const api = {
       IPC.invoke.providersSetSecret,
       input,
     ),
+  /**
+   * Edit the base URL / apiStyle of a plugin-declared provider whose manifest
+   * marked those fields user-editable (self-hosted proxy deployments).
+   */
+  setProviderPluginEndpoint: (input: {
+    id: string;
+    baseUrl?: string;
+    apiStyle?: string;
+  }) =>
+    invoke<{ provider: ProviderPublic | null }>(
+      IPC.invoke.providersSetPluginEndpoint,
+      input,
+    ),
   testProvider: (id: string) => invoke(IPC.invoke.providersTest, id),
   /**
    * Discover models from the provider's own endpoint. Saved providers pass
@@ -1239,6 +1252,18 @@ export const api = {
       diagnostics: string[];
       projectPath: string | null;
     }>(IPC.invoke.subagentCatalog),
+  /** The stored avatar PNG for one subagent; `none` keeps the generated SVG. */
+  subagentIcon: (name: string) =>
+    invoke<{ kind: "png"; dataUrl: string } | { kind: "none" }>(
+      IPC.invoke.subagentIcon,
+      { name },
+    ),
+  /** Draw one subagent's avatar with the configured image-generation model. */
+  subagentGenerateIcon: (input: { name: string; description?: string }) =>
+    invoke<{ dataUrl: string }>(IPC.invoke.subagentGenerateIcon, input),
+  /** Drop the stored avatar PNG; the generated SVG takes over again. */
+  subagentDeleteIcon: (name: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.subagentDeleteIcon, { name }),
   createUserSubagent: (subagent: UserSubagentInput) =>
     invoke<{ subagent: UserSubagentRecord }>(IPC.invoke.subagentCreate, subagent),
   updateUserSubagent: (id: string, subagent: Omit<UserSubagentInput, "id">) =>

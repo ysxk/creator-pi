@@ -530,6 +530,13 @@ the native provider list, owned by the plugin ([ADR 0259](../../adr/0259-plugin-
   empty list is valid only for an API-key provider with `baseUrl`; after the
   user saves a key, the Host discovers and caches that endpoint's models and
   exposes the cached models for the plugin-owned row.
+- `baseUrlEditable` / `apiStyleEditable` are optional booleans marking the
+  endpoint as a user deployment detail
+  ([ADR 0325](../../adr/0325-plugin-provider-editable-endpoints.md)). When
+  set, the host-owned setup form offers the field and the
+  `providers.setPluginEndpoint` RPC persists a user value that later plugin
+  syncs preserve instead of restoring the declared default. An editable
+  base URL requires a declared `baseUrl` default.
 
 `thinkingLevels` is optional. The Host trims entries, drops unknown canonical
 names, removes duplicates, and preserves the remaining declaration order. An

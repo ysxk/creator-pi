@@ -23,9 +23,12 @@ import {
   formatFileInsert,
   formatPromptPathText,
   isSvgAttachment,
+  isVideoAttachment,
   locateInlinePromptPaths,
   SVG_MIME_TYPE,
+  VIDEO_MIME_BY_EXTENSION,
   MAX_INLINE_IMAGE_BYTES,
+  MAX_INLINE_VIDEO_BYTES,
   type AgentPromptAttachment,
   type MessageAttachment,
 } from "@pi-desktop/shared";
@@ -95,7 +98,11 @@ function promptMimeType(path: string, supplied?: string, name?: string): string 
   const value = supplied?.trim().toLowerCase();
   if (value) return value;
   const extension = path.split(".").at(-1)?.toLowerCase() ?? "";
-  return IMAGE_MIME_BY_EXTENSION[extension] ?? "application/octet-stream";
+  return (
+    IMAGE_MIME_BY_EXTENSION[extension] ??
+    VIDEO_MIME_BY_EXTENSION[extension] ??
+    "application/octet-stream"
+  );
 }
 
 function isImagePromptAttachment(
@@ -236,6 +243,7 @@ export async function preparePromptAttachments(
    * in the prompt, instead of being appended after the body.
    */
   promptContent: string,
+  supportsVideo = false,
 ): Promise<PreparedPromptAttachment[]> {
   const prepared: PreparedPromptAttachment[] = [];
   // Reference order is the user's order, so each entry takes the next matching
@@ -254,7 +262,8 @@ export async function preparePromptAttachments(
     const name = attachment.name.trim() || source.absolute.split(/[\\/]/).at(-1) || "attachment";
     const mimeType = promptMimeType(source.absolute, attachment.mimeType, name);
     const isImage = isImagePromptAttachment(attachment, source.absolute);
-    if (!isImage) {
+    const isVideo = !isImage && isVideoAttachment(mimeType, source.absolute, name);
+    if (!isImage && !isVideo) {
       prepared.push({
         message: {
           kind: "file",
@@ -270,8 +279,11 @@ export async function preparePromptAttachments(
       continue;
     }
 
+    const kind = isVideo ? "video" : "image";
     const size = statSync(source.absolute).size;
-    const inline = supportsVision && size <= MAX_INLINE_IMAGE_BYTES;
+    const inline =
+      (isVideo ? supportsVideo : supportsVision) &&
+      size <= (isVideo ? MAX_INLINE_VIDEO_BYTES : MAX_INLINE_IMAGE_BYTES);
     const bytes = inline ? await readFile(source.absolute) : undefined;
     const ref =
       source.root === "attachment" && attachment.path.trim().startsWith("attachments/")
@@ -279,9 +291,9 @@ export async function preparePromptAttachments(
         : bytes
           ? ensureAttachmentBlob(dataRoot, bytes)
           : await ensureAttachmentBlobFromFile(dataRoot, source.absolute);
-    // The user's own position for this image: the draft named its path between
+    // The user's own position for this media: the draft named its path between
     // words, so the text stays in the prompt and the transcript renders the
-    // image there.
+    // media there.
     const inlinePath = inlineSpans[index]
       ? formatPromptPathText(attachment.path)
       : undefined;
@@ -295,13 +307,13 @@ export async function preparePromptAttachments(
         );
     prepared.push({
       message: {
-        kind: "image",
+        kind,
         name,
         ref,
         mimeType,
         size,
         ...(inlinePath ? { inlinePath } : {}),
-      },
+      } satisfies MessageAttachment,
       fallbackPath,
       ...(bytes
         ? { inlineData: bytes.toString("base64") }

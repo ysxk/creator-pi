@@ -29,6 +29,7 @@ import {
   FileRefChip,
   LinkifiedText,
   MessageAttachmentImage,
+  MessageAttachmentVideo,
   MessageTimestamp,
 } from "./shared";
 import {
@@ -134,6 +135,13 @@ export const MessageRow = memo(function MessageRow({
         attachments={message.attachments}
         sourceOffset={part.start}
       />
+    ) : part.attachment.kind === "video" ? (
+      <MessageAttachmentVideo
+        key={`${keyPrefix}-${index}`}
+        attachment={part.attachment}
+        onOpenFile={openFileRef}
+        inline
+      />
     ) : (
       <MessageAttachmentImage
         key={`${keyPrefix}-${index}`}
@@ -153,6 +161,12 @@ export const MessageRow = memo(function MessageRow({
       {extraAttachments.map((attachment) =>
         attachment.kind === "image" ? (
           <MessageAttachmentImage
+            key={`${attachment.ref}:${attachment.name}`}
+            attachment={attachment}
+            onOpenFile={openFileRef}
+          />
+        ) : attachment.kind === "video" ? (
+          <MessageAttachmentVideo
             key={`${attachment.ref}:${attachment.name}`}
             attachment={attachment}
             onOpenFile={openFileRef}

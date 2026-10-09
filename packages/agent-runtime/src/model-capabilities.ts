@@ -66,6 +66,18 @@ export function visionFromModelConfig(
     model?.input.includes("image") === true;
 }
 
+/**
+ * Resolve inline video transport from the full models.dev input modalities.
+ * Mirrors `visionFromModelConfig`: the adapter subset (`input`) cannot carry
+ * "video", so the published modality array (or a user binding that injected
+ * it via `modalityOverride`) is the only source.
+ */
+export function videoFromModelConfig(
+  model?: Pick<ModelConfig, "modalities" | "input"> | null,
+): boolean {
+  return model?.modalities?.input.includes("video") === true;
+}
+
 /** Map a public catalog row to the capability shape used by settings helpers. */
 export function capabilitiesFromModelInfo(model?: ModelInfo | null): ModelCapabilities {
   if (!model?.reasoning) {
@@ -99,6 +111,7 @@ export function modelConfigWithBinding(
         | "thinkingLevels"
         | "thinkingProtocol"
         | "supportsImages"
+        | "supportsVideos"
         | "supportsDocuments"
         | "nativeWebSearch"
       >
@@ -197,16 +210,27 @@ export function modelConfigWithBinding(
  */
 function modalityOverride(
   model: ModelConfig,
-  binding: Pick<ModelBinding, "supportsImages" | "supportsDocuments">,
+  binding: Pick<ModelBinding, "supportsImages" | "supportsVideos" | "supportsDocuments">,
 ): Partial<ModelConfig> {
   const images = binding.supportsImages;
+  const videos = binding.supportsVideos;
   const documents = binding.supportsDocuments;
-  if (typeof images !== "boolean" && typeof documents !== "boolean") return {};
+  if (
+    typeof images !== "boolean" &&
+    typeof videos !== "boolean" &&
+    typeof documents !== "boolean"
+  ) {
+    return {};
+  }
   const publishedInput = model.modalities?.input ?? [];
   const nextInput = new Set<ModelModality>(publishedInput);
   if (typeof images === "boolean") {
     if (images) nextInput.add("image");
     else nextInput.delete("image");
+  }
+  if (typeof videos === "boolean") {
+    if (videos) nextInput.add("video");
+    else nextInput.delete("video");
   }
   if (typeof documents === "boolean") {
     if (documents) nextInput.add("pdf");

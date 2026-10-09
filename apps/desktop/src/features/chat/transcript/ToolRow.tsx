@@ -61,6 +61,7 @@ import {
   IconCircleAlert,
   IconStop,
 } from "../../../components/icons";
+import { SubagentAvatar } from "../../../components/SubagentAvatar";
 import { TooltipButton } from "../../../components/ui";
 import { DisclosureAnchorContext } from "../../../lib/disclosure-anchor-context";
 import {
@@ -407,7 +408,7 @@ function HostToolRow({
           }}
         >
           <span className="subagent-topology-avatar" aria-hidden>
-            <IconBot size={15} />
+            <SubagentAvatar name={agentName || rawName || "agent"} size={15} />
             <span className="subagent-topology-status-icon">
               {outcome === "completed" ? (
                 <IconCheck size={8} />
@@ -634,7 +635,7 @@ export const SubagentRunRows = memo(function SubagentRunRows({
         className={dock ? "subagent-run-heading is-dock" : "subagent-run-heading"}
         id={headingId}
       >
-        {dock ? null : <IconBot size={13} aria-hidden />}
+        {dock ? null : <SubagentAvatar name={agentName || "agent"} size={13} />}
         <span>
           {dock
             ? t("chat.subagentProcess")

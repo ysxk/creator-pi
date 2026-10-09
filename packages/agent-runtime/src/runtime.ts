@@ -47,6 +47,7 @@ import {
   type AssistantMessage,
   type ImageContent,
   type Model,
+  type VideoContent,
   type Models,
   type SimpleStreamOptions,
   type ToolResultMessage,
@@ -221,7 +222,7 @@ import {
   harvestRetainedReasoning,
   type ReasoningReplayIdentity,
 } from "./reasoning-replay.js";
-import { genericModelConfig, visionFromModelConfig } from "./model-capabilities.js";
+import { genericModelConfig, videoFromModelConfig, visionFromModelConfig } from "./model-capabilities.js";
 import type { ProjectInstructions } from "./project-instructions.js";
 import { projectInstructionsPrompt } from "./project-instructions-prompt.js";
 import type { CustomSystemPrompt } from "./custom-system-prompt.js";
@@ -335,11 +336,29 @@ function promptImageBlock(attachment: RuntimePromptAttachment): ImageContent {
   };
 }
 
-/** Attachments carrying image bytes this call may inline for the model. */
+/** One provider video block for an attachment whose bytes crossed this turn. */
+function promptVideoBlock(attachment: RuntimePromptAttachment): VideoContent {
+  return {
+    type: "video" as const,
+    data: attachment.data!,
+    mimeType: attachment.mimeType || "video/mp4",
+  };
+}
+
+/** The provider content block for one inlined media attachment. */
+function promptMediaBlock(
+  attachment: RuntimePromptAttachment,
+): ImageContent | VideoContent {
+  return attachment.kind === "video"
+    ? promptVideoBlock(attachment)
+    : promptImageBlock(attachment);
+}
+
+/** Attachments carrying image or video bytes this call may inline for the model. */
 function promptImages(input: RuntimePrompt): RuntimePromptAttachment[] {
   return (input.attachments ?? []).filter(
     (attachment) =>
-      attachment.kind === "image" &&
+      (attachment.kind === "image" || attachment.kind === "video") &&
       typeof attachment.data === "string" &&
       attachment.data.length > 0,
   );
@@ -357,15 +376,17 @@ function promptContent(input: string | RuntimePrompt): UserMessage["content"] {
   const images = promptImages(input);
   if (!images.length) return text;
   const { parts, trailing } = splitInlineContent(text, images);
-  const blocks: Array<{ type: "text"; text: string } | ImageContent> = parts.flatMap(
-    (part): Array<{ type: "text"; text: string } | ImageContent> =>
+  const blocks: Array<
+    { type: "text"; text: string } | ImageContent | VideoContent
+  > = parts.flatMap(
+    (part): Array<{ type: "text"; text: string } | ImageContent | VideoContent> =>
       part.kind === "text"
         ? part.text
           ? [{ type: "text" as const, text: part.text }]
           : []
-        : [promptImageBlock(part.attachment)],
+        : [promptMediaBlock(part.attachment)],
   );
-  blocks.push(...trailing.map(promptImageBlock));
+  blocks.push(...trailing.map(promptMediaBlock));
   return blocks;
 }
 
@@ -8703,7 +8724,11 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   }
 
   /** Resolve attachments against the configuration of the running turn. */
-  steeringContext(expectedTurnId: string): { projectPath?: string; supportsVision: boolean } {
+  steeringContext(expectedTurnId: string): {
+    projectPath?: string;
+    supportsVision: boolean;
+    supportsVideo: boolean;
+  } {
     if (
       this.disposed || !this.acceptingSteering || this.runCancelled ||
       this.turnHadError || !this.getStatus().isRunning ||
@@ -8714,7 +8739,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         errorCode: "TURN_NOT_FOUND",
       });
     }
-    return { projectPath: this.projectPath, supportsVision: this.model.input.includes("image") };
+    return {
+      projectPath: this.projectPath,
+      supportsVision: this.model.input.includes("image"),
+      // pi-ai's adapter subset cannot carry "video"; the full modality array
+      // on the launch modelConfig is the authoritative gate.
+      supportsVideo: videoFromModelConfig(this.provider.modelConfig),
+    };
   }
 
   steer(input: RuntimePrompt, expectedTurnId: string, message: UiMessage): { accepted: boolean; turnId: string } {

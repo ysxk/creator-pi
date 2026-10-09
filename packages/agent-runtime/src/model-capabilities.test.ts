@@ -4,6 +4,7 @@ import {
   clampThinkingLevel,
   genericModelConfig,
   modelConfigWithBinding,
+  videoFromModelConfig,
   visionFromModelConfig,
   type ModelCapabilities,
 } from "./model-capabilities.js";
@@ -240,6 +241,45 @@ describe("binding attachment capability overrides", () => {
     });
     expect(config.modalities?.input).toEqual(["text"]);
     expect(config.input).toEqual(["text"]);
+  });
+
+  it("resolves video transport from the published modality array", () => {
+    expect(videoFromModelConfig(knownModel())).toBe(false);
+    expect(
+      videoFromModelConfig({
+        ...genericModelConfig("gemini-2.5-flash"),
+        modalities: { input: ["text", "image", "video"], output: ["text"] },
+      }),
+    ).toBe(true);
+    // The adapter subset cannot carry "video"; it must never report it alone.
+    expect(videoFromModelConfig({ input: ["text", "image"] })).toBe(false);
+  });
+
+  it("grants and revokes video transport through the binding override", () => {
+    const proxied = {
+      ...genericModelConfig("proxy-model", "https://proxy.test/v1"),
+      modalities: { input: ["text", "image"] as const, output: ["text"] as const },
+    };
+    const enabled = modelConfigWithBinding(proxied, {
+      ...baseBinding,
+      supportsVideos: true,
+    });
+    expect(enabled.modalities?.input).toContain("video");
+    expect(videoFromModelConfig(enabled)).toBe(true);
+
+    const native = {
+      ...genericModelConfig("gemini-2.5-flash"),
+      modalities: {
+        input: ["text", "image", "video"] as const,
+        output: ["text"] as const,
+      },
+    };
+    const disabled = modelConfigWithBinding(native, {
+      ...baseBinding,
+      supportsVideos: false,
+    });
+    expect(disabled.modalities?.input).not.toContain("video");
+    expect(videoFromModelConfig(disabled)).toBe(false);
   });
 
   it("leaves limits and explicit thinking levels untouched by a capability override", () => {

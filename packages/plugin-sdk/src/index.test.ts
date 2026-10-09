@@ -800,6 +800,44 @@ describe("contributes.providers", () => {
     ],
   };
 
+  it("accepts editable endpoint flags and requires a default baseUrl to edit", () => {
+    const permission = { ...base, permissions: ["provider.register"] };
+    expect(
+      validateManifest({
+        ...permission,
+        contributes: {
+          providers: [{ ...provider, baseUrlEditable: true, apiStyleEditable: true }],
+        },
+      }).ok,
+    ).toBe(true);
+    expect(
+      validateManifest({
+        ...permission,
+        contributes: {
+          providers: [{ ...provider, baseUrlEditable: "yes" as never }],
+        },
+      }).error,
+    ).toMatch(/baseUrlEditable must be a boolean/);
+    expect(
+      validateManifest({
+        ...permission,
+        contributes: {
+          providers: [{ ...provider, apiStyleEditable: 1 as never }],
+        },
+      }).error,
+    ).toMatch(/apiStyleEditable must be a boolean/);
+    const noDefault = { ...provider };
+    delete (noDefault as { baseUrl?: string }).baseUrl;
+    expect(
+      validateManifest({
+        ...permission,
+        contributes: {
+          providers: [{ ...noDefault, baseUrlEditable: true, models: [{ id: "demo-large" }] }],
+        },
+      }).error,
+    ).toMatch(/baseUrlEditable requires a declared baseUrl default/);
+  });
+
   it("accepts a declaration when provider.register is declared", () => {
     const result = validateManifest({
       ...base,

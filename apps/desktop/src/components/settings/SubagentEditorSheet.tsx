@@ -21,6 +21,8 @@ import {
 import { useAppStore } from "../../stores/app-store";
 import { Button, Field, HelpIcon, Input, SettingsToggle, Textarea, TooltipButton, cx, portalOverlay } from "../ui";
 import { IconChevronRight, IconFolderOpen, IconX } from "../icons";
+import { SubagentAvatar, setSubagentAvatarPng } from "../SubagentAvatar";
+import { api } from "../../lib/api";
 import {
   groupSubagentModelChoices,
   subagentModelChoices,
@@ -384,6 +386,102 @@ function ManagementScope({
 }
 
 /**
+ * Avatar controls for one subagent: the mark shown in Settings, the @ popup,
+ * and the delegation topology. The deterministic SVG needs no configuration;
+ * the AI button draws a PNG with the configured image-generation model and
+ * replaces it until reset.
+ */
+function AvatarField({
+  name,
+  description,
+}: {
+  name: string;
+  description: string;
+}) {
+  const { t } = useTranslation();
+  const showToast = useAppStore((state) => state.showToast);
+  const [generating, setGenerating] = useState(false);
+  const [hasPng, setHasPng] = useState(false);
+  useEffect(() => {
+    let current = true;
+    if (!name) {
+      setHasPng(false);
+      return;
+    }
+    void api
+      .subagentIcon(name)
+      .then((result) => {
+        if (current) setHasPng(result.kind === "png");
+      })
+      .catch(() => {
+        if (current) setHasPng(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [name]);
+
+  const generate = async () => {
+    if (!name || generating) return;
+    setGenerating(true);
+    try {
+      const result = await api.subagentGenerateIcon({ name, description });
+      setSubagentAvatarPng(name, result.dataUrl);
+      setHasPng(true);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), {
+        variant: "error",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const reset = async () => {
+    if (!name || generating) return;
+    try {
+      await api.subagentDeleteIcon(name);
+      setSubagentAvatarPng(name, null);
+      setHasPng(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), {
+        variant: "error",
+      });
+    }
+  };
+
+  return (
+    <Field
+      label={t("extensions.subagents.avatar")}
+      hint={t("extensions.subagents.avatarHint")}
+    >
+      <div className="subagent-avatar-field">
+        <SubagentAvatar name={name || "agent"} size={36} />
+        <div className="subagent-avatar-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!name || generating}
+            onClick={() => void generate()}
+          >
+            {generating
+              ? t("extensions.subagents.avatarGenerating")
+              : hasPng
+                ? t("extensions.subagents.avatarRegenerate")
+                : t("extensions.subagents.avatarGenerate")}
+          </Button>
+          {hasPng ? (
+            <Button variant="ghost" size="sm" disabled={generating} onClick={() => void reset()}>
+              {t("extensions.subagents.avatarReset")}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </Field>
+  );
+}
+
+/**
  * Model and thinking controls for a subagent definition.
  *
  * The model list offers only models the user already configured, so the value
@@ -688,6 +786,8 @@ export function SubagentEditorSheet({
               }}
             />
           </Field>
+
+          <AvatarField name={slug} description={draft.description} />
 
           <Field label={t("extensions.subagents.description")}>
             <Textarea

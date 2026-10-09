@@ -187,6 +187,8 @@ fn empty_api_key_model_list_uses_the_cached_endpoint_discovery() {
             model_id: "demo-chat".to_string(),
             display_name: "Demo Chat".to_string(),
             capabilities: vec!["text".to_string()],
+            input_modalities: Vec::new(),
+            reasoning_levels: Vec::new(),
             context_window: Some(128_000),
         }],
     )
@@ -258,18 +260,24 @@ fn dropping_a_declared_model_forgets_its_cached_row() {
                 model_id: "demo-large".into(),
                 display_name: "Demo Large".into(),
                 capabilities: vec!["text".into()],
+                input_modalities: Vec::new(),
+                reasoning_levels: Vec::new(),
                 context_window: Some(200_000),
             },
             providers::DiscoveredModelInput {
                 model_id: "demo-small".into(),
                 display_name: "Demo Small".into(),
                 capabilities: vec!["text".into()],
+                input_modalities: Vec::new(),
+                reasoning_levels: Vec::new(),
                 context_window: Some(32_000),
             },
             providers::DiscoveredModelInput {
                 model_id: "demo-extra".into(),
                 display_name: "Demo Extra".into(),
                 capabilities: vec!["text".into()],
+                input_modalities: Vec::new(),
+                reasoning_levels: Vec::new(),
                 context_window: None,
             },
         ],
@@ -320,12 +328,16 @@ fn moving_a_declared_endpoint_forgets_the_discovered_answer() {
                 model_id: "demo-large".into(),
                 display_name: "Demo Large".into(),
                 capabilities: vec!["text".into()],
+                input_modalities: Vec::new(),
+                reasoning_levels: Vec::new(),
                 context_window: Some(200_000),
             },
             providers::DiscoveredModelInput {
                 model_id: "demo-remote-only".into(),
                 display_name: "Demo Remote Only".into(),
                 capabilities: vec!["text".into()],
+                input_modalities: Vec::new(),
+                reasoning_levels: Vec::new(),
                 context_window: Some(8_000),
             },
         ],
@@ -936,4 +948,279 @@ fn malformed_thinking_level_fields_are_rejected_by_manifest_validation() {
     value["contributes"]["providers"][0]["models"][0]["defaultThinkingLevel"] = json!(7);
     write_plugin(&root, value);
     assert!(read_manifest_err(&root).contains("defaultThinkingLevel must be a string"));
+}
+
+/// A declaration that marks its endpoint editable.
+fn editable_manifest() -> PluginManifest {
+    let mut value = serde_json::to_value(manifest()).unwrap();
+    value["contributes"]["providers"][0]["baseUrlEditable"] = json!(true);
+    value["contributes"]["providers"][0]["apiStyleEditable"] = json!(true);
+    serde_json::from_value(value).unwrap()
+}
+
+fn synced_editable_provider() -> (tempfile::TempDir, Database, SecretStore, String) {
+    let (dir, db, secrets) = test_context();
+    let declared = declared_providers(&editable_manifest());
+    let written = sync_plugin_providers(&db, &secrets, "demo.plugin", &declared, true).unwrap();
+    assert_eq!(written, 1);
+    let row_id = plugin_provider_row_id("demo.plugin", "demo");
+    (dir, db, secrets, row_id)
+}
+
+#[test]
+fn editable_endpoint_flags_travel_with_the_row() {
+    let (_dir, db, secrets, row_id) = synced_editable_provider();
+    let provider = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(provider.base_url_editable, Some(true));
+    assert_eq!(provider.api_style_editable, Some(true));
+
+    // A declaration without the flags keeps the row locked.
+    let plain = declared_providers(&manifest());
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &plain, true).unwrap();
+    let provider = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(provider.base_url_editable, None);
+    assert_eq!(provider.api_style_editable, None);
+}
+
+#[test]
+fn user_edited_endpoint_survives_the_next_sync() {
+    let (_dir, db, secrets, row_id) = synced_editable_provider();
+    let edited = providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: Some("http://10.0.0.5:9000/v1".to_string()),
+            api_style: Some("openai_codex_responses".to_string()),
+        },
+    )
+    .unwrap()
+    .expect("provider returned");
+    assert_eq!(edited.base_url.as_deref(), Some("http://10.0.0.5:9000/v1"));
+    assert_eq!(edited.api_style.as_deref(), Some("openai_codex_responses"));
+
+    // The manifest's declared default must not restore itself over the
+    // user's deployment address.
+    let declared = declared_providers(&editable_manifest());
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &declared, true).unwrap();
+    let provider = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(
+        provider.base_url.as_deref(),
+        Some("http://10.0.0.5:9000/v1")
+    );
+    assert_eq!(
+        provider.api_style.as_deref(),
+        Some("openai_codex_responses")
+    );
+}
+
+#[test]
+fn set_plugin_endpoint_refuses_locked_and_invalid_edits() {
+    let (_dir, db, secrets) = test_context();
+    // A user-owned row is not plugin-declared.
+    let user_row = providers::create_provider(
+        &db,
+        &secrets,
+        serde_json::from_value(json!({
+            "name": "User provider",
+            "baseUrl": "https://api.example.com/v1",
+            "apiStyle": "chat_completions"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let err = providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: user_row.id.clone(),
+            base_url: Some("http://elsewhere.test/v1".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_NOT_PLUGIN_OWNED"));
+
+    // A plugin row without the editable flag refuses the edit.
+    let plain = declared_providers(&manifest());
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &plain, true).unwrap();
+    let locked_id = plugin_provider_row_id("demo.plugin", "demo");
+    let err = providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: locked_id.clone(),
+            base_url: Some("http://elsewhere.test/v1".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_ENDPOINT_LOCKED"));
+
+    // An editable row still refuses a non-http(s) address and an unknown style.
+    let (_dir2, db2, secrets2) = test_context();
+    let declared = declared_providers(&editable_manifest());
+    sync_plugin_providers(&db2, &secrets2, "demo.plugin", &declared, true).unwrap();
+    let row_id = plugin_provider_row_id("demo.plugin", "demo");
+    let err = providers::set_plugin_endpoint(
+        &db2,
+        &secrets2,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: Some("ftp://nope.test".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_INVALID"));
+    let err = providers::set_plugin_endpoint(
+        &db2,
+        &secrets2,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: None,
+            api_style: Some("carrier_pigeon".to_string()),
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("PROVIDER_INVALID"));
+}
+
+#[test]
+fn moving_an_editable_endpoint_drops_the_previous_answer() {
+    let (_dir, db, secrets) = test_context();
+    // An editable, discovery-backed declaration (empty model list).
+    let mut value = serde_json::to_value(manifest()).unwrap();
+    value["contributes"]["providers"][0]["baseUrlEditable"] = json!(true);
+    value["contributes"]["providers"][0]["models"] = json!([]);
+    let declared = serde_json::from_value::<PluginManifest>(value).unwrap();
+    let declared = declared_providers(&declared);
+    sync_plugin_providers(&db, &secrets, "demo.plugin", &declared, true).unwrap();
+    let row_id = plugin_provider_row_id("demo.plugin", "demo");
+
+    // The first endpoint's discovery answer, cached.
+    providers::cache_discovered_models(
+        &db,
+        &row_id,
+        &[providers::DiscoveredModelInput {
+            model_id: "old-endpoint-model".to_string(),
+            display_name: "old-endpoint-model".to_string(),
+            capabilities: vec![],
+            input_modalities: Vec::new(),
+            reasoning_levels: Vec::new(),
+            context_window: Some(64_000),
+        }],
+    )
+    .unwrap();
+    // The provider row now hydrates that answer into `models` — the bug was
+    // treating those ids as the user's configuration on an endpoint move.
+    let hydrated = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert!(hydrated.models.iter().any(|m| m.id == "old-endpoint-model"));
+
+    // A user-owned id the move must keep.
+    providers::cache_discovered_models(
+        &db,
+        &row_id,
+        &[providers::DiscoveredModelInput {
+            model_id: "pinned-model".to_string(),
+            display_name: "pinned-model".to_string(),
+            capabilities: vec![],
+            input_modalities: Vec::new(),
+            reasoning_levels: Vec::new(),
+            context_window: None,
+        }],
+    )
+    .unwrap();
+    db.conn()
+        .execute(
+            "UPDATE models SET source = 'user' WHERE provider_id = ?1 AND model_id = 'pinned-model'",
+            params![row_id],
+        )
+        .unwrap();
+
+    providers::set_plugin_endpoint(
+        &db,
+        &secrets,
+        &providers::ProviderPluginEndpointInput {
+            id: row_id.clone(),
+            base_url: Some("http://10.0.0.9:9000/v1".to_string()),
+            api_style: None,
+        },
+    )
+    .unwrap()
+    .expect("provider returned");
+
+    let models = providers::list_models(&db, Some(&row_id)).unwrap();
+    let ids: Vec<&str> = models.iter().map(|m| m.model_id.as_str()).collect();
+    assert!(
+        !ids.contains(&"old-endpoint-model"),
+        "old answer kept: {ids:?}"
+    );
+    assert!(ids.contains(&"pinned-model"), "user id dropped: {ids:?}");
+    // And the hydrated public row no longer offers the stale model either.
+    let moved = providers::get_provider(&db, &secrets, &row_id)
+        .unwrap()
+        .expect("row exists");
+    assert!(!moved.models.iter().any(|m| m.id == "old-endpoint-model"));
+}
+
+/// The cached discovered record round-trips input modalities and reasoning
+/// efforts, so a cache read paints the same row a live discovery would.
+#[test]
+fn discovered_metadata_survives_the_cache_round_trip() {
+    let (_dir, db, secrets) = test_context();
+    let provider = providers::create_provider(
+        &db,
+        &secrets,
+        serde_json::from_value(json!({ "name": "Round trip" })).unwrap(),
+    )
+    .unwrap();
+    providers::cache_discovered_models(
+        &db,
+        &provider.id,
+        &[providers::DiscoveredModelInput {
+            model_id: "proxy-model".to_string(),
+            display_name: "Proxy model".to_string(),
+            capabilities: vec!["vision".to_string(), "video".to_string()],
+            input_modalities: vec!["text".to_string(), "image".to_string(), "video".to_string()],
+            reasoning_levels: vec!["low".to_string(), "high".to_string()],
+            context_window: Some(512_000),
+        }],
+    )
+    .unwrap();
+
+    let models = providers::list_models(&db, Some(&provider.id)).unwrap();
+    let model = models
+        .iter()
+        .find(|m| m.model_id == "proxy-model")
+        .expect("cached row");
+    assert_eq!(model.capabilities, vec!["vision", "video"]);
+    assert_eq!(model.input_modalities, vec!["text", "image", "video"]);
+    assert_eq!(model.reasoning_levels, vec!["low", "high"]);
+    assert_eq!(model.context_window, Some(512_000));
+
+    // An older row holding a bare capability array still parses.
+    db.conn()
+        .execute(
+            "INSERT INTO models (provider_id, model_id, display_name, source, capabilities_json, updated_at)
+             VALUES (?1, 'legacy', 'Legacy', 'discovered', '[\"vision\"]', 0)",
+            params![provider.id],
+        )
+        .unwrap();
+    let legacy = providers::list_models(&db, Some(&provider.id))
+        .unwrap()
+        .into_iter()
+        .find(|m| m.model_id == "legacy")
+        .expect("legacy row");
+    assert_eq!(legacy.capabilities, vec!["vision"]);
+    assert!(legacy.input_modalities.is_empty());
+    assert!(legacy.reasoning_levels.is_empty());
 }

@@ -173,7 +173,7 @@ test("pasted bytes stay in the session scratch directory", () => {
   assert.match(saver, /basename\(normalized\)/);
   assert.match(saver, /writeFile\(path, bytes, \{ flag: "wx" \}\)/);
   assert.match(saver, /MAX_TOTAL_BYTES/);
-  assert.match(saver, /kind: isImageFile\(name, mimeType\) \? "image" : "file"/);
+  assert.match(saver, /kind: composerFileKind\(name, mimeType\)/);
   assert.match(saver, /size: bytes\.byteLength/);
 });
 
@@ -265,7 +265,10 @@ test("file picker exposes files only", () => {
 test("large image attachments avoid whole-file startup reads", () => {
   assert.match(attachments, /async function hashFile\(path: string\)/);
   assert.match(attachments, /createReadStream\(path\)/);
-  assert.match(attachments, /const inline = supportsVision && size <= MAX_INLINE_IMAGE_BYTES/);
+  assert.match(
+    attachments,
+    /const inline =\n\s*\(isVideo \? supportsVideo : supportsVision\) &&\n\s*size <= \(isVideo \? MAX_INLINE_VIDEO_BYTES : MAX_INLINE_IMAGE_BYTES\)/,
+  );
   assert.match(attachments, /await copyFile\(source, target, fsConstants\.COPYFILE_EXCL\)/);
   assert.doesNotMatch(attachments, /const bytes = readFileSync\(source\.absolute\)/);
   assert.match(history, /const size = \(await stat\(canonical\)\)\.size/);

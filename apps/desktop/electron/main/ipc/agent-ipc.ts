@@ -1,7 +1,7 @@
 import { expandMcpInvocation } from "../composer-mcp";
 import { IPC, ErrorCodes, compactionRecordId, findSkillMentions, isGlobalPermissionMode, isRpcTimeoutError, type AgentEventEnvelope, type AgentPromptRequest, type AgentSteerRequest, type UiMessage, type AgentQueuePushRequest, type AgentStopRequest, type AskToolResolution, type GlobalPermissionMode, type MessageUsage, type PendingInteractiveRequests, type PlanExecutionFinishStatus, type PlanResolutionResult, type PlanResolveRequest, type VoiceOrigin } from "@pi-desktop/shared";
 import type { FinishTurn } from "../runtime/plans";
-import { expandSlashInvocation, visionFromModelConfig, type ComposerTemplate } from "@pi-desktop/agent-runtime";
+import { expandSlashInvocation, videoFromModelConfig, visionFromModelConfig, type ComposerTemplate } from "@pi-desktop/agent-runtime";
 import { appendPromptFallbackPaths, durableUserMessageId, preparePromptAttachments, type PreparedPromptAttachment } from "../prompt-attachments";
 import { resolveSessionReferences } from "../session-references";
 import { executionFromResponse, resolveSessionMessageInput } from "@pi-desktop/host-runtime";
@@ -132,7 +132,11 @@ export function registerAgentIpc({
         errorCode: ErrorCodes.TURN_NOT_FOUND,
       });
     }
-    const context = await sidecar.call<{ projectPath?: string; supportsVision: boolean }>(
+    const context = await sidecar.call<{
+      projectPath?: string;
+      supportsVision: boolean;
+      supportsVideo?: boolean;
+    }>(
       "agent.steeringContext", { sessionId: req.sessionId, expectedTurnId: req.expectedTurnId },
     );
     const mcpExpansion = /^\/mcp:\S/.test(req.content)
@@ -147,7 +151,7 @@ export function registerAgentIpc({
     const steerContent = mcpExpansion?.expanded ?? req.content;
     const prepared = await preparePromptAttachments(
       dataDir, req.sessionId, context.projectPath, req.attachments ?? [],
-      context.supportsVision, steerContent,
+      context.supportsVision, steerContent, context.supportsVideo === true,
     );
     const session = await host.call<{ session?: { messages?: UiMessage[] } }>("session.get", {
       id: req.sessionId, messageLimit: 1,
@@ -402,6 +406,9 @@ export function registerAgentIpc({
     const supportsVision = visionFromModelConfig(
       launch.sidecarParams.provider.modelConfig,
     );
+    const supportsVideo = videoFromModelConfig(
+      launch.sidecarParams.provider.modelConfig,
+    );
     let preparedAttachments: PreparedPromptAttachment[];
     try {
       preparedAttachments = await preparePromptAttachments(
@@ -415,6 +422,7 @@ export function registerAgentIpc({
         // The text the durable message will hold: an image chip the Composer
         // left inline keeps its place in the prompt and in the transcript.
         promptContent,
+        supportsVideo,
       );
     } catch (error) {
       await finishTurn(req.sessionId, "error", (error as any)?.errorCode, {

@@ -25,6 +25,7 @@ import {
 } from "../../../../hooks/use-composer-autocomplete";
 import { slotRegistry } from "../../../../plugins/renderer-slots/registry";
 import { useAppStore } from "../../../../stores/app-store";
+import { isVideoAttachment } from "@pi-desktop/shared";
 import { createFileReference, isImageFilePath, nextChipToken } from "../editor";
 import type { ComposerFileReference } from "../model";
 import { placePluginMark } from "../plugins/plugin-marks";
@@ -215,7 +216,11 @@ export function useComposerCompletions({
           acceptedFileReference.name,
           referenceSessionId,
           {
-            kind: isImageFilePath(acceptedFileReference.path) ? "image" : "file",
+            kind: isImageFilePath(acceptedFileReference.path)
+              ? "image"
+              : isVideoAttachment(undefined, acceptedFileReference.path)
+                ? "video"
+                : "file",
             token,
           },
         ),

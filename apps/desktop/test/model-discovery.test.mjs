@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   modelListRequest,
@@ -37,7 +38,8 @@ test("a models[] response with slug rows is read as a list too", () => {
         { slug: "glm-5.3" },
       ],
     }),
-    [{ modelId: "glm-5.3", displayName: "glm-5.3" }],
+    // The row's own context_window is now carried with it.
+    [{ modelId: "glm-5.3", displayName: "glm-5.3", contextWindow: 1_048_576 }],
   );
   // The two id keys are mutually exclusive; `id` wins if a gateway publishes both.
   assert.deepEqual(normalizeModelList("chat_completions", { models: [{ id: "m", slug: "s" }] }), [
@@ -139,4 +141,56 @@ test("optional custom headers are attached to discovery requests", () => {
     apiStyle: "google_generative_ai",
   });
   assert.equal(google.headers["User-Agent"], undefined);
+});
+
+test("proxy-style rows carry context window, modalities, and effort metadata", () => {
+  const models = normalizeModelList("chat_completions", {
+    object: "list",
+    data: [
+      {
+        id: "gemini-2.5-flash",
+        display_name: "Gemini 2.5 Flash",
+        context_window: 1_048_576,
+        input_modalities: ["text", "image", "video"],
+        supported_reasoning_levels: [{ effort: "high" }, { effort: "low" }],
+      },
+      {
+        id: "gemini-3-pro-image-preview",
+        input_modalities: ["text"],
+        output_modalities: ["image"],
+      },
+      { id: "plain-model" },
+      { id: "hidden-model", visibility: "hide" },
+    ],
+  });
+  assert.deepEqual(models, [
+    {
+      modelId: "gemini-2.5-flash",
+      displayName: "Gemini 2.5 Flash",
+      contextWindow: 1_048_576,
+      input: ["text", "image", "video"],
+      capabilities: ["vision", "video"],
+      reasoningLevels: ["high", "low"],
+    },
+    {
+      modelId: "gemini-3-pro-image-preview",
+      displayName: "gemini-3-pro-image-preview",
+      input: ["text"],
+      capabilities: ["imagegen"],
+    },
+    { modelId: "plain-model", displayName: "plain-model" },
+  ]);
+});
+
+test("the provider cache payload carries displayName and decorated metadata", async () => {
+  const source = await readFile(new URL("../electron/main/ipc/provider-ipc.ts", import.meta.url), "utf8");
+  // The host requires displayName; a payload without it fails INVALID_PARAMS
+  // and silently leaves the cache empty.
+  assert.match(source, /displayName: \(model\.displayName as string \| undefined\) \|\| \(model\.modelId as string\)/);
+  // The input carries decorated ModelInfo records: modalities.input and
+  // supportedThinkingLevels are where the endpoint-published metadata lives.
+  assert.match(source, /model\.modalities as \{ input\?: string\[\] \}/);
+  assert.match(source, /supportedThinkingLevels as string\[\] \| undefined/);
+  // `text` is implied by the reader; storing it would duplicate the entry.
+  assert.match(source, /filter\(\(modality\) => modality !== "text"\)/);
 });

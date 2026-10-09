@@ -1749,7 +1749,16 @@ Single message render — either user (plaintext) or assistant (markdown streami
   on the attachment) renders as the same compact image chip at that position in
   the body, so a sent message keeps the order the Composer showed. An image
   attachment without a recorded position continues the message text instead of
-  heading it on a line of its own. Hovering or focusing the chip reveals the
+  heading it on a line of its own. A video attachment (`kind: "video"`) takes
+  the same inline/trailing chip placements, with a hover/focus player card that
+  accepts pointer events for its controls: the clip streams from the
+  host-owned `pi-media:` scheme, which re-resolves the ref against the
+  openable roots on every request and answers Range requests so seeking works;
+  the CSP allows the scheme for media elements, and the renderer never loads a
+  raw filesystem path. Assistant Markdown renders local `<video>`/`<audio>`
+  sources — a clip the agent referenced or a file a tool generated — through
+  the same scheme, degrading to the compact file chip when the resolver
+  refuses the path. Hovering or focusing the chip reveals the
   bounded data URL
   (`fs/readImageDataUrl`) in a read-only preview card above it (below it when
   the chip sits at the top), and an unresolved load leaves the chip alone. A

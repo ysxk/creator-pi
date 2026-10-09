@@ -10,7 +10,7 @@ export function getExtraMessageAttachments(
   content: string,
   attachments: readonly MessageAttachment[] | undefined,
   workspaceRoot?: string | null,
-): (MessageAttachment & { kind: "file" | "image" })[] {
+): (MessageAttachment & { kind: "file" | "image" | "video" })[] {
   if (!attachments?.length) return [];
   const renderable = attachments.filter(isRenderableAttachment);
   if (!renderable.length) return [];

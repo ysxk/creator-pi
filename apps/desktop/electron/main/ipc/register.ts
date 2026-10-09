@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { dialog, type BrowserWindow, type IpcMain, type IpcMainInvokeEvent } from "electron";
-import { err, ErrorCodes, IPC, ok, type Result } from "@pi-desktop/shared";
+import { err, ErrorCodes, IPC, ok, type ProviderPublic, type Result } from "@pi-desktop/shared";
 import type { AgentHostBridge } from "../agent-host-bridge";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
@@ -439,6 +439,17 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
   registerSkillsIpc({
     registrar,
     getHost,
+    dataDir,
+    resolveAuth: (providerId: string) => vendorOAuth.resolveAuth(providerId),
+    resolveImageModel: async (provider: ProviderPublic, modelId: string) => {
+      await modelsDevCatalog.ensureLoaded();
+      return modelsDevCatalog.findModelOfType("image", {
+        providerId: provider.id,
+        vendorKey: provider.vendorKey,
+        baseUrl: provider.baseUrl,
+        modelId,
+      });
+    },
     searchSkillMarket,
     fetchSkillMarketDocument,
     optionalWorkspaceRoot,

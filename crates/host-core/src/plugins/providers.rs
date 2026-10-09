@@ -40,7 +40,7 @@ pub(crate) fn is_known_auth_kind(value: &str) -> bool {
 
 /// `providers.protocol` for a declared wire style, kept in step with the
 /// mapping Electron main uses for vendor accounts (`protocolForApiStyle`).
-fn protocol_for_api_style(api_style: &str) -> &'static str {
+pub(crate) fn protocol_for_api_style(api_style: &str) -> &'static str {
     match api_style {
         "anthropic_messages" => "anthropic",
         "responses" | "openai_codex_responses" => "openai",
@@ -59,6 +59,8 @@ pub(crate) struct DeclaredPluginProvider {
     pub base_url: Option<String>,
     pub api_style: String,
     pub auth_kind: String,
+    pub base_url_editable: bool,
+    pub api_style_editable: bool,
     pub models: Vec<ModelBinding>,
 }
 
@@ -183,6 +185,7 @@ pub(crate) fn declared_providers(manifest: &PluginManifest) -> Vec<DeclaredPlugi
                                 supports_images: model
                                     .get("supportsImages")
                                     .and_then(Value::as_bool),
+                                supports_videos: None,
                                 supports_documents: None,
                                 available_for_subagents: None,
                                 native_web_search: None,
@@ -220,6 +223,14 @@ pub(crate) fn declared_providers(manifest: &PluginManifest) -> Vec<DeclaredPlugi
                     .map(str::to_string),
                 api_style,
                 auth_kind,
+                base_url_editable: obj
+                    .get("baseUrlEditable")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                api_style_editable: obj
+                    .get("apiStyleEditable")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
                 models,
             })
         })
@@ -275,13 +286,54 @@ pub(crate) fn sync_plugin_providers(
             .optional()?
             .unwrap_or((None, None, None, None));
         let models = providers::normalize_model_bindings(&provider.models);
+        // The manifest's editability flags travel with the row so Settings and
+        // `providers.setPluginEndpoint` can see them without re-reading the
+        // manifest on every list.
+        let existing_config_value: serde_json::Value =
+            serde_json::from_str(existing_config.as_deref().unwrap_or("{}"))
+                .unwrap_or_else(|_| serde_json::json!({}));
+        let user_owned = existing_config_value
+            .get("pluginEndpointUserOwned")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
+        // A user-edited endpoint is the deployment's real address; the declared
+        // default only fills the field until the user takes it over.
+        let user_owns_base_url = provider.base_url_editable
+            && user_owned
+                .get("baseUrl")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+        let user_owns_api_style = provider.api_style_editable
+            && user_owned
+                .get("apiStyle")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+        let effective_base_url = if user_owns_base_url {
+            existing_base_url
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .or_else(|| provider.base_url.clone())
+        } else {
+            provider.base_url.clone()
+        };
+        let effective_api_style = if user_owns_api_style
+            && existing_api_style
+                .as_deref()
+                .is_some_and(is_known_api_style)
+        {
+            existing_api_style
+                .clone()
+                .unwrap_or_else(|| provider.api_style.clone())
+        } else {
+            provider.api_style.clone()
+        };
         // A declaration that moves the endpoint abandons the answer the previous
         // one produced: the cached rows carry no endpoint of their own, so the
         // discovery cache is dropped and the next probe records the new answer.
         let endpoint_changed = existing_config.is_some()
             && (existing_base_url.as_deref().unwrap_or("").trim()
-                != provider.base_url.as_deref().unwrap_or("").trim()
-                || existing_api_style.as_deref().unwrap_or("") != provider.api_style);
+                != effective_base_url.as_deref().unwrap_or("").trim()
+                || existing_api_style.as_deref().unwrap_or("") != effective_api_style);
         // A declaration that no longer names a model forgets that model's
         // cached row, exactly as a user save does: the row would otherwise keep
         // describing a model this provider stopped declaring. The row above is
@@ -302,10 +354,25 @@ pub(crate) fn sync_plugin_providers(
         providers::forget_cached_models(db, &row_id, &removed_models)?;
         // The merge replaces only model bindings; headers and OAuth metadata
         // are not this declaration's to drop.
-        let config = providers::config_with_model_bindings(
+        let merged_config = providers::config_with_model_bindings(
             existing_config.as_deref().unwrap_or("{}"),
             &models,
         )?;
+        let mut config_value: serde_json::Value =
+            serde_json::from_str(&merged_config).unwrap_or_else(|_| serde_json::json!({}));
+        if !config_value.is_object() {
+            config_value = serde_json::json!({});
+        }
+        if provider.base_url_editable || provider.api_style_editable {
+            config_value["pluginEndpoint"] = serde_json::json!({
+                "baseUrlEditable": provider.base_url_editable,
+                "apiStyleEditable": provider.api_style_editable,
+            });
+        } else if let Some(object) = config_value.as_object_mut() {
+            // A declaration that dropped the flags locks the row again.
+            object.remove("pluginEndpoint");
+        }
+        let config = config_value.to_string();
         // A declaration that no longer asks for an API key keeps its credential
         // only while it does: leaving the reference behind would keep the
         // runtime signing requests with a key the endpoint stopped wanting.
@@ -358,11 +425,11 @@ pub(crate) fn sync_plugin_providers(
                 row_id,
                 provider.name,
                 provider.vendor_key,
-                protocol_for_api_style(&provider.api_style),
+                protocol_for_api_style(&effective_api_style),
                 if enabled { 1 } else { 0 },
-                provider.base_url,
+                effective_base_url,
                 provider.auth_kind,
-                provider.api_style,
+                effective_api_style,
                 default_model_id,
                 config,
                 plugin_id,

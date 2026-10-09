@@ -10,7 +10,9 @@ import { constants as fsConstants } from "node:fs";
 import { basename, extname, isAbsolute, join } from "node:path";
 import {
   isSvgAttachment,
+  isVideoAttachment,
   SVG_MIME_TYPE,
+  VIDEO_MIME_BY_EXTENSION,
   type ComposerPasteFile,
   type ComposerPastedFile,
 } from "@pi-desktop/shared";
@@ -45,6 +47,14 @@ const MIME_EXTENSIONS: Record<string, string> = {
   "application/json": ".json",
   "application/pdf": ".pdf",
   "application/zip": ".zip",
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "video/webm": ".webm",
+  "video/mpeg": ".mpeg",
+  "video/x-msvideo": ".avi",
+  "video/x-ms-wmv": ".wmv",
+  "video/x-flv": ".flv",
+  "video/3gpp": ".3gp",
 };
 
 const MIME_BY_EXTENSION: Record<string, string> = Object.fromEntries(
@@ -58,6 +68,12 @@ Object.assign(MIME_BY_EXTENSION, {
   ".jpeg": "image/jpeg",
   ".tif": "image/tiff",
   ".tiff": "image/tiff",
+  ...Object.fromEntries(
+    Object.entries(VIDEO_MIME_BY_EXTENSION).map(([extension, mimeType]) => [
+      `.${extension}`,
+      mimeType,
+    ]),
+  ),
 });
 
 function isImageMimeType(mimeType: string): boolean {
@@ -68,6 +84,15 @@ function isImageFile(name: string, mimeType: string): boolean {
   if (isSvgAttachment(mimeType, name)) return false;
   if (isImageMimeType(mimeType)) return true;
   return IMAGE_EXTENSIONS.has(extname(name).toLowerCase());
+}
+
+function composerFileKind(
+  name: string,
+  mimeType: string,
+): ComposerPastedFile["kind"] {
+  if (isImageFile(name, mimeType)) return "image";
+  if (isVideoAttachment(mimeType, name)) return "video";
+  return "file";
 }
 
 function bytesOf(data: unknown): Uint8Array {
@@ -153,7 +178,7 @@ export async function saveComposerPasteFiles(
       return {
         path,
         name,
-        kind: isImageFile(name, mimeType) ? "image" : "file",
+        kind: composerFileKind(name, mimeType),
         mimeType,
         size: bytes.byteLength,
       };
@@ -237,7 +262,7 @@ export async function importComposerFiles(
       return {
         path,
         name,
-        kind: isImageFile(name, mimeType) ? "image" : "file",
+        kind: composerFileKind(name, mimeType),
         mimeType,
         size,
       };

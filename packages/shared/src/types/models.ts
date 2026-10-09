@@ -235,6 +235,13 @@ export type ModelBinding = {
    */
   supportsImages?: boolean | null;
   /**
+   * User override for video input, with the same three-state meaning as
+   * `supportsImages`. Proxied discovery endpoints (e.g. CLIProxyAPI) may not
+   * publish modalities, so the user's own knowledge of the endpoint can
+   * enable inline video the catalog entry does not mention.
+   */
+  supportsVideos?: boolean | null;
+  /**
    * User override for document (PDF) input, with the same three-state meaning.
    * An explicit boolean remains pinned if the catalog later changes. Documents
    * are still transported as bounded file references, so this records
@@ -345,6 +352,7 @@ export type ModelInfo = {
     | "pdf"
     | "attachments"
     | "temperature"
+    | "imagegen"
   >;
   supportedThinkingLevels?: ThinkingLevel[];
   source: "bundled" | "discovered" | "user";

@@ -55,8 +55,27 @@ pub struct ProviderPublic {
     /// `providers.update` / `providers.delete` refuse it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner_plugin_id: Option<String>,
+    /// True when the owning plugin's manifest allows the user to edit this
+    /// row's base URL through `providers.setPluginEndpoint`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url_editable: Option<bool>,
+    /// Same contract as `base_url_editable`, for the request apiStyle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_style_editable: Option<bool>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+/// Endpoint edits a user may make on a plugin-owned provider row. Each field
+/// is only accepted while the manifest declares it editable.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderPluginEndpointInput {
+    pub id: String,
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
+    pub api_style: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,6 +179,8 @@ pub struct ModelBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supports_images: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_videos: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supports_documents: Option<bool>,
     /// Whether this model may be selected for AI-driven subagent delegation.
     /// None/false keeps the opt-in disabled for existing provider records.
@@ -181,6 +202,16 @@ pub struct ModelCatalogItem {
     pub source: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    /// Input modalities the endpoint itself published, in the shared
+    /// vocabulary (`text`/`image`/`video`/`audio`/`pdf`); `text` is implied
+    /// and never stored. Cached beside capabilities so a cache read paints
+    /// the same record a live discovery would.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub input_modalities: Vec<String>,
+    /// Thinking efforts the endpoint published, lowercased; consumed as
+    /// `reasoningLevels`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reasoning_levels: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_window: Option<u32>,
 }
@@ -192,6 +223,10 @@ pub struct DiscoveredModelInput {
     pub display_name: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub input_modalities: Vec<String>,
+    #[serde(default)]
+    pub reasoning_levels: Vec<String>,
     #[serde(default)]
     pub context_window: Option<u32>,
 }
