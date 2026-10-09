@@ -285,18 +285,20 @@ export function ComposerAutocomplete({
           {focusedAgent ? <AgentDetail t={t} agent={focusedAgent} /> : null}
         </div>
       ) : null}
-      <div className="composer-ac-list" ref={listRef}>
-        {rows.length > 0 ? (
-          rows
-        ) : (
-          <div className="composer-model-empty">{t(emptyKey)}</div>
-        )}
-      </div>
-      <div className="composer-ac-footer">
-        <span>{t(strip.length > 0 ? "chat.acHintAgents" : "chat.acHint")}</span>
-        {ac.truncated ? (
-          <span className="composer-ac-truncated">{t("chat.fileTruncated")}</span>
-        ) : null}
+      <div className="composer-ac-card">
+        <div className="composer-ac-list" ref={listRef}>
+          {rows.length > 0 ? (
+            rows
+          ) : (
+            <div className="composer-model-empty">{t(emptyKey)}</div>
+          )}
+        </div>
+        <div className="composer-ac-footer">
+          <span>{t(strip.length > 0 ? "chat.acHintAgents" : "chat.acHint")}</span>
+          {ac.truncated ? (
+            <span className="composer-ac-truncated">{t("chat.fileTruncated")}</span>
+          ) : null}
+        </div>
       </div>
     </AnchoredMenu>
   );

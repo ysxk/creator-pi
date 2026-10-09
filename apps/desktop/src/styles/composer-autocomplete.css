@@ -22,12 +22,7 @@
   width: min(100%, calc(100vw - 24px));
   max-height: min(380px, calc(100vh - 160px));
   max-width: calc(100vw - 24px);
-  border-radius: var(--radius-lg);
-  background: var(--ds-bg-elevated-opaque);
-  box-shadow: var(--ds-shadow-dialog);
-  border: 1px solid var(--ds-border-subtle);
   color: var(--ds-text-primary);
-  overflow: hidden;
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
@@ -37,31 +32,55 @@
   display: contents;
 }
 
+/* The panel itself is only a column: the transcript stays visible and
+   clickable around the portraits, and the card below is the one surface. */
 .composer-autocomplete.is-open {
   opacity: 1;
-  pointer-events: auto;
   visibility: visible;
 }
 
+.composer-ac-card {
+  display: flex;
+  min-height: 0;
+  flex: 0 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow: var(--ds-shadow-dialog);
+  pointer-events: auto;
+}
+
 /*
-  Subagents in the `@` panel: a strip of portraits above the file list, in the
-  same card. Reaching for a file never has to step over them, and the one the
-  keyboard is on explains itself in a slot under the strip that is part of the
-  card's flow, so nothing floats over the transcript and the list does not jump.
+  Subagents in the `@` panel: a row of portraits standing on the card that
+  lists the files, with nothing behind them. Reaching for a file never has to
+  step over them, and the one the keyboard is on explains itself in a slot
+  between the row and the card, so the list does not jump.
 */
 .composer-ac-agents {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
   gap: 4px;
-  padding: 6px 6px 8px;
-  border-bottom: 1px solid var(--ds-border-subtle);
+  padding: 0 2px 8px;
 }
 
 .composer-ac-agents-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* With no surface behind them, the labels carry their own: a halo in the
+   pane's color keeps them legible over whatever the transcript shows. */
+.composer-ac-agents-head,
+.composer-ac-agent-name,
+.composer-ac-agent-handle-line {
+  text-shadow:
+    0 0 2px var(--ds-bg-primary),
+    0 0 6px var(--ds-bg-primary),
+    0 0 10px var(--ds-bg-primary);
 }
 
 .composer-ac-agent-strip {
@@ -88,6 +107,7 @@
   background: transparent;
   color: var(--ds-text-secondary);
   cursor: pointer;
+  pointer-events: auto;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out);
@@ -143,8 +163,11 @@
   gap: 5px;
   margin: 2px 2px 0;
   padding: 9px 12px;
+  border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-md);
-  background: var(--ds-tile);
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow: var(--ds-shadow-composer);
+  pointer-events: auto;
   animation: notice-in var(--motion-duration-fast) var(--motion-ease-out);
 }
 
