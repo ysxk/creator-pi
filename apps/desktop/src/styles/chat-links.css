@@ -139,3 +139,57 @@
 .settings-row.settings-row-plain {
   border-bottom: 0;
 }
+
+/*
+  Language badge beside a path (tool rows, file chips). One small block of the
+  language's own colour with its abbreviation: enough to tell a Rust edit from
+  a stylesheet edit while scanning a turn, and no louder than that.
+*/
+.file-type-badge {
+  --file-type: var(--ds-filetype-default);
+  display: inline-flex;
+  min-width: 18px;
+  height: 15px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border-radius: var(--radius-3xs);
+  background: var(--file-type);
+  color: var(--ds-filetype-fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-normal);
+  line-height: var(--leading-tight);
+  user-select: none;
+}
+
+.file-type-badge[data-file-type="ts"] { --file-type: var(--ds-filetype-ts); }
+.file-type-badge[data-file-type="js"] { --file-type: var(--ds-filetype-js); }
+.file-type-badge[data-file-type="py"] { --file-type: var(--ds-filetype-py); }
+.file-type-badge[data-file-type="rs"] { --file-type: var(--ds-filetype-rs); }
+.file-type-badge[data-file-type="go"] { --file-type: var(--ds-filetype-go); }
+.file-type-badge[data-file-type="c"] { --file-type: var(--ds-filetype-c); }
+.file-type-badge[data-file-type="java"] { --file-type: var(--ds-filetype-java); }
+.file-type-badge[data-file-type="kotlin"] { --file-type: var(--ds-filetype-kotlin); }
+.file-type-badge[data-file-type="swift"] { --file-type: var(--ds-filetype-swift); }
+.file-type-badge[data-file-type="ruby"] { --file-type: var(--ds-filetype-ruby); }
+.file-type-badge[data-file-type="php"] { --file-type: var(--ds-filetype-php); }
+.file-type-badge[data-file-type="html"] { --file-type: var(--ds-filetype-html); }
+.file-type-badge[data-file-type="css"] { --file-type: var(--ds-filetype-css); }
+.file-type-badge[data-file-type="sass"] { --file-type: var(--ds-filetype-sass); }
+.file-type-badge[data-file-type="vue"] { --file-type: var(--ds-filetype-vue); }
+.file-type-badge[data-file-type="svelte"] { --file-type: var(--ds-filetype-svelte); }
+.file-type-badge[data-file-type="shell"] { --file-type: var(--ds-filetype-shell); }
+.file-type-badge[data-file-type="sql"] { --file-type: var(--ds-filetype-sql); }
+.file-type-badge[data-file-type="json"] { --file-type: var(--ds-filetype-json); }
+.file-type-badge[data-file-type="yaml"] { --file-type: var(--ds-filetype-yaml); }
+.file-type-badge[data-file-type="config"] { --file-type: var(--ds-filetype-config); }
+.file-type-badge[data-file-type="md"] { --file-type: var(--ds-filetype-md); }
+.file-type-badge[data-file-type="docker"] { --file-type: var(--ds-filetype-docker); }
+
+/* In a file chip the badge takes the icon's seat. */
+.composer-chip-icon > .file-type-badge {
+  margin-inline: -1px;
+}

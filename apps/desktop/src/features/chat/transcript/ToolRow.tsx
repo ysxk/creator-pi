@@ -1,4 +1,5 @@
 import { PlanHistoryCard } from "./PlanHistoryCard";
+import { FileTypeBadge } from "../../../components/FileTypeBadge";
 import { planSubmission } from "../../../lib/plan-history";
 import { GeneratedImages } from "./GeneratedImages";
 import "../../../styles/generated-images.css";
@@ -491,6 +492,9 @@ function HostToolRow({
               <span className="tool-row-agent" title={t("chat.subagentAgent")}>
                 {agentName}
               </span>
+            ) : null}
+            {summary && previewTarget?.kind === "file" ? (
+              <FileTypeBadge path={previewTarget.path} />
             ) : null}
             {summary ? (
               <span

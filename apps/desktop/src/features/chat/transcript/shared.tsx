@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { FileTypeBadge } from "../../../components/FileTypeBadge";
+import { fileTypeOf } from "../../../lib/file-type";
 import type {
   MessageAttachment,
   MessageUsage,
@@ -458,7 +460,12 @@ export function FileRefChip({
         onContextMenu={(event) => openFileMenu(event, { path })}
       >
         <span className="composer-chip-icon" aria-hidden>
-          <Icon size={13} />
+          {/* A language says more than a document glyph; others keep the icon. */}
+          {kind !== "image" && kind !== "video" && fileTypeOf(name) ? (
+            <FileTypeBadge path={name} />
+          ) : (
+            <Icon size={13} />
+          )}
         </span>
         <span className="composer-chip-name">{name}</span>
       </button>

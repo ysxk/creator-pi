@@ -235,6 +235,33 @@
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* Language badges (chat-links.css). These are the languages' own colours,
+     so they are the same in every theme. */
+  --ds-filetype-fg: #ffffff;
+  --ds-filetype-default: #64748b;
+  --ds-filetype-ts: #3178c6;
+  --ds-filetype-js: #b45309;
+  --ds-filetype-py: #2f6f9f;
+  --ds-filetype-rs: #ce412b;
+  --ds-filetype-go: #0e7490;
+  --ds-filetype-c: #00599c;
+  --ds-filetype-java: #c2410c;
+  --ds-filetype-kotlin: #7f52ff;
+  --ds-filetype-swift: #d9472b;
+  --ds-filetype-ruby: #b91c1c;
+  --ds-filetype-php: #6366a8;
+  --ds-filetype-html: #d9461f;
+  --ds-filetype-css: #0284c7;
+  --ds-filetype-sass: #be4b88;
+  --ds-filetype-vue: #2f9e6e;
+  --ds-filetype-svelte: #d9461f;
+  --ds-filetype-shell: #334155;
+  --ds-filetype-sql: #0369a1;
+  --ds-filetype-json: #a16207;
+  --ds-filetype-yaml: #b91c1c;
+  --ds-filetype-config: #475569;
+  --ds-filetype-md: #2563eb;
+  --ds-filetype-docker: #1d7fd0;
   /* Work-in-flight breathing (motion.css): one slow cycle with a rest. */
   --motion-breath-duration: 2.4s;
   --motion-ease-breath: cubic-bezier(0.37, 0, 0.63, 1);

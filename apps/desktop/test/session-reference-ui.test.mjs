@@ -82,7 +82,9 @@ const shared = load(new URL("../src/features/chat/transcript/shared.tsx", import
     useVerifiedChatText: (text) => splitChatText(String(text ?? ""), undefined),
   },
   "../../../components/ContextMenu": { ContextMenu: () => null },
+  "../../../components/FileTypeBadge": { FileTypeBadge: () => null },
   "../../../components/ImageHoverCard": { ImageHoverCard: () => null },
+  "../../../lib/file-type": { fileTypeOf: () => null },
   "../../../components/Markdown": {
     Markdown: ({ source }) => source,
     useCopy: () => ({ copied: false, copy: () => {} }),
