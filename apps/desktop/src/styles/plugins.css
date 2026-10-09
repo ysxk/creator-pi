@@ -292,7 +292,8 @@
   gap: 12px;
   padding: 13px 16px;
   border-radius: var(--radius-md-plus);
-  background: var(--plugins-tile);
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
@@ -959,8 +960,8 @@
 }
 
 .plugins-filter.active {
-  background: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
-  color: var(--ds-text-primary);
+  background: var(--ds-filter-active-bg);
+  color: var(--ds-filter-active-fg);
 }
 
 .plugins-card-grid {
@@ -974,7 +975,8 @@
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
-  background: var(--plugins-tile);
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
   overflow: hidden;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
@@ -985,7 +987,9 @@
 .plugins-card:hover {
   transform: translateY(-1px);
   background: var(--plugins-raised);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    inset 0 0 0 1px var(--ds-card-stroke),
+    0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .plugins-card.active {

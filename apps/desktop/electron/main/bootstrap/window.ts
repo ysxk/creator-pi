@@ -1510,6 +1510,18 @@ export async function createWindow({
             await windowState.mainWindow!.webContents.executeJavaScript(`
               document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
             `);
+            // The mode options rise from the chip on hover; React derives
+            // pointerenter from pointerover, so that is the event to send.
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.querySelector('.composer-mode')?.dispatchEvent(
+                new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }),
+              );
+            `);
+            await new Promise((r) => setTimeout(r, 300));
+            await shot("pi-mode-menu");
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            `);
             // Composer autocomplete scenes (D123–D125): "/" command menu and
             // "@" file menu. React's controlled textarea needs the native
             // value setter + input event to register the draft.

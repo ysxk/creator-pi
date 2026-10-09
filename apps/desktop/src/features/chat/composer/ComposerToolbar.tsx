@@ -20,13 +20,9 @@ import {
   IconStop,
   IconUndo2,
 } from "../../../components/icons";
-import { ModeIcon } from "./ComposerModeIcon";
+import { ComposerModeSwitch } from "./ComposerModeSwitch";
 import { LiveVoiceControls } from "../../voice/live/LiveVoiceControls";
 import { ComposerModelPicker } from "./ComposerModelPicker";
-import {
-  MODE_LABEL_KEYS,
-  nextMode,
-} from "./model";
 import type { useComposerModelMenu } from "./hooks/useComposerModelMenu";
 
 type ModelMenuController = ReturnType<typeof useComposerModelMenu>;
@@ -123,18 +119,16 @@ export function ComposerToolbar({
           </TooltipButton>
         </div>
         <LiveVoiceControls t={t} workSessionId={workSessionId} />
-        <TooltipButton
-          type="button"
-          className="icon-btn mode-chip composer-mode-chip"
-          data-mode={mode}
-          data-planning={planningLive ? "true" : undefined}
-          tooltip={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          ariaLabel={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          disabled={controlsBlocked}
-          onClick={async () => {
+        <ComposerModeSwitch
+          t={t}
+          mode={mode}
+          planningLive={planningLive}
+          controlsBlocked={controlsBlocked}
+          onBeforeChange={() => {
             modelMenu.setOpen(false);
             setPermissionOpen(false);
-            const next: Mode = nextMode(mode);
+          }}
+          onSelect={async (next) => {
             try {
               await configureActiveSession({
                 mode: next,
@@ -148,14 +142,7 @@ export function ComposerToolbar({
               });
             }
           }}
-        >
-          <span className="composer-mode-chip-face" key={mode}>
-            <ModeIcon mode={mode} />
-            <span className="composer-mode-chip-label text-sm">
-              {t(MODE_LABEL_KEYS[mode])}
-            </span>
-          </span>
-        </TooltipButton>
+        />
         <ComposerPermissionPicker t={t} mode={mode}
           composerPermissionMode={composerPermissionMode}
           permissionOpen={permissionOpen} setPermissionOpen={setPermissionOpen}

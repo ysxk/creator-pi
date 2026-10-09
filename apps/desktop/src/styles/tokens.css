@@ -116,6 +116,14 @@
   --ds-card-stroke: transparent;
   --ds-composer-stroke: transparent;
   --ds-pane-seam: transparent;
+  /* Composer toolbar chips: borderless pills here, quiet keys in light. */
+  --ds-composer-chip-bg: transparent;
+  --ds-composer-chip-stroke: transparent;
+  --ds-composer-chip-radius: var(--radius-full);
+  --ds-send-glow: none;
+  /* The selected filter pill: a deeper tile here, the accent fill in light. */
+  --ds-filter-active-bg: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
+  --ds-filter-active-fg: var(--ds-text-primary);
   --ds-status-running: var(--ds-success);
   --ds-status-running-halo: color-mix(in oklab, var(--ds-success) 25%, transparent);
   /* Settings fields and shared inset searches keep their built-in tones. */
@@ -328,6 +336,14 @@
   --ds-composer-stroke: color-mix(in oklab, #0f172a 12%, transparent);
   /* White panes meet white panes, so a hairline marks where one ends. */
   --ds-pane-seam: color-mix(in oklab, #0f172a 6%, transparent);
+  --ds-composer-radius: var(--radius-lg);
+  --ds-composer-radius-lg: var(--radius-lg);
+  --ds-composer-chip-bg: #f8fafc;
+  --ds-composer-chip-stroke: color-mix(in oklab, #0f172a 8%, transparent);
+  --ds-composer-chip-radius: var(--radius-sm);
+  --ds-send-glow: 0 2px 8px color-mix(in oklab, #059669 30%, transparent);
+  --ds-filter-active-bg: #047857;
+  --ds-filter-active-fg: #ffffff;
   --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 82%, transparent);
 }
 

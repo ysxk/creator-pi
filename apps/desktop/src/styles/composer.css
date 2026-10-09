@@ -165,7 +165,10 @@
   width: 100%;
   border-radius: var(--ds-composer-radius, var(--radius-2xl));
   background: var(--ds-bg-composer);
-  box-shadow: var(--ds-shadow-composer);
+  /* The stroke is a hairline in light and nothing in dark (D297). */
+  box-shadow:
+    var(--ds-shadow-composer),
+    0 0 0 1px var(--ds-composer-stroke);
   isolation: isolate;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
@@ -173,9 +176,11 @@
     transform var(--motion-duration-normal) var(--motion-ease-out);
 }
 
-/* Focus deepens the lift; the shell never gains a stroke (D297). */
+/* Focus deepens the lift; the stroke stays neutral, never an accent ring. */
 .composer-shell:focus-within {
-  box-shadow: 0 7px 24px color-mix(in oklab, var(--ds-text-primary) 9%, transparent);
+  box-shadow:
+    0 7px 24px color-mix(in oklab, var(--ds-text-primary) 9%, transparent),
+    0 0 0 1px var(--ds-composer-stroke);
 }
 
 /* Native file-system drops get a target cue without changing shell geometry. */
@@ -422,6 +427,7 @@
   justify-content: center;
   border-radius: var(--radius-full);
   background: var(--ds-accent);
+  box-shadow: var(--ds-send-glow);
   color: var(--ds-bg-primary);
   transition: opacity var(--motion-duration-fast) var(--motion-ease-out), transform var(--motion-duration-fast) var(--motion-ease-out);
 }
@@ -432,6 +438,7 @@
 
 .send-btn:disabled {
   opacity: 1;
+  box-shadow: none;
   background: var(--ds-send-disabled-bg);
   color: var(--ds-send-disabled-fg);
 }

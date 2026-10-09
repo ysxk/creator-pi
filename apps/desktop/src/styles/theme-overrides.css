@@ -51,7 +51,10 @@
   /* WorkBuddy-style restraint: one solid plate, no decorative gradient. */
   background: var(--ds-bg-composer);
   background-image: none;
-  box-shadow: var(--ds-shadow-composer);
+  /* A neutral hairline plus a soft lift; never an accent ring. */
+  box-shadow:
+    var(--ds-shadow-composer),
+    0 0 0 1px var(--ds-composer-stroke);
   outline: none;
   border: 0;
 }
@@ -202,6 +205,18 @@
   height: 28px;
   min-width: 28px;
   border-radius: var(--radius-full);
+}
+
+/* The left cluster (attach, mode, permission) reads as a row of quiet keys in
+   the light theme; in dark the same tokens leave them the bare pills they were. */
+.composer-left .icon-btn {
+  border-radius: var(--ds-composer-chip-radius) !important;
+  background: var(--ds-composer-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--ds-composer-chip-stroke);
+}
+
+.composer-left {
+  gap: 6px;
 }
 
 .mode-chip {

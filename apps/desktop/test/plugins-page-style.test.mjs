@@ -87,7 +87,7 @@ test("plugins installed rows are stacked tiles that let row menus overhang", () 
 
   assert.match(section, /\.plugins-list\s*\{[^}]*display:\s*flex[^}]*gap:\s*6px/);
   assert.doesNotMatch(section, /\.plugins-list\s*\{[^}]*overflow:\s*hidden/);
-  assert.match(section, /\.plugins-row\s*\{[^}]*border-radius:\s*var\(--radius-md-plus\)[^}]*background:\s*var\(--plugins-tile\)/);
+  assert.match(section, /\.plugins-row\s*\{[^}]*border-radius:\s*var\(--radius-md-plus\)[^}]*background:\s*var\(--ds-card\)/);
   assert.doesNotMatch(section, /\.plugins-row \+ \.plugins-row/);
   assert.doesNotMatch(section, /\.plugins-row:(first|last)-child/);
   assert.match(section, /\.plugins-menu\s*\{[\s\S]*?position:\s*fixed;/);

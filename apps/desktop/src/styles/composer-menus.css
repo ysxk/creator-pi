@@ -94,6 +94,110 @@
   visibility: hidden;
 }
 
+/*
+  The Agent / Plan / Goal options. They rise from the chip the pointer is
+  resting on, so the surface grows from its bottom-left corner and fades in
+  fast: it has to be there by the time the pointer stops, and gone without a
+  flourish when it leaves.
+*/
+.composer-mode {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.composer-mode-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  width: min(264px, calc(100vw - 24px));
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow: var(--ds-shadow-dialog);
+  color: var(--ds-text-primary);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.composer-mode-menu.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  animation: composer-menu-in var(--motion-duration-fast) var(--motion-ease-out);
+  transform-origin: bottom left;
+}
+
+.composer-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+
+.composer-mode-option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-mode-option:hover,
+.composer-mode-option:focus-visible {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+
+.composer-mode-option.active {
+  background: var(--ds-accent-tint);
+  color: var(--ds-accent-ink);
+}
+
+.composer-mode-option-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+}
+
+.composer-mode-option.active .composer-mode-option-icon,
+.composer-mode-option-check {
+  flex: 0 0 auto;
+  color: var(--ds-accent);
+}
+
+.composer-mode-option-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.composer-mode-option-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-compact);
+}
+
+/* Wraps instead of truncating: the line is the whole point of the row. */
+.composer-mode-option-desc {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-compact);
+}
+
 .composer-permission-menu.is-open,
 .composer-model-menu.is-open {
   opacity: 1;
