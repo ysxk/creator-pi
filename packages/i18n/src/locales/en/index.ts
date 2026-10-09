@@ -1587,6 +1587,7 @@ sklm: {
     thinkingProtocolAdaptive: "Adaptive",
     modelCapabilities: "Capabilities",
     imageInput: "Images",
+    videoInput: "Video",
     documentInput: "PDF",
     thinkingManualOverrideHint: "Not in catalog; enable if supported.",
     contextWindowCatalogHint: "Follows models.dev; editing pins your value.",

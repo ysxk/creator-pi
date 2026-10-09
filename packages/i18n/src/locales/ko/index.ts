@@ -1580,6 +1580,7 @@ sklm: {
     thinkingProtocolAdaptive: "적응형",
     modelCapabilities: "기능",
     imageInput: "이미지",
+    videoInput: "Video",
     documentInput: "PDF",
     thinkingManualOverrideHint: "카탈로그에 없음. 지원되는 경우 활성화하세요.",
     contextWindowCatalogHint: "models.dev를 따릅니다. 수정하면 내 값으로 고정됩니다.",

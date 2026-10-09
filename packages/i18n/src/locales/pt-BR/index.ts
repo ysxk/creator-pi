@@ -1527,6 +1527,7 @@ export const ptBR = {
     thinkingProtocolAdaptive: "Adaptativo",
     modelCapabilities: "Recursos",
     imageInput: "Imagens",
+    videoInput: "Video",
     documentInput: "PDF",
     thinkingManualOverrideHint: "Substitui a configuração padrão de raciocínio deste modelo.",
     contextWindowCatalogHint: "Segue models.dev; editar fixa o seu valor.",

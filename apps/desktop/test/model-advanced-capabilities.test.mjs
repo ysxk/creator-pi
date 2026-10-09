@@ -63,6 +63,11 @@ test("the capability checkboxes show and follow the published value", () => {
   assert.match(pickerSource, /settings\.documentInput/);
   assert.match(pickerSource, /supportsImages: next/);
   assert.match(pickerSource, /supportsDocuments: next/);
+  // Video has the same override: a proxy that lists a model without the
+  // modality would otherwise leave inline video unreachable from Settings.
+  assert.match(pickerSource, /settings\.videoInput/);
+  assert.match(pickerSource, /supportsVideos: next/);
+  assert.match(pickerSource, /published=\{publishedVideos\}/);
   // A deliberate checkbox change pins the selected value even when it equals
   // today's catalog value; later catalog corrections must not undo that choice.
   assert.match(pickerSource, /onChange\(event\.target\.checked\)/);

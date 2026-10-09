@@ -1570,6 +1570,7 @@ sklm: {
     thinkingProtocolAdaptive: "Uyarlanabilir",
     modelCapabilities: "Yetenekler",
     imageInput: "Görüntüler",
+    videoInput: "Video",
     documentInput: "PDF",
     thinkingManualOverrideHint: "Katalogda yok; destekleniyorsa açın.",
     contextWindowCatalogHint: "models.dev'i takip eder; düzenlerseniz değeriniz sabitlenir.",

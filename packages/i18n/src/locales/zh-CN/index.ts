@@ -1552,6 +1552,7 @@ sklm: {
     thinkingProtocolAdaptive: "自适应",
     modelCapabilities: "能力",
     imageInput: "图片",
+    videoInput: "视频",
     documentInput: "PDF",
     thinkingManualOverrideHint: "目录未标注，可手动开启",
     contextWindowCatalogHint: "跟随 models.dev；手动修改后会固定为你的值",

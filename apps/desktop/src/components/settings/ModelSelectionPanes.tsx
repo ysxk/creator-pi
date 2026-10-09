@@ -628,6 +628,12 @@ export function ModelSelectionPanes({
                   ? undefined
                   : binding.maxTokens;
               const publishedDocuments = info ? modelMatchesFilter(info, "pdf") : false;
+              // A proxied endpoint often lists a video-capable model without
+              // the modality, and the transport gate reads this same answer.
+              const publishedVideos = info
+                ? info.capabilities.includes("video") ||
+                  (info.modalities?.input?.includes("video") ?? false)
+                : false;
               const expanded = expandedModelId === binding.id;
               const imageModelSelected = imageModelIds?.some((modelId) =>
                 modelId.toLowerCase() === binding.id.toLowerCase(),
@@ -946,6 +952,14 @@ export function ModelSelectionPanes({
                           value={binding.supportsImages}
                           onChange={(next) =>
                             updateBinding(binding.id, { supportsImages: next })
+                          }
+                        />
+                        <CapabilityToggle
+                          label={t("settings.videoInput")}
+                          published={publishedVideos}
+                          value={binding.supportsVideos}
+                          onChange={(next) =>
+                            updateBinding(binding.id, { supportsVideos: next })
                           }
                         />
                         <CapabilityToggle

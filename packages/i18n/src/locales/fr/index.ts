@@ -1564,6 +1564,7 @@ sklm: {
     "thinkingProtocolAdaptive": "Adaptatif",
     "modelCapabilities": "Capacités",
     "imageInput": "Images",
+    "videoInput": "Video",
     "documentInput": "PDF",
     "thinkingManualOverrideHint": "Pas dans le catalogue ; activer si pris en charge.",
     "contextWindowCatalogHint": "Suit models.dev ; une modification fixe votre valeur.",
