@@ -75,10 +75,11 @@ test("a late avatar read cannot overwrite a newer write", () => {
 test("the @ menu offers subagents above the file index", () => {
   assert.match(autocomplete, /kind: "subagent"; agent: SubagentDefinition/);
   assert.match(autocomplete, /filterSubagents\(listed, trigger\.query\)/);
-  // Delegation mention inserts plain @name text the model's Task catalog knows.
+  // A delegation mention is a chip whose path is the handle, so the prompt
+  // still carries the `@name` the model's Task catalog knows.
   assert.match(
     autocomplete,
-    /applyCompletion\(value, trigger, formatFileInsert\(item\.agent\.name, "file"\)\)/,
+    /fileReference: \{ path: item\.agent\.name, name: item\.agent\.name, subagent: true \}/,
   );
   assert.match(autocompleteView, /chat\.atGroupAgents/);
   assert.match(autocompleteView, /<SubagentAvatar name=\{item\.agent\.name\}/);
