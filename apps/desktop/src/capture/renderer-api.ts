@@ -48,6 +48,7 @@ const CAPTURE_RIG_METHODS = [
   "seedTranscript",
   "seedReviewChanges",
   "seedRunRows",
+  "seedFileRows",
   "seedDelegationRows",
   "seedPlugins",
   "seedExtensions",

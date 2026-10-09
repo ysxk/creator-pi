@@ -1576,7 +1576,45 @@ export async function createWindow({
             `);
             await new Promise((r) => setTimeout(r, 300));
             await shot("pi-composer-at-agent");
+            // Enter accepts the highlighted subagent: it lands in the draft as
+            // a chip led by its portrait.
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.querySelector(".composer-shell .composer-input")?.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+              );
+            `);
+            await new Promise((r) => setTimeout(r, 300));
+            await shot("pi-composer-agent-chip");
             await setComposerDraft("");
+            // File rows: marks beside paths, line counts on edits, file chips in
+            // prose and a code block on the card surface.
+            await windowState.mainWindow!.webContents.executeJavaScript(
+              `void window.__PI_DESKTOP__?.seedFileRows?.(1)`,
+            );
+            await new Promise((r) => setTimeout(r, 400));
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              (() => {
+                for (const header of document.querySelectorAll(".tool-activity-header")) {
+                  if (header.getAttribute("aria-expanded") !== "true") {
+                    header.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+                  }
+                }
+              })()
+            `);
+            await new Promise((r) => setTimeout(r, 900));
+            await shot("pi-file-rows");
+            await windowState.mainWindow!.webContents.executeJavaScript(
+              `window.__PI_DESKTOP__?.setThemeAttr("dark")`,
+            );
+            await new Promise((r) => setTimeout(r, 350));
+            await shot("pi-file-rows-dark");
+            await windowState.mainWindow!.webContents.executeJavaScript(
+              `window.__PI_DESKTOP__?.setThemeAttr("light")`,
+            );
+            await windowState.mainWindow!.webContents.executeJavaScript(
+              `void window.__PI_DESKTOP__?.seedFileRows?.(0)`,
+            );
+            await new Promise((r) => setTimeout(r, 250));
             await new Promise((r) => setTimeout(r, 200));
             // Conversation minimap: seed a capture-only transcript, magnify
             // mid-rail (Dock effect + preview popover), then restore.

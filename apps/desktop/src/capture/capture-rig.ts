@@ -34,6 +34,7 @@ export type CaptureRigMethods = {
   seedTranscript: (count?: number) => void;
   seedReviewChanges: (count?: number) => void;
   seedRunRows: (count?: number) => void;
+  seedFileRows: (count?: number) => void;
   seedDelegationRows: (count?: number) => void;
   seedPlugins: (count?: number) => void;
   seedExtensions: (count?: number) => void;
@@ -286,6 +287,88 @@ export function installCaptureRig(): CaptureRig {
         ],
       );
       useAppStore.setState({ messages: messages as any });
+    },
+    seedFileRows: (count = 1) => {
+      // Capture-only file-row fixture: a read with its line range, an edit and
+      // a write with their line counts, then a reply naming files in prose
+      // above a code block; count 0 restores the empty transcript.
+      if (!window.__PI_CAPTURE__) return;
+      if (count <= 0) {
+        useAppStore.setState({ messages: [] });
+        return;
+      }
+      const at = (offset: number) =>
+        new Date(Date.parse("2026-08-14T10:00:00Z") + offset * 1000).toISOString();
+      const tool = (
+        index: number,
+        toolName: string,
+        toolArgs: Record<string, unknown>,
+        toolResult: Record<string, unknown>,
+      ) => ({
+        id: `capture-file-${index}`,
+        role: "tool" as const,
+        content: "",
+        createdAt: at(index),
+        toolCallId: `capture-file-${index}`,
+        toolName,
+        toolArgs,
+        toolStatus: "success" as const,
+        toolResult,
+        toolCompletedAt: at(index + 1),
+        status: "complete" as const,
+      });
+      useAppStore.setState({
+        messages: [
+          {
+            id: "capture-file-user",
+            role: "user" as const,
+            content: "把自动补全的缓存按工作区分开",
+            createdAt: at(0),
+            status: "complete" as const,
+          },
+          tool(
+            1,
+            "Read",
+            { path: "apps/desktop/src/hooks/use-composer-autocomplete.ts", offset: 255, limit: 53 },
+            { path: "apps/desktop/src/hooks/use-composer-autocomplete.ts", content: "", offset: 255, lines: 53, totalLines: 420 },
+          ),
+          tool(
+            2,
+            "Edit",
+            { path: "apps/desktop/src/hooks/use-composer-autocomplete.ts" },
+            { path: "apps/desktop/src/hooks/use-composer-autocomplete.ts", tag: "A1B2", additions: 48, deletions: 7 },
+          ),
+          tool(
+            3,
+            "Edit",
+            { path: "crates/host-core/src/user_subagents.rs" },
+            { path: "crates/host-core/src/user_subagents.rs", tag: "C3D4", additions: 12, deletions: 3 },
+          ),
+          tool(
+            4,
+            "Write",
+            { path: "apps/desktop/src/styles/subagent-board.css" },
+            { path: "apps/desktop/src/styles/subagent-board.css", bytes: 2048, tag: "E5F6", additions: 86, deletions: 0 },
+          ),
+          {
+            id: "capture-file-reply",
+            role: "assistant" as const,
+            content: [
+              "缓存现在按工作区分键，改动在 `apps/desktop/src/hooks/use-composer-autocomplete.ts`，",
+              "底层的遮蔽规则在 `crates/host-core/src/user_subagents.rs`，样式在 `apps/desktop/src/styles/subagent-board.css`，",
+              "说明见 `docs/adr/0326-project-level-subagent-definitions.md`。",
+              "",
+              "```ts",
+              "let subagentsCache: { key: string; at: number; agents: SubagentDefinition[] } | null = null;",
+              "",
+              "if (subagentsCache?.key === workspaceKey) setSubagents(subagentsCache.agents);",
+              "```",
+            ].join("\n"),
+            createdAt: at(6),
+            status: "complete" as const,
+          },
+        ] as any,
+      });
     },
     seedRunRows: (count = 3) => {
       // Capture-only run-row fixture (D226/D227 head scenes). A Bash tool
