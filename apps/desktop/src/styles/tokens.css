@@ -116,6 +116,16 @@
   --ds-card-stroke: transparent;
   --ds-composer-stroke: transparent;
   --ds-pane-seam: transparent;
+  /* Image viewers: the veil over the window, and the controls floating on it.
+     Dark keeps the opaque stage it had; light frosts the window instead. */
+  --ds-viewer-veil: var(--ds-bg-primary);
+  --ds-viewer-blur: 0px;
+  --ds-viewer-image-shadow: 0 12px 40px #0002;
+  --ds-preview-veil: color-mix(in oklab, var(--gray-1000) 92%, transparent);
+  --ds-preview-ink: var(--gray-0);
+  --ds-preview-control-bg: var(--gray-800);
+  --ds-preview-control-hover: var(--gray-700);
+  --ds-preview-control-stroke: transparent;
   --ds-send-glow: none;
   /* The selected filter pill: a deeper tile here, the accent fill in light. */
   --ds-filter-active-bg: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
@@ -367,6 +377,14 @@
   --ds-composer-stroke: color-mix(in oklab, #0f172a 12%, transparent);
   /* White panes meet white panes, so a hairline marks where one ends. */
   --ds-pane-seam: color-mix(in oklab, #0f172a 6%, transparent);
+  --ds-viewer-veil: color-mix(in oklab, #ffffff 70%, transparent);
+  --ds-viewer-blur: 18px;
+  --ds-viewer-image-shadow: 0 24px 64px color-mix(in oklab, #0f172a 18%, transparent);
+  --ds-preview-veil: var(--ds-viewer-veil);
+  --ds-preview-ink: var(--ds-text-primary);
+  --ds-preview-control-bg: #ffffff;
+  --ds-preview-control-hover: #f1f5f9;
+  --ds-preview-control-stroke: color-mix(in oklab, #0f172a 8%, transparent);
   --ds-composer-radius: var(--radius-lg);
   --ds-composer-radius-lg: var(--radius-lg);
   --ds-send-glow: 0 2px 8px color-mix(in oklab, #059669 30%, transparent);

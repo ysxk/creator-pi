@@ -9,8 +9,11 @@
   margin: 0;
   padding: 24px 32px;
   border: 0;
-  background: transparent;
-  color: var(--gray-0);
+  /* A veil over the window; the light theme frosts it (see the tokens). */
+  background: var(--ds-preview-veil);
+  -webkit-backdrop-filter: blur(var(--ds-viewer-blur));
+  backdrop-filter: blur(var(--ds-viewer-blur));
+  color: var(--ds-preview-ink);
   overflow: hidden;
   -webkit-app-region: no-drag;
 }
@@ -22,7 +25,7 @@
 }
 
 .composer-image-preview::backdrop {
-  background: color-mix(in oklab, var(--gray-1000) 92%, transparent);
+  background: transparent;
 }
 
 .composer-image-preview-header {
@@ -39,6 +42,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-sm);
+}
+
+/* Download and Close float on the veil as their own pills. */
+.composer-image-preview-header > a,
+.composer-image-preview-header > button {
+  border-radius: var(--radius-full);
+  background: var(--ds-preview-control-bg);
+  box-shadow: 0 0 0 1px var(--ds-preview-control-stroke);
 }
 
 .composer-image-preview-viewport {
@@ -59,7 +70,8 @@
   max-width: none;
   max-height: none;
   object-fit: contain;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md-plus);
+  box-shadow: var(--ds-viewer-image-shadow);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -77,11 +89,12 @@
   flex-wrap: wrap;
   flex: 0 0 auto;
   align-items: center;
-  align-self: flex-start;
-  gap: 8px;
+  align-self: center;
+  gap: 4px;
   padding: 4px;
-  border-radius: var(--radius-lg);
-  background: var(--gray-800);
+  border-radius: var(--radius-full);
+  background: var(--ds-preview-control-bg);
+  box-shadow: 0 0 0 1px var(--ds-preview-control-stroke);
   font-size: var(--text-sm);
 }
 
@@ -94,7 +107,7 @@
   min-height: 36px;
   padding: 8px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -102,9 +115,9 @@
 
 .composer-image-preview button:disabled { opacity: 0.4; cursor: default; }
 .composer-image-preview button:hover:not(:disabled),
-.composer-image-preview a:hover { background: var(--gray-700); }
+.composer-image-preview a:hover { background: var(--ds-preview-control-hover); }
 .composer-image-preview button:focus-visible,
-.composer-image-preview a:focus-visible { outline: 2px solid var(--gray-0); outline-offset: 2px; }
+.composer-image-preview a:focus-visible { outline: 2px solid var(--ds-preview-ink); outline-offset: 2px; }
 .composer-image-preview output { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 600px) {

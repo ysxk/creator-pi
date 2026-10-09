@@ -104,30 +104,33 @@
   padding: 0;
   border: 0;
   overflow: hidden;
-  background: var(--ds-bg-primary);
+  /* The viewer is a veil over the window, not a second window: in the light
+     theme the conversation stays visible behind it, frosted. */
+  background: var(--ds-viewer-veil);
+  -webkit-backdrop-filter: blur(var(--ds-viewer-blur));
+  backdrop-filter: blur(var(--ds-viewer-blur));
   color: var(--ds-text-primary);
   -webkit-app-region: no-drag;
 }
 .generated-image-viewer[open] { display: flex; flex-direction: column; }
-.generated-image-viewer::backdrop { background: var(--ds-bg-primary); }
+.generated-image-viewer::backdrop { background: transparent; }
+/* No bar across the top: the controls float on the veil as separate pills,
+   and Close sits last, on the right, away from the window's own buttons. */
 .generated-image-viewer-header {
   box-sizing: border-box;
   display: flex;
   flex: 0 0 56px;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
-  padding: 0 18px;
-  border-bottom: 1px solid var(--ds-border-default);
+  padding: 0 16px;
 }
+.generated-image-viewer-header > button:first-child { order: 2; }
+/* The name is the dialog's label already; here it only holds the space. */
 .generated-image-viewer-header strong {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
+  visibility: hidden;
 }
 .generated-image-viewer-header-actions,
 .generated-image-viewer-navigation,
@@ -151,6 +154,27 @@
 .generated-image-viewer button:disabled { opacity: 0.38; cursor: default; }
 .generated-image-viewer button:focus-visible,
 .generated-image-viewer a:focus-visible { outline: 2px solid var(--ds-text-primary); outline-offset: 2px; }
+.generated-image-viewer-header > button,
+.generated-image-viewer-header-actions > button,
+.generated-image-viewer-header-actions > a,
+.generated-image-viewer-navigation,
+.generated-image-viewer-zoom {
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow:
+    0 0 0 1px var(--ds-border-subtle),
+    var(--ds-shadow-composer);
+}
+.generated-image-viewer-header > button:hover:not(:disabled),
+.generated-image-viewer-header-actions > button:hover:not(:disabled),
+.generated-image-viewer-header-actions > a:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 6%, var(--ds-bg-elevated-opaque));
+}
+.generated-image-viewer-header-actions { gap: 8px; }
+.generated-image-viewer-navigation,
+.generated-image-viewer-zoom {
+  padding: 3px;
+  border-radius: var(--radius-full);
+}
 .generated-image-viewer-body {
   display: flex;
   flex: 1;
@@ -166,7 +190,6 @@
   gap: 20px;
   padding: 16px 8px;
   overflow: auto;
-  border-right: 1px solid var(--ds-border-default);
 }
 .generated-image-viewer .generated-image-viewer-thumb {
   box-sizing: border-box;
@@ -201,23 +224,22 @@
   max-height: 100%;
   margin: auto;
   object-fit: contain;
-  box-shadow: 0 12px 40px #0002;
+  border-radius: var(--radius-md-plus);
+  box-shadow: var(--ds-viewer-image-shadow);
 }
 .generated-image-viewer-viewport > img[data-sized="true"] { max-width: none; max-height: none; }
 .generated-image-viewer-viewport p { color: var(--ds-text-secondary); }
 .generated-image-viewer-footer {
   box-sizing: border-box;
   display: flex;
-  flex: 0 0 60px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex: 0 0 64px;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
   padding: 0 22px;
-  border-top: 1px solid var(--ds-border-default);
   font-size: var(--text-sm);
 }
 .generated-image-viewer-footer output { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
-.generated-image-viewer-footer > :only-child { margin-left: auto; }
 
 @media (max-width: 520px) {
   .generated-image-set.is-multiple { padding-right: 60px; }
@@ -232,8 +254,6 @@
     flex-direction: row;
     justify-content: center;
     padding: 8px;
-    border-right: 0;
-    border-top: 1px solid var(--ds-border-default);
   }
   .generated-image-viewer-viewport { padding: 12px; }
   .generated-image-viewer-footer { padding: 0 8px; }

@@ -139,7 +139,15 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
         {images.length > 1 ? <nav className="generated-image-viewer-thumbs" aria-label={t("chat.imagePreview.title")}>
           {images.map((image, index) => <GeneratedImageThumbnail key={image.path} image={image} selected={index === selectedIndex} onSelect={() => void selectImage(index)} className="generated-image-viewer-thumb" />)}
         </nav> : null}
-        <div className="generated-image-viewer-viewport" ref={viewportRef}>
+        {/* The veil around the picture is the way out: a click that lands on
+            it, not on the picture, closes the viewer. */}
+        <div
+          className="generated-image-viewer-viewport"
+          ref={viewportRef}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeViewer();
+          }}
+        >
           {src && failedSrc !== src ? <img
             src={src}
             alt={t("settings.generatedImage", { index: selected.index + 1 })}
