@@ -293,6 +293,11 @@ export const ko = {
     fileNoWorkspace: "파일을 참조하려면 프로젝트를 여세요",
     fileTruncated: "일치하는 파일 중 처음 8000개 표시",
     acHint: "↑↓ 선택 · Enter 확인 · Esc 닫기",
+    acHintAgents: "↑↓ files · ←→ subagents · Enter insert · Esc close",
+    atAgentReadOnly: "read-only",
+    atAgentCanEdit: "can edit files",
+    atAgentCanRun: "can run commands",
+    atAgentModelInherit: "session model",
     send: "보내기",
     todo: {
       progress: "{{completed}}/{{total}} 완료",

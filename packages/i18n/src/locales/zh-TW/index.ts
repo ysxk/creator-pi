@@ -286,6 +286,11 @@ export const zhTW = {
     fileNoWorkspace: "開啟專案後即可引用檔案",
     fileTruncated: "僅顯示前 8000 個匹配檔案",
     acHint: "↑↓ 選擇 · Enter 確認 · Esc 關閉",
+    acHintAgents: "↑↓ 瀏覽檔案 · ←→ 選擇子智慧體 · Enter 插入 · Esc 關閉",
+    atAgentReadOnly: "唯讀",
+    atAgentCanEdit: "可修改檔案",
+    atAgentCanRun: "可執行命令",
+    atAgentModelInherit: "跟隨會話模型",
     send: "傳送",
     todo: {
       progress: "已完成 {{completed}}/{{total}}",

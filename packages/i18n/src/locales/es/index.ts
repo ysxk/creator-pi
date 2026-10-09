@@ -284,6 +284,11 @@ export const es = {
     "fileNoWorkspace": "Abrir un proyecto para hacer referencia a archivos",
     "fileTruncated": "Mostrando el primero 8000 archivos coincidentes",
     "acHint": "↑↓ seleccionar · Ingresar confirmar · Esc cerrar",
+    "acHintAgents": "↑↓ files · ←→ subagents · Enter insert · Esc close",
+    "atAgentReadOnly": "read-only",
+    "atAgentCanEdit": "can edit files",
+    "atAgentCanRun": "can run commands",
+    "atAgentModelInherit": "session model",
     "send": "Enviar",
     "todo": {
       "progress": "{{completed}}/{{total}} completadas",

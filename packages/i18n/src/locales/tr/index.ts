@@ -293,6 +293,11 @@ export const tr = {
     fileNoWorkspace: "Dosyalara başvurmak için bir proje açın",
     fileTruncated: "İlk 8000 eşleşen dosya gösteriliyor",
     acHint: "↑↓ seç · Enter onayla · Esc kapat",
+    acHintAgents: "↑↓ files · ←→ subagents · Enter insert · Esc close",
+    atAgentReadOnly: "read-only",
+    atAgentCanEdit: "can edit files",
+    atAgentCanRun: "can run commands",
+    atAgentModelInherit: "session model",
     send: "Gönder",
     todo: {
       progress: "{{completed}}/{{total}} tamamlandı",

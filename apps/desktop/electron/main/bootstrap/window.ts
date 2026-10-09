@@ -1535,23 +1535,25 @@ export async function createWindow({
               document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
             `);
             // Composer autocomplete scenes (D123–D125): "/" command menu and
-            // "@" file menu. React's controlled textarea needs the native
-            // value setter + input event to register the draft.
+            // "@" file menu. The editor is contenteditable, so the draft is
+            // typed through the editing command it handles as real input.
             const setComposerDraft = (draft: string) =>
               windowState.mainWindow!.webContents.executeJavaScript(`
                 (() => {
-                  const ta = document.querySelector("textarea.composer-input");
-                  if (!ta) return false;
-                  ta.focus();
-                  const set = Object.getOwnPropertyDescriptor(
-                    HTMLTextAreaElement.prototype,
-                    "value",
-                  ).set;
-                  set.call(ta, ${JSON.stringify(draft)});
-                  ta.dispatchEvent(new Event("input", { bubbles: true }));
+                  const editor = document.querySelector(".composer-shell .composer-input");
+                  if (!editor) return false;
+                  editor.focus();
+                  document.execCommand("selectAll", false);
+                  document.execCommand("delete", false);
+                  if (${JSON.stringify(draft)}) {
+                    document.execCommand("insertText", false, ${JSON.stringify(draft)});
+                  }
                   return true;
                 })()
               `);
+            // The editor reads its caret from the live selection, which needs a
+            // focused page even when the capture window is not the key window.
+            windowState.mainWindow!.webContents.focus();
             await setComposerDraft("/");
             await new Promise((r) => setTimeout(r, 450));
             const slashProbe = await windowState.mainWindow!.webContents.executeJavaScript(
@@ -1566,6 +1568,14 @@ export async function createWindow({
             );
             console.log("COMPOSER_AC_AT", atProbe);
             await shot("pi-composer-at");
+            // Right arrow at the end of the token moves into the subagent strip.
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.querySelector(".composer-shell .composer-input")?.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
+              );
+            `);
+            await new Promise((r) => setTimeout(r, 300));
+            await shot("pi-composer-at-agent");
             await setComposerDraft("");
             await new Promise((r) => setTimeout(r, 200));
             // Conversation minimap: seed a capture-only transcript, magnify

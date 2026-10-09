@@ -43,6 +43,183 @@
   visibility: visible;
 }
 
+/*
+  Subagents in the `@` panel: a strip of portraits above the file list, in the
+  same card. Reaching for a file never has to step over them, and the one the
+  keyboard is on explains itself in a slot under the strip that is part of the
+  card's flow, so nothing floats over the transcript and the list does not jump.
+*/
+.composer-ac-agents {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 6px 8px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.composer-ac-agents-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.composer-ac-agent-strip {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+
+/* The highlight scrolls its portrait into view; a bar would only add height. */
+.composer-ac-agent-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.composer-ac-agent {
+  display: flex;
+  width: 88px;
+  flex: 0 0 88px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-ac-agent:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+
+.composer-ac-agent-avatar {
+  display: inline-flex;
+  border-radius: var(--radius-full);
+  transition: box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+/* The chosen subagent is ringed in ink, not in the accent. */
+.composer-ac-agent.kb-active {
+  background: var(--ds-tile);
+  color: var(--ds-text-primary);
+}
+
+.composer-ac-agent.kb-active .composer-ac-agent-avatar {
+  box-shadow:
+    0 0 0 2px var(--ds-bg-elevated-opaque),
+    0 0 0 3.5px var(--ds-text-primary);
+}
+
+.composer-ac-agent-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-compact);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-ac-agent-handle-line {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ds-text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-ac-agent-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 2px 2px 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ds-tile);
+  animation: notice-in var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-ac-agent-detail-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-ac-agent-handle {
+  flex: 0 0 auto;
+  color: var(--ds-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.composer-ac-agent-tag {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-2xs);
+  background: var(--ds-tile-deep);
+  color: var(--ds-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-compact);
+}
+
+.composer-ac-agent-model {
+  min-width: 0;
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: var(--ds-text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-ac-agent-desc {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.composer-ac-agent-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.composer-ac-agent-tools > code {
+  padding: 1px 6px;
+  border-radius: var(--radius-2xs);
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow: inset 0 0 0 1px var(--ds-border-subtle);
+  color: var(--ds-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-compact);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-ac-agent-detail {
+    animation: none;
+  }
+}
+
 .composer-ac-list {
   overflow-y: auto;
   padding: 6px;

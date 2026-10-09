@@ -1,6 +1,16 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import type { ComposerCommand } from "@pi-desktop/shared";
+import type { TFunction } from "i18next";
+import {
+  subagentModelKey,
+  type ComposerCommand,
+  type SubagentDefinition,
+} from "@pi-desktop/shared";
+import {
+  subagentDisplayDescription,
+  subagentDisplayName,
+  subagentReachKey,
+} from "../lib/subagent-names";
 import type {
   CompletionController,
   CompletionItem,
@@ -54,6 +64,37 @@ const GROUP_KEYS: Record<ComposerCommand["kind"], string> = {
   mcp: "chat.slashGroupMcp",
 };
 
+/**
+ * What one subagent is, in the terms its definition is written in: the handle
+ * `Task` takes, whether it can change files, the model it runs on, what it is
+ * for, and the tools it was granted. It sits in a fixed slot under the strip,
+ * so choosing a subagent never moves the file list.
+ */
+function AgentDetail({ t, agent }: { t: TFunction; agent: SubagentDefinition }) {
+  const tools = agent.inheritTools ? ["inherit", ...agent.tools] : agent.tools;
+  const description = subagentDisplayDescription(t, agent);
+  return (
+    <div className="composer-ac-agent-detail">
+      <div className="composer-ac-agent-detail-head">
+        <code className="composer-ac-agent-handle">Task({agent.name})</code>
+        <span className="composer-ac-agent-tag">{t(subagentReachKey(agent))}</span>
+        {agent.source === "project" ? (
+          <span className="composer-ac-agent-tag">{t("settings.capabilityFilterProject")}</span>
+        ) : null}
+        <span className="composer-ac-agent-model">
+          {agent.model ? subagentModelKey(agent.model) : t("chat.atAgentModelInherit")}
+        </span>
+      </div>
+      {description ? <p className="composer-ac-agent-desc">{description}</p> : null}
+      <div className="composer-ac-agent-tools">
+        {tools.map((tool) => (
+          <code key={tool}>{tool}</code>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CommandIcon({ kind }: { kind: ComposerCommand["kind"] }) {
   if (kind === "template") return <IconSlash size={14} />;
   if (kind === "skill") return <IconBookOpen size={14} />;
@@ -75,9 +116,10 @@ export function ComposerAutocomplete({
 
   useEffect(() => {
     if (!ac.open) return;
-    listRef.current
+    // The strip and the list are siblings; the highlight can be in either.
+    listRef.current?.parentElement
       ?.querySelector(`[data-ac-index="${ac.highlight}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [ac.open, ac.highlight]);
 
   if (!ac.open) return null;
@@ -142,17 +184,16 @@ export function ComposerAutocomplete({
       return (
         <button
           {...commonProps}
+          className={`composer-ac-agent ${active ? "kb-active" : ""}`}
           title={item.agent.description || item.agent.name}
         >
-          <span className="composer-ac-icon subagent-ac-avatar">
-            <SubagentAvatar name={item.agent.name} size={18} />
+          <span className="composer-ac-agent-avatar subagent-ac-avatar">
+            <SubagentAvatar name={item.agent.name} size={30} />
           </span>
-          <span className="composer-ac-name">
+          <span className="composer-ac-agent-name">{subagentDisplayName(t, item.agent.name)}</span>
+          <span className="composer-ac-agent-handle-line">
             @<Highlighted text={item.agent.name} ranges={item.match.ranges} />
           </span>
-          {item.agent.description ? (
-            <span className="composer-ac-desc">{item.agent.description}</span>
-          ) : null}
         </button>
       );
     }
@@ -173,9 +214,16 @@ export function ComposerAutocomplete({
     );
   };
 
+  // In the `@` panel the leading subagents form a strip above the list; the
+  // highlight index still runs through both, strip first.
+  const strip: React.ReactNode[] = [];
   const rows: React.ReactNode[] = [];
   let lastGroup: string | null = null;
   ac.items.forEach((item, index) => {
+    if (item.kind === "subagent") {
+      strip.push(renderRow(item, index));
+      return;
+    }
     if (item.kind === "command") {
       const group = item.command.kind;
       if (group !== lastGroup) {
@@ -183,15 +231,6 @@ export function ComposerAutocomplete({
         rows.push(
           <div key={`g:${group}`} className="composer-model-group-label">
             {t(GROUP_KEYS[group])}
-          </div>,
-        );
-      }
-    } else if (item.kind === "subagent") {
-      if (lastGroup !== "subagents") {
-        lastGroup = "subagents";
-        rows.push(
-          <div key="g:subagents" className="composer-model-group-label">
-            {t("chat.atGroupAgents")}
           </div>,
         );
       }
@@ -206,6 +245,9 @@ export function ComposerAutocomplete({
     }
     rows.push(renderRow(item, index));
   });
+
+  const highlighted = ac.items[ac.highlight];
+  const focusedAgent = highlighted?.kind === "subagent" ? highlighted.agent : null;
 
   const emptyKey =
     ac.mode === "file"
@@ -234,6 +276,15 @@ export function ComposerAutocomplete({
       initialFocus="none"
       trigger={() => null}
     >
+      {strip.length > 0 ? (
+        <div className="composer-ac-agents">
+          <div className="composer-ac-agents-head">
+            <span className="composer-model-group-label">{t("chat.atGroupAgents")}</span>
+          </div>
+          <div className="composer-ac-agent-strip">{strip}</div>
+          {focusedAgent ? <AgentDetail t={t} agent={focusedAgent} /> : null}
+        </div>
+      ) : null}
       <div className="composer-ac-list" ref={listRef}>
         {rows.length > 0 ? (
           rows
@@ -242,7 +293,7 @@ export function ComposerAutocomplete({
         )}
       </div>
       <div className="composer-ac-footer">
-        <span>{t("chat.acHint")}</span>
+        <span>{t(strip.length > 0 ? "chat.acHintAgents" : "chat.acHint")}</span>
         {ac.truncated ? (
           <span className="composer-ac-truncated">{t("chat.fileTruncated")}</span>
         ) : null}

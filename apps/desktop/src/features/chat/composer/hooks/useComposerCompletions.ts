@@ -23,6 +23,7 @@ import {
   useComposerAutocomplete,
   type AutocompleteItem,
 } from "../../../../hooks/use-composer-autocomplete";
+import { initialHighlight } from "../../../../lib/composer-ac-navigation";
 import { slotRegistry } from "../../../../plugins/renderer-slots/registry";
 import { useAppStore } from "../../../../stores/app-store";
 import { isVideoAttachment } from "@pi-desktop/shared";
@@ -54,6 +55,10 @@ export type CompletionController = {
   hasItems: boolean;
   highlight: number;
   setHighlight: (index: number) => void;
+  /** Text typed after the host's trigger character. */
+  query: string;
+  /** Whitespace or the end of the draft follows the caret. */
+  caretAtTokenEnd: boolean;
   truncated: boolean;
   noWorkspace: boolean;
   close: () => void;
@@ -148,11 +153,14 @@ export function useComposerCompletions({
     [hostItems, pluginItems],
   );
 
-  // A new query restarts keyboard navigation at the top hit.
+  // A new query restarts keyboard navigation at the top hit. In the `@` panel
+  // that is the first file, not the subagent strip above it, and the answer
+  // can change after the query does: the file index arrives asynchronously.
   const itemsKey = `${host.mode}:${host.query}|${requestKey}`;
+  const startAt = initialHighlight(items, host.query);
   useEffect(() => {
-    setHighlight(0);
-  }, [itemsKey]);
+    setHighlight(startAt);
+  }, [itemsKey, startAt]);
 
   const hostClose = host.close;
   const close = useCallback(() => {
@@ -168,6 +176,8 @@ export function useComposerCompletions({
     hasItems: items.length > 0,
     highlight: Math.min(highlight, Math.max(0, items.length - 1)),
     setHighlight,
+    query: host.query,
+    caretAtTokenEnd: host.caretAtTokenEnd,
     truncated: host.truncated,
     noWorkspace: host.noWorkspace,
     close,

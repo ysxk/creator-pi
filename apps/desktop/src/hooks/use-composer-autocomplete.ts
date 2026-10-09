@@ -257,10 +257,6 @@ export function useComposerAutocomplete({
         cancelled = true;
       };
     }
-    if (!hasWorkspace) {
-      setFiles({ entries: [], truncated: false });
-      return;
-    }
     // The @ menu offers delegation candidates above the file index. Both
     // sources start in parallel and share one cleanup: returning from the
     // cold-cache branch before fsIndex() launched would leave the first @
@@ -288,7 +284,11 @@ export function useComposerAutocomplete({
           if (!cancelled) setSubagents([]);
         });
     }
-    if (
+    if (!hasWorkspace) {
+      // No project means no files to index, but subagents can still be
+      // mentioned: the panel must not wait on a source that never loads.
+      setFiles({ entries: [], truncated: false });
+    } else if (
       filesCache &&
       filesCache.key === workspaceKey &&
       now - filesCache.at < SOURCE_TTL_MS
@@ -388,6 +388,9 @@ export function useComposerAutocomplete({
     setHighlight,
     truncated: open && trigger?.mode === "file" ? (files?.truncated ?? false) : false,
     noWorkspace: open && trigger?.mode === "file" && !hasWorkspace,
+    /** Whitespace or the end of the draft follows the caret. */
+    caretAtTokenEnd:
+      !!trigger && (trigger.tokenEnd >= value.length || /\s/.test(value[trigger.tokenEnd])),
     close,
     accept,
   };

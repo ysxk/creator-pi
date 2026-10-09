@@ -1,4 +1,5 @@
 import { useLayoutEffect } from "react";
+import { moveHighlight } from "../../../lib/composer-ac-navigation";
 import { installComposerDeletionGuard } from "./native-deletion";
 import type {
   ClipboardEvent,
@@ -135,14 +136,27 @@ export function ComposerInput({
               return;
             }
             if (composerAc.hasItems) {
-              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                event.preventDefault();
-                const delta = event.key === "ArrowDown" ? 1 : -1;
-                const count = composerAc.items.length;
-                composerAc.setHighlight(
-                  (composerAc.highlight + delta + count) % count,
-                );
-                return;
+              if (
+                (event.key === "ArrowDown" ||
+                  event.key === "ArrowUp" ||
+                  event.key === "ArrowLeft" ||
+                  event.key === "ArrowRight") &&
+                !event.shiftKey &&
+                !event.altKey &&
+                !event.metaKey &&
+                !event.ctrlKey
+              ) {
+                // Left and right reach the subagent strip only when the caret
+                // has nowhere to go; otherwise they stay the caret's keys.
+                const next = moveHighlight(composerAc.items, composerAc.highlight, event.key, {
+                  queryEmpty: composerAc.query.length === 0,
+                  caretAtTokenEnd: composerAc.caretAtTokenEnd,
+                });
+                if (next !== null) {
+                  event.preventDefault();
+                  composerAc.setHighlight(next);
+                  return;
+                }
               }
               if ((event.key === "Enter" || event.key === "Tab") && !event.shiftKey) {
                 event.preventDefault();

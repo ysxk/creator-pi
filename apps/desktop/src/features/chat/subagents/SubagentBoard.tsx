@@ -13,23 +13,9 @@ import {
   type SubagentBoard,
   type SubagentBoardRow,
 } from "../../../lib/subagent-board";
+import { subagentDisplayName } from "../../../lib/subagent-names";
 import { formatToolDuration } from "../../../lib/tool-display";
 import { useAppStore } from "../../../stores/app-store";
-
-/** Localized names of the shipped subagents; a user's own keep their handle. */
-const BUILTIN_NAME_KEYS: Record<string, string> = {
-  explorer: "extensions.subagents.presetExplorerName",
-  "code-reviewer": "extensions.subagents.presetReviewerName",
-  "test-runner": "extensions.subagents.presetTestRunnerName",
-  fixer: "extensions.subagents.presetFixerName",
-  "ui-designer": "extensions.subagents.presetUiDesignerName",
-};
-
-function displayName(t: TFunction, agentName: string): string {
-  if (!agentName) return t("chat.subagentUnnamed");
-  const key = BUILTIN_NAME_KEYS[agentName];
-  return key ? t(key) : agentName;
-}
 
 function elapsedLabel(startedAt: number | undefined, end: number | undefined): string {
   if (startedAt === undefined || end === undefined) return "";
@@ -66,7 +52,7 @@ const BoardRow = memo(function BoardRow({
   onFocusRow: (row: SubagentBoardRow | null) => void;
 }) {
   const lane = laneGeometry(row, board, now);
-  const name = displayName(t, row.agentName);
+  const name = subagentDisplayName(t, row.agentName);
   return (
     <li className="subagent-board-row" data-outcome={row.outcome}>
       <button

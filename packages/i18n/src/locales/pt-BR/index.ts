@@ -283,6 +283,11 @@ export const ptBR = {
     fileNoWorkspace: "Abra um projeto para referenciar arquivos",
     fileTruncated: "Exibindo os primeiros 8.000 arquivos correspondentes",
     acHint: "↑↓ para selecionar · Enter para confirmar · Esc para fechar",
+    acHintAgents: "↑↓ files · ←→ subagents · Enter insert · Esc close",
+    atAgentReadOnly: "read-only",
+    atAgentCanEdit: "can edit files",
+    atAgentCanRun: "can run commands",
+    atAgentModelInherit: "session model",
     send: "Enviar",
     todo: {
       progress: "{{completed}}/{{total}} concluídos",

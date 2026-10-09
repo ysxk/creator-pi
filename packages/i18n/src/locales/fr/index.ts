@@ -284,6 +284,11 @@ export const fr = {
     "fileNoWorkspace": "Ouvrir un projet pour référencer les fichiers",
     "fileTruncated": "Afficher le premier 8000 fichiers correspondants",
     "acHint": "↑↓ sélectionner · Entrer confirmer · Esc fermer",
+    "acHintAgents": "↑↓ files · ←→ subagents · Enter insert · Esc close",
+    "atAgentReadOnly": "read-only",
+    "atAgentCanEdit": "can edit files",
+    "atAgentCanRun": "can run commands",
+    "atAgentModelInherit": "session model",
     "send": "Envoyer",
     "todo": {
       "progress": "{{completed}}/{{total}} terminées",
