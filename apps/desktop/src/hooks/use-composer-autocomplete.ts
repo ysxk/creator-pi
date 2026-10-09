@@ -9,6 +9,7 @@ import {
   fuzzyMatchCommand,
   fuzzyMatchPath,
   selectBestMatches,
+  globalSubagentsInProjectPolicy,
   type ComposerCommand,
   type ComposerTrigger,
   type FsIndexEntry,
@@ -201,6 +202,9 @@ export function useComposerAutocomplete({
 }) {
   const workspaceKey = useAppStore((s) => s.workspace?.path ?? "");
   const hasWorkspace = workspaceKey !== "";
+  const listGlobalSubagents = useAppStore(
+    (s) => globalSubagentsInProjectPolicy(s.settings).listed,
+  );
   const [commands, setCommands] = useState<ComposerCommand[] | null>(null);
   const [files, setFiles] = useState<{
     entries: FsIndexEntry[];
@@ -321,9 +325,14 @@ export function useComposerAutocomplete({
       return commands ? filterCommands(commands, trigger.query, trigger.tokenStart > 0) : [];
     }
     if (!files) return [];
-    const agentItems = subagents ? filterSubagents(subagents, trigger.query) : [];
+    // On a project the user may keep the strip to the project's own documents.
+    const listed =
+      subagents && hasWorkspace && !listGlobalSubagents
+        ? subagents.filter((agent) => agent.source === "project")
+        : subagents;
+    const agentItems = listed ? filterSubagents(listed, trigger.query) : [];
     return [...agentItems, ...filterFiles(files.entries, trigger.query)];
-  }, [trigger, dismissed, commands, files, subagents]);
+  }, [trigger, dismissed, commands, files, subagents, hasWorkspace, listGlobalSubagents]);
 
   // New query or mode restarts keyboard navigation at the top hit.
   const itemsKey = trigger ? `${trigger.mode}:${trigger.query}` : "";

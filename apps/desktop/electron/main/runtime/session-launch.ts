@@ -7,6 +7,7 @@ import {
   imageGenerationBindings,
   isImageGenerationModel,
   normalizeMode,
+  globalSubagentsInProjectPolicy,
   trustedExtensionAgentKeyFromProviderId,
   type CommandShellCatalog,
   type McpServerRecord,
@@ -199,6 +200,27 @@ export function createSessionLaunchRuntime({
         });
       }
       return [];
+    }
+  }
+
+  /**
+   * Whether a project session may delegate to shipped and global subagents.
+   *
+   * A failed read keeps them: a session that silently loses its delegates is
+   * worse than one that offers a few the user meant to hide.
+   */
+  async function globalSubagentsAvailableInProjects(): Promise<boolean> {
+    if (!runtimeState.host?.isAvailable()) return true;
+    try {
+      const settings = await runtimeState.host!.call<Record<string, unknown>>("settings.get");
+      return globalSubagentsInProjectPolicy(settings).available;
+    } catch (error) {
+      if (!isHostUnavailable(error)) {
+        logger.app("plugin", "warn", "subagent project policy failed", {
+          data: String(error),
+        });
+      }
+      return true;
     }
   }
 
@@ -468,6 +490,8 @@ export function createSessionLaunchRuntime({
       suppressedHandles: activeSubagents.suppressedHandles,
       // A switched-off builtin is dropped from what this prompt may delegate to.
       disabledBuiltins: await disabledBuiltinSubagents(),
+      // On a project the user may keep delegation to the project's own documents.
+      projectOnly: projectPath ? !(await globalSubagentsAvailableInProjects()) : false,
     });
     const subagentBindings = await resolveSubagentProviders({
       definitions: subagentCatalog.definitions,

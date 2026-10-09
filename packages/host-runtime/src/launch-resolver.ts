@@ -8,6 +8,7 @@ import {
   normalizeMode,
   resolveBindingLimits,
   trustedExtensionAgentKeyFromProviderId,
+  globalSubagentsInProjectPolicy,
   type CommandShellCatalog,
   type ModelBinding,
   type Mode,
@@ -165,6 +166,17 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
     }
   }
 
+  /** Whether a project session may delegate to shipped and global subagents. */
+  async function globalSubagentsAvailableInProjects(): Promise<boolean> {
+    try {
+      const settings = await requireHost().call<Record<string, unknown>>("settings.get");
+      return globalSubagentsInProjectPolicy(settings).available;
+    } catch (error) {
+      if (!isHostUnavailable(error)) log("warn", "subagent project policy failed", { error: String(error) });
+      return true;
+    }
+  }
+
   async function resolveEffectiveCommandShell(): Promise<CommandShellCatalog> {
     const catalog = await requireHost().call<CommandShellCatalog>("commandShells.list");
     if (!isCommandShellCatalog(catalog)) {
@@ -302,6 +314,7 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
       userDocuments: activeSubagents.documents,
       suppressedHandles: activeSubagents.suppressedHandles,
       disabledBuiltins: await disabledBuiltinSubagents(),
+      projectOnly: projectPath ? !(await globalSubagentsAvailableInProjects()) : false,
     });
     const subagentBindings = await resolveSubagentProviders({
       definitions: subagentCatalog.definitions,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  globalSubagentsInProjectPolicy,
   DEFAULT_SUBAGENT_IDLE_TIMEOUT_SECONDS,
   DEFAULT_SUBAGENT_MAX_DURATION_SECONDS,
   DEFAULT_SUBAGENT_TOOLS,
@@ -733,5 +734,27 @@ describe("definition fallback models", () => {
   it("rejects a malformed fallback rather than silently changing the requested chain", () => {
     const result = parse("---\ndescription: Bad fallback.\nfallbackModels: [vendor/valid, bare-model]\n---\nFinish.");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("global subagents on a project", () => {
+  it("offers and lists them unless the user said otherwise", () => {
+    expect(globalSubagentsInProjectPolicy(undefined)).toEqual({ available: true, listed: true });
+    expect(globalSubagentsInProjectPolicy({})).toEqual({ available: true, listed: true });
+  });
+
+  it("hides them from the @ panel while delegation stays possible", () => {
+    expect(
+      globalSubagentsInProjectPolicy({ showGlobalSubagentsInProjects: false }),
+    ).toEqual({ available: true, listed: false });
+  });
+
+  it("never lists a delegate the turn would refuse", () => {
+    expect(
+      globalSubagentsInProjectPolicy({
+        globalSubagentsInProjects: false,
+        showGlobalSubagentsInProjects: true,
+      }),
+    ).toEqual({ available: false, listed: false });
   });
 });

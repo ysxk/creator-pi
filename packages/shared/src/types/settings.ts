@@ -61,6 +61,17 @@ export type AppSettings = {
   jevEnabled?: boolean;
   /** Prevent idle system sleep while this desktop app runs; off when absent. */
   keepAwakeWhileRunning?: boolean;
+  /**
+   * Whether a session on a project may delegate to subagents that are not the
+   * project's own — the shipped ones and the user's global ones. Absent means
+   * yes. Off leaves a project session with the project's documents only.
+   */
+  globalSubagentsInProjects?: boolean;
+  /**
+   * Whether the composer's `@` panel lists those subagents on a project.
+   * Absent means yes. Display only: the main agent may still delegate to them.
+   */
+  showGlobalSubagentsInProjects?: boolean;
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
   /** @deprecated Retained for one-time migration into pi.prompt-enhancement. */

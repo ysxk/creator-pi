@@ -50,6 +50,7 @@ import {
   IconTrash,
 } from "../icons";
 import { SubagentAvatar } from "../SubagentAvatar";
+import { ProjectSubagentPolicyCard } from "./ProjectSubagentPolicyCard";
 import { TooltipButton } from "../ui";
 const GLOBAL_SUBAGENTS_PATH = "~/.agents/subagents";
 
@@ -582,6 +583,7 @@ export function AgentSubagentsPage() {
         />
       }
     >
+      <ProjectSubagentPolicyCard />
       <CapabilityPanel
         loading={loading}
         refreshing={refreshing}

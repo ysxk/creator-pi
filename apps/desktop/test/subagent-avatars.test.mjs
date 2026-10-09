@@ -74,7 +74,7 @@ test("a late avatar read cannot overwrite a newer write", () => {
 
 test("the @ menu offers subagents above the file index", () => {
   assert.match(autocomplete, /kind: "subagent"; agent: SubagentDefinition/);
-  assert.match(autocomplete, /filterSubagents\(subagents, trigger\.query\)/);
+  assert.match(autocomplete, /filterSubagents\(listed, trigger\.query\)/);
   // Delegation mention inserts plain @name text the model's Task catalog knows.
   assert.match(
     autocomplete,

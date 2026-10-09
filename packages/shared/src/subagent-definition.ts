@@ -602,6 +602,26 @@ function parseTimeoutSeconds(
 }
 
 /**
+ * How subagents from outside a project — shipped and global — behave on one.
+ *
+ * `available` decides what `Task` may offer; `listed` decides what the `@`
+ * panel shows. A delegate that is not available is never listed, so the panel
+ * cannot offer a name the turn would then refuse.
+ */
+export function globalSubagentsInProjectPolicy(
+  settings?: {
+    globalSubagentsInProjects?: boolean;
+    showGlobalSubagentsInProjects?: boolean;
+  } | null,
+): { available: boolean; listed: boolean } {
+  const available = settings?.globalSubagentsInProjects !== false;
+  return {
+    available,
+    listed: available && settings?.showGlobalSubagentsInProjects !== false,
+  };
+}
+
+/**
  * Merge discovered definitions into the list the runtime offers.
  *
  * Precedence is project > user registry > builtin, so a repository retunes a

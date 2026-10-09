@@ -277,6 +277,20 @@ describe("loadSubagentDefinitions", () => {
     expect(builtins.map((d) => d.name)).toContain("explorer");
   });
 
+  it("offers only the project's documents when the user keeps delegation to the project", async () => {
+    const { definitions, builtins } = await loadSubagentDefinitions(null, {
+      userDocuments: [
+        { id: "mine", document: "---\ndescription: Mine.\n---\nMine.\n" },
+        { id: "repo", document: "---\ndescription: Repo.\n---\nRepo.\n", source: "project" },
+      ],
+      projectOnly: true,
+    });
+
+    expect(definitions.map((d) => d.name)).toEqual(["repo"]);
+    // Settings still lists every shipped definition.
+    expect(builtins.map((d) => d.name)).toContain("explorer");
+  });
+
   it("tags active records with the level host-core reported", async () => {
     const global = join(dir, "global.md");
     const project = join(dir, "project.md");

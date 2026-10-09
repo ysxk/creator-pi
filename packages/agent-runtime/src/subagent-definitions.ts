@@ -302,6 +302,12 @@ export type LoadSubagentOptions = {
    * `explorer` back.
    */
   suppressedHandles?: readonly string[];
+  /**
+   * Offer the project's own documents only: the user switched shipped and
+   * global subagents off for sessions on a project. `builtins` is unaffected,
+   * so Settings still lists what it always lists.
+   */
+  projectOnly?: boolean;
 };
 
 /** The part of a host-core subagent record a launch path needs. */
@@ -424,7 +430,8 @@ export async function loadSubagentDefinitions(
   return {
     definitions: merged.definitions.filter(
       (definition) =>
-        !(definition.source === "builtin" && disabled.has(definition.name)),
+        !(definition.source === "builtin" && disabled.has(definition.name)) &&
+        (options.projectOnly !== true || definition.source === "project"),
     ),
     builtins,
     diagnostics,
