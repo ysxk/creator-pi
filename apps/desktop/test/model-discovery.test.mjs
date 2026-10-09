@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   modelListRequest,
@@ -179,4 +180,17 @@ test("proxy-style rows carry context window, modalities, and effort metadata", (
     },
     { modelId: "plain-model", displayName: "plain-model" },
   ]);
+});
+
+test("the provider cache payload carries displayName and decorated metadata", async () => {
+  const source = await readFile(new URL("../electron/main/ipc/provider-ipc.ts", import.meta.url), "utf8");
+  // The host requires displayName; a payload without it fails INVALID_PARAMS
+  // and silently leaves the cache empty.
+  assert.match(source, /displayName: \(model\.displayName as string \| undefined\) \|\| \(model\.modelId as string\)/);
+  // The input carries decorated ModelInfo records: modalities.input and
+  // supportedThinkingLevels are where the endpoint-published metadata lives.
+  assert.match(source, /model\.modalities as \{ input\?: string\[\] \}/);
+  assert.match(source, /supportedThinkingLevels as string\[\] \| undefined/);
+  // `text` is implied by the reader; storing it would duplicate the entry.
+  assert.match(source, /filter\(\(modality\) => modality !== "text"\)/);
 });

@@ -74,9 +74,12 @@ test("user video attachments render a chip with an operable hover player", () =>
   // The card owns its exit: its own pointer leave, Escape, scroll/resize.
   assert.match(hoverCard, /onPointerLeave=\{onDismiss\}/);
   assert.match(hoverCard, /event\.key === "Escape"/);
-  // Keyboard focus still reveals, and blur dismisses.
+  // Keyboard focus still reveals. Focus moving from the chip into the
+  // portal-rendered player's controls must keep the card open; only focus
+  // landing outside the card dismisses.
   assert.match(transcriptShared, /onFocus=\{reveal\}/);
-  assert.match(transcriptShared, /onBlur=\{dismiss\}/);
+  assert.match(transcriptShared, /onBlur=\{onChipBlur\}/);
+  assert.match(transcriptShared, /card\.contains\(next\)/);
   // Both placements — inline between words and the trailing list — route video.
   assert.match(messageRow, /MessageAttachmentVideo/);
 });

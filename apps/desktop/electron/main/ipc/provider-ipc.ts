@@ -581,24 +581,27 @@ export function registerProviderIpc({
               requestBaseUrl &&
             (latestProvider?.apiStyle ?? "chat_completions") === apiStyle;
           if (endpointStillCurrent) {
+            /*
+              The caller passes decorated ModelInfo records, not the raw
+              discovery rows: displayName is required by the host, and the
+              endpoint-published metadata reads from the decorated fields —
+              modalities.input carries the input modalities and
+              supportedThinkingLevels the efforts. A configured binding the
+              endpoint did not serve is filtered out by the caller, so only
+              the service's own answer is ever cached.
+            */
             await host!.call("providers.cacheModels", {
               providerId: provider.id,
-              models: (models as Array<{ modelId: string }>).map((model) => {
-                const withMeta = model as {
-                  modelId: string;
-                  contextWindow?: number;
-                  input?: string[];
-                  capabilities?: string[];
-                  reasoningLevels?: string[];
-                };
-                return {
-                  modelId: withMeta.modelId,
-                  contextWindow: withMeta.contextWindow,
-                  inputModalities: withMeta.input,
-                  capabilities: withMeta.capabilities,
-                  reasoningLevels: withMeta.reasoningLevels,
-                };
-              }),
+              models: (models as Array<Record<string, unknown>>).map((model) => ({
+                modelId: model.modelId as string,
+                displayName: (model.displayName as string | undefined) || (model.modelId as string),
+                contextWindow: model.contextWindow as number | undefined,
+                inputModalities: (
+                  (model.modalities as { input?: string[] } | undefined)?.input ?? []
+                ).filter((modality) => modality !== "text"),
+                capabilities: model.capabilities as string[] | undefined,
+                reasoningLevels: model.supportedThinkingLevels as string[] | undefined,
+              })),
             });
           }
         } catch (e) {

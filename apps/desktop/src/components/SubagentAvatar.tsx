@@ -10,12 +10,22 @@ import { api } from "../lib/api";
  * preview, Settings rows, and the @ popup stay in sync without a remount.
  */
 
-type PngCache = { url: Map<string, string | null>; listeners: Set<() => void> };
+type PngCache = {
+  url: Map<string, string | null>;
+  /** Monotonic per-name write counter: a late read must not undo a newer write. */
+  version: Map<string, number>;
+  listeners: Set<() => void>;
+};
 
-const pngCache: PngCache = { url: new Map(), listeners: new Set() };
+const pngCache: PngCache = {
+  url: new Map(),
+  version: new Map(),
+  listeners: new Set(),
+};
 
 function publishPng(name: string, dataUrl: string | null): void {
   pngCache.url.set(name, dataUrl);
+  pngCache.version.set(name, (pngCache.version.get(name) ?? 0) + 1);
   for (const listener of pngCache.listeners) listener();
 }
 
@@ -41,14 +51,22 @@ function useSubagentAvatarUrl(name: string): string {
         current = false;
       };
     }
+    // The read is only allowed to publish when no newer write happened while
+    // it was in flight — a generate/reset that lands first must not be
+    // overwritten by a stale answer for the same name.
+    const observedVersion = pngCache.version.get(name) ?? 0;
     void api
       .subagentIcon(name)
       .then((result) => {
         const url = result.kind === "png" ? result.dataUrl : null;
-        if (current) publishPng(name, url);
+        if (current && (pngCache.version.get(name) ?? 0) === observedVersion) {
+          publishPng(name, url);
+        }
       })
       .catch(() => {
-        if (current) publishPng(name, null);
+        if (current && (pngCache.version.get(name) ?? 0) === observedVersion) {
+          publishPng(name, null);
+        }
       });
     return () => {
       unsubscribe();

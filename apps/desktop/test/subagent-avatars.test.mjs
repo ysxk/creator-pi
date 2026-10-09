@@ -60,6 +60,18 @@ test("the avatar component prefers the PNG and falls back to the deterministic S
   assert.match(avatarComponent, /pngCache/);
 });
 
+test("a late avatar read cannot overwrite a newer write", () => {
+  // Publishing a generate/reset result while an older read is in flight
+  // bumps the per-name version; the stale answer must be dropped, or the
+  // new avatar disappears the moment the old read resolves.
+  assert.match(avatarComponent, /version\.set\(name,/);
+  assert.match(avatarComponent, /observedVersion/);
+  assert.match(
+    avatarComponent,
+    /\(pngCache\.version\.get\(name\) \?\? 0\) === observedVersion/,
+  );
+});
+
 test("the @ menu offers subagents above the file index", () => {
   assert.match(autocomplete, /kind: "subagent"; agent: SubagentDefinition/);
   assert.match(autocomplete, /filterSubagents\(subagents, trigger\.query\)/);
