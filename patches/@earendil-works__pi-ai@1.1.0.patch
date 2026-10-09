@@ -1,5 +1,6 @@
 diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/anthropic-messages.js
+--- a/dist/api/anthropic-messages.js
++++ b/dist/api/anthropic-messages.js
 @@ -1,3 +1,6 @@
 +import { hostedSearchReplayProjection, validateHostedSearchMessages } from "../utils/hosted-search.js";
 +import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
@@ -240,7 +241,8 @@ diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
              }
              if (blocks.length === 0)
 diff --git a/dist/api/azure-openai-responses.js b/dist/api/azure-openai-responses.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/azure-openai-responses.js
+--- a/dist/api/azure-openai-responses.js
++++ b/dist/api/azure-openai-responses.js
 @@ -1,3 +1,5 @@
 +import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
 +import { withLocalRequestErrors } from "../utils/local-request-stream.js";
@@ -339,7 +341,8 @@ diff --git a/dist/api/azure-openai-responses.js b/dist/api/azure-openai-response
      // Last so model and request sampling parameters override named request fields.
      const samplingParams = resolveSamplingParams(model, reasoningEffort ?? "off", options?.samplingParams);
 diff --git a/dist/api/mistral-conversations.js b/dist/api/mistral-conversations.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/mistral-conversations.js
+--- a/dist/api/mistral-conversations.js
++++ b/dist/api/mistral-conversations.js
 @@ -658,6 +658,9 @@
                      }
                      continue;
@@ -351,7 +354,8 @@ diff --git a/dist/api/mistral-conversations.js b/dist/api/mistral-conversations.
                      id: block.id,
                      type: "function",
 diff --git a/dist/api/openai-codex-responses.js b/dist/api/openai-codex-responses.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/openai-codex-responses.js
+--- a/dist/api/openai-codex-responses.js
++++ b/dist/api/openai-codex-responses.js
 @@ -411,6 +411,12 @@
              supportsOpenAIGrammarTools,
          });
@@ -366,7 +370,8 @@ diff --git a/dist/api/openai-codex-responses.js b/dist/api/openai-codex-response
          const effort = options.reasoningEffort === "none"
              ? model.thinkingLevelMap?.off === undefined
 diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/openai-completions.js
+--- a/dist/api/openai-completions.js
++++ b/dist/api/openai-completions.js
 @@ -939,6 +939,17 @@
                              text: sanitizeSurrogates(item.text),
                          };
@@ -481,7 +486,8 @@ diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
          openRouterRouting: model.compat.openRouterRouting ?? {},
          vercelGatewayRouting: model.compat.vercelGatewayRouting ?? detected.vercelGatewayRouting,
 diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-shared.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/openai-responses-shared.js
+--- a/dist/api/openai-responses-shared.js
++++ b/dist/api/openai-responses-shared.js
 @@ -1,3 +1,4 @@
 +import { hostedSearchReplayProjection, validateHostedSearchMessages } from "../utils/hosted-search.js";
  import { calculateCost } from "../models.js";
@@ -654,7 +660,8 @@ diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-sha
          else if (event.type === "error") {
              throw new Error(`Error Code ${event.code}: ${event.message}` || "Unknown error");
 diff --git a/dist/api/openai-responses.js b/dist/api/openai-responses.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/openai-responses.js
+--- a/dist/api/openai-responses.js
++++ b/dist/api/openai-responses.js
 @@ -1,3 +1,5 @@
 +import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
 +import { withLocalRequestErrors } from "../utils/local-request-stream.js";
@@ -753,7 +760,8 @@ diff --git a/dist/api/openai-responses.js b/dist/api/openai-responses.js
      // Last so model and request sampling parameters override named request fields.
      const samplingParams = resolveSamplingParams(model, reasoningEffort ?? "off", options?.samplingParams);
 diff --git a/dist/api/simple-options.js b/dist/api/simple-options.js
-+++ b/../../pi-ai-1.1.0-merged/dist/api/simple-options.js
+--- a/dist/api/simple-options.js
++++ b/dist/api/simple-options.js
 @@ -5,7 +5,7 @@
  export function clampMaxTokensToContext(model, context, maxTokens) {
      if (model.contextWindow <= 0)
@@ -764,7 +772,8 @@ diff --git a/dist/api/simple-options.js b/dist/api/simple-options.js
  }
  export function resolveSamplingParams(model, thinkingLevel, requestParams) {
 diff --git a/dist/auth/oauth/anthropic.js b/dist/auth/oauth/anthropic.js
-+++ b/../../pi-ai-1.1.0-merged/dist/auth/oauth/anthropic.js
+--- a/dist/auth/oauth/anthropic.js
++++ b/dist/auth/oauth/anthropic.js
 @@ -66,21 +66,90 @@
      }
      return String(error);
@@ -906,7 +915,8 @@ diff --git a/dist/auth/oauth/anthropic.js b/dist/auth/oauth/anthropic.js
      return {
          type: "oauth",
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/index.d.ts
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
 @@ -33,4 +33,7 @@
  export * from "./utils/typebox-helpers.ts";
  export { uuidv7 } from "./utils/uuid.ts";
@@ -917,7 +927,8 @@ diff --git a/dist/index.d.ts b/dist/index.d.ts
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 diff --git a/dist/index.js b/dist/index.js
-+++ b/../../pi-ai-1.1.0-merged/dist/index.js
+--- a/dist/index.js
++++ b/dist/index.js
 @@ -20,4 +20,6 @@
  export * from "./utils/typebox-helpers.js";
  export { uuidv7 } from "./utils/uuid.js";
@@ -927,12 +938,14 @@ diff --git a/dist/index.js b/dist/index.js
  //# sourceMappingURL=index.js.map
 \ No newline at end of file
 diff --git a/dist/providers/data/deepseek.json b/dist/providers/data/deepseek.json
-+++ b/../../pi-ai-1.1.0-merged/dist/providers/data/deepseek.json
+--- a/dist/providers/data/deepseek.json
++++ b/dist/providers/data/deepseek.json
 @@ -1 +1 @@
 -{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 +{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/types.d.ts
+--- a/dist/types.d.ts
++++ b/dist/types.d.ts
 @@ -279,6 +279,11 @@
      data: string;
      mimeType: string;
@@ -1034,7 +1047,8 @@ diff --git a/dist/types.d.ts b/dist/types.d.ts
       * Maps pi thinking levels to provider/model-specific values.
       * Missing keys use provider defaults. null marks a level as unsupported.
 diff --git a/dist/utils/assistant-message-frame.d.ts b/dist/utils/assistant-message-frame.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/assistant-message-frame.d.ts
+--- a/dist/utils/assistant-message-frame.d.ts
++++ b/dist/utils/assistant-message-frame.d.ts
 @@ -1,4 +1,4 @@
 -import type { AssistantMessage, AssistantMessageEvent, TextContent, ThinkingContent, ToolCall } from "../types.ts";
 +import type { AssistantMessage, AssistantMessageEvent, HostedSearchContent, TextContent, ThinkingContent, ToolCall } from "../types.ts";
@@ -1054,7 +1068,8 @@ diff --git a/dist/utils/assistant-message-frame.d.ts b/dist/utils/assistant-mess
  /**
   * Encodes one assistant stream. `partial` remains a shared live accumulator;
 diff --git a/dist/utils/assistant-message-frame.js b/dist/utils/assistant-message-frame.js
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/assistant-message-frame.js
+--- a/dist/utils/assistant-message-frame.js
++++ b/dist/utils/assistant-message-frame.js
 @@ -1,15 +1,30 @@
 +import { normalizeHostedSearchContent } from "./hosted-search.js";
  import { parseStreamingJson } from "./json-parse.js";
@@ -1207,7 +1222,8 @@ diff --git a/dist/utils/assistant-message-frame.js b/dist/utils/assistant-messag
                  if (frame.content.type !== "text") {
                      throw new Error(`text_start frame contains ${frame.content.type} content`);
 diff --git a/dist/utils/estimate.d.ts b/dist/utils/estimate.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/estimate.d.ts
+--- a/dist/utils/estimate.d.ts
++++ b/dist/utils/estimate.d.ts
 @@ -1,4 +1,4 @@
 -import type { ImageContent, Message, TextContent, TranscriptContext, Usage } from "../types.ts";
 +import type { Api, Model, ImageContent, Message, TextContent, TranscriptContext, Usage } from "../types.ts";
@@ -1226,7 +1242,8 @@ diff --git a/dist/utils/estimate.d.ts b/dist/utils/estimate.d.ts
  //# sourceMappingURL=estimate.d.ts.map
 \ No newline at end of file
 diff --git a/dist/utils/estimate.js b/dist/utils/estimate.js
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/estimate.js
+--- a/dist/utils/estimate.js
++++ b/dist/utils/estimate.js
 @@ -1,95 +1,119 @@
  import { getSystemMessageText } from "./text.js";
 +import { hostedSearchReplayProjection, validateHostedSearchMessages } from "./hosted-search.js";
@@ -1403,7 +1420,9 @@ diff --git a/dist/utils/estimate.js b/dist/utils/estimate.js
 -//# sourceMappingURL=estimate.js.map
 \ No newline at end of file
 diff --git a/dist/utils/hosted-search.d.ts b/dist/utils/hosted-search.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/hosted-search.d.ts
+new file mode 100644
+--- /dev/null
++++ b/dist/utils/hosted-search.d.ts
 @@ -0,0 +1,10 @@
 +import type { Api, HostedSearchContent, JsonObject, Message } from "../types.ts";
 +export interface HostedSearchReplayOptions {
@@ -1416,7 +1435,9 @@ diff --git a/dist/utils/hosted-search.d.ts b/dist/utils/hosted-search.d.ts
 +export declare function hostedSearchReplayProjection(value: unknown, options?: HostedSearchReplayOptions): JsonObject | undefined;
 +export declare function validateHostedSearchMessages(messages: readonly Message[]): void;
 diff --git a/dist/utils/hosted-search.js b/dist/utils/hosted-search.js
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/hosted-search.js
+new file mode 100644
+--- /dev/null
++++ b/dist/utils/hosted-search.js
 @@ -0,0 +1,97 @@
 +import { LocalRequestError, prepareLocalRequest } from "./local-request-error.js";
 +const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -1516,7 +1537,9 @@ diff --git a/dist/utils/hosted-search.js b/dist/utils/hosted-search.js
 +    }
 +}
 diff --git a/dist/utils/local-request-error.d.ts b/dist/utils/local-request-error.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/local-request-error.d.ts
+new file mode 100644
+--- /dev/null
++++ b/dist/utils/local-request-error.d.ts
 @@ -0,0 +1,15 @@
 +export type LocalRequestErrorPhase = "context-validation" | "context-estimation" | "request-preparation";
 +export interface LocalRequestErrorDetails {
@@ -1534,7 +1557,9 @@ diff --git a/dist/utils/local-request-error.d.ts b/dist/utils/local-request-erro
 +export declare function asLocalRequestError(error: unknown, phase: LocalRequestErrorPhase): unknown;
 +export declare function prepareLocalRequest<T>(phase: LocalRequestErrorPhase, prepare: () => T): T;
 diff --git a/dist/utils/local-request-error.js b/dist/utils/local-request-error.js
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/local-request-error.js
+new file mode 100644
+--- /dev/null
++++ b/dist/utils/local-request-error.js
 @@ -0,0 +1,38 @@
 +const messages = {
 +    "context-validation": "Local request context validation failed",
@@ -1575,13 +1600,17 @@ diff --git a/dist/utils/local-request-error.js b/dist/utils/local-request-error.
 +    }
 +}
 diff --git a/dist/utils/local-request-stream.d.ts b/dist/utils/local-request-stream.d.ts
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/local-request-stream.d.ts
+new file mode 100644
+--- /dev/null
++++ b/dist/utils/local-request-stream.d.ts
 @@ -0,0 +1,3 @@
 +import type { Api, AssistantMessageEventStream, Model } from "../types.ts";
 +/** Guard synchronous adapter setup without classifying transport errors. */
 +export declare function withLocalRequestErrors(model: Model<Api>, options: { signal?: AbortSignal } | undefined, prepare: () => AssistantMessageEventStream): AssistantMessageEventStream;
 diff --git a/dist/utils/local-request-stream.js b/dist/utils/local-request-stream.js
-+++ b/../../pi-ai-1.1.0-merged/dist/utils/local-request-stream.js
+new file mode 100644
+--- /dev/null
++++ b/dist/utils/local-request-stream.js
 @@ -0,0 +1,24 @@
 +import { AssistantMessageEventStream } from "./event-stream.js";
 +import { asLocalRequestError, localRequestErrorDetails } from "./local-request-error.js";
