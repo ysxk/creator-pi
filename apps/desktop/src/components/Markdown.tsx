@@ -17,6 +17,8 @@ import {
   type RefObject,
   type ReactNode,
 } from "react";
+import { FileTypeBadge } from "./FileTypeBadge";
+import { fileTypeOf } from "../lib/file-type";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
@@ -538,10 +540,14 @@ function InlineCode({
       </code>
     );
   }
+  // A file of a known type reads as a chip with its language mark; a URL, a
+  // session link, or an untyped path keeps the plain code-link look.
+  const fileType = target.kind === "file" && text ? fileTypeOf(text) : null;
   return (
     <button
       type="button"
       className="chat-code-link"
+      data-file-type={fileType?.id}
       title={target.kind === "file" ? fileTitle : urlTitle}
       onClick={() => {
         if (target.kind === "file") {
@@ -561,6 +567,7 @@ function InlineCode({
           : undefined
       }
     >
+      {fileType && text ? <FileTypeBadge path={text} /> : null}
       <code className={className} {...rest}>
         {children}
       </code>

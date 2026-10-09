@@ -141,53 +141,111 @@
 }
 
 /*
-  Language badge beside a path (tool rows, file chips). One small block of the
-  language's own colour with its abbreviation: enough to tell a Rust edit from
-  a stylesheet edit while scanning a turn, and no louder than that.
+  File-type mark beside a path (tool rows, file chips, file references in
+  prose): the language's own logo, or a line glyph in the format's colour.
+  Enough to tell a Rust edit from a stylesheet edit while scanning a turn, and
+  no louder than that. `--file-type` is set on whatever carries the type, so a
+  chip can tint itself from the same value its mark uses.
 */
 .file-type-badge {
-  --file-type: var(--ds-filetype-default);
   display: inline-flex;
-  min-width: 18px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  padding: 0 3px;
-  border-radius: var(--radius-3xs);
-  background: var(--file-type);
-  color: var(--ds-filetype-fg);
-  font-family: var(--font-mono);
-  font-size: var(--text-3xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-normal);
-  line-height: var(--leading-tight);
+  color: var(--file-type, var(--ds-filetype-default));
   user-select: none;
 }
 
-.file-type-badge[data-file-type="ts"] { --file-type: var(--ds-filetype-ts); }
-.file-type-badge[data-file-type="js"] { --file-type: var(--ds-filetype-js); }
-.file-type-badge[data-file-type="py"] { --file-type: var(--ds-filetype-py); }
-.file-type-badge[data-file-type="rs"] { --file-type: var(--ds-filetype-rs); }
-.file-type-badge[data-file-type="go"] { --file-type: var(--ds-filetype-go); }
-.file-type-badge[data-file-type="c"] { --file-type: var(--ds-filetype-c); }
-.file-type-badge[data-file-type="java"] { --file-type: var(--ds-filetype-java); }
-.file-type-badge[data-file-type="kotlin"] { --file-type: var(--ds-filetype-kotlin); }
-.file-type-badge[data-file-type="swift"] { --file-type: var(--ds-filetype-swift); }
-.file-type-badge[data-file-type="ruby"] { --file-type: var(--ds-filetype-ruby); }
-.file-type-badge[data-file-type="php"] { --file-type: var(--ds-filetype-php); }
-.file-type-badge[data-file-type="html"] { --file-type: var(--ds-filetype-html); }
-.file-type-badge[data-file-type="css"] { --file-type: var(--ds-filetype-css); }
-.file-type-badge[data-file-type="sass"] { --file-type: var(--ds-filetype-sass); }
-.file-type-badge[data-file-type="vue"] { --file-type: var(--ds-filetype-vue); }
-.file-type-badge[data-file-type="svelte"] { --file-type: var(--ds-filetype-svelte); }
-.file-type-badge[data-file-type="shell"] { --file-type: var(--ds-filetype-shell); }
-.file-type-badge[data-file-type="sql"] { --file-type: var(--ds-filetype-sql); }
-.file-type-badge[data-file-type="json"] { --file-type: var(--ds-filetype-json); }
-.file-type-badge[data-file-type="yaml"] { --file-type: var(--ds-filetype-yaml); }
-.file-type-badge[data-file-type="config"] { --file-type: var(--ds-filetype-config); }
-.file-type-badge[data-file-type="md"] { --file-type: var(--ds-filetype-md); }
-.file-type-badge[data-file-type="docker"] { --file-type: var(--ds-filetype-docker); }
+.file-type-logo {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-3xs);
+  background: var(--ds-filetype-logo-plate);
+  object-fit: contain;
+}
+
+.file-type-letters {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+[data-file-type="ts"] { --file-type: var(--ds-filetype-ts); }
+[data-file-type="js"] { --file-type: var(--ds-filetype-js); }
+[data-file-type="py"] { --file-type: var(--ds-filetype-py); }
+[data-file-type="rs"] { --file-type: var(--ds-filetype-rs); }
+[data-file-type="go"] { --file-type: var(--ds-filetype-go); }
+[data-file-type="c"] { --file-type: var(--ds-filetype-c); }
+[data-file-type="java"] { --file-type: var(--ds-filetype-java); }
+[data-file-type="kotlin"] { --file-type: var(--ds-filetype-kotlin); }
+[data-file-type="swift"] { --file-type: var(--ds-filetype-swift); }
+[data-file-type="ruby"] { --file-type: var(--ds-filetype-ruby); }
+[data-file-type="php"] { --file-type: var(--ds-filetype-php); }
+[data-file-type="html"] { --file-type: var(--ds-filetype-html); }
+[data-file-type="css"] { --file-type: var(--ds-filetype-css); }
+[data-file-type="sass"] { --file-type: var(--ds-filetype-sass); }
+[data-file-type="vue"] { --file-type: var(--ds-filetype-vue); }
+[data-file-type="svelte"] { --file-type: var(--ds-filetype-svelte); }
+[data-file-type="shell"] { --file-type: var(--ds-filetype-shell); }
+[data-file-type="sql"] { --file-type: var(--ds-filetype-sql); }
+[data-file-type="json"] { --file-type: var(--ds-filetype-json); }
+[data-file-type="yaml"] { --file-type: var(--ds-filetype-yaml); }
+[data-file-type="config"] { --file-type: var(--ds-filetype-config); }
+[data-file-type="md"] { --file-type: var(--ds-filetype-md); }
+[data-file-type="docker"] { --file-type: var(--ds-filetype-docker); }
+[data-file-type="text"] { --file-type: var(--ds-filetype-text); }
+[data-file-type="pdf"] { --file-type: var(--ds-filetype-pdf); }
+[data-file-type="sheet"] { --file-type: var(--ds-filetype-sheet); }
+[data-file-type="image"] { --file-type: var(--ds-filetype-image); }
+[data-file-type="video"] { --file-type: var(--ds-filetype-video); }
+[data-file-type="audio"] { --file-type: var(--ds-filetype-audio); }
+[data-file-type="archive"] { --file-type: var(--ds-filetype-archive); }
+
+/* A typed file as a chip: a wash and a hairline of the type's own colour. */
+.chat-file-chip[data-file-type],
+.chat-code-link[data-file-type] {
+  background: color-mix(in oklab, var(--file-type, var(--ds-filetype-default)) 8%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--file-type, var(--ds-filetype-default)) 16%, transparent);
+  color: color-mix(in oklab, var(--file-type, var(--ds-filetype-default)) 55%, var(--ds-text-primary));
+}
+
+.chat-file-chip[data-file-type]:hover,
+.chat-file-chip[data-file-type]:focus-visible,
+.chat-code-link[data-file-type]:hover,
+.chat-code-link[data-file-type]:focus-visible {
+  background: color-mix(in oklab, var(--file-type, var(--ds-filetype-default)) 14%, transparent);
+  color: color-mix(in oklab, var(--file-type, var(--ds-filetype-default)) 55%, var(--ds-text-primary));
+}
+
+/* A file reference in prose: the same chip, sized to sit inside a line. */
+.chat-code-link[data-file-type] {
+  display: inline-flex;
+  max-width: 100%;
+  height: 20px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px 0 4px;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
+.chat-code-link[data-file-type] code,
+.chat-code-link[data-file-type]:hover code,
+.chat-code-link[data-file-type]:focus-visible code {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* In a file chip the badge takes the icon's seat. */
 .composer-chip-icon > .file-type-badge {

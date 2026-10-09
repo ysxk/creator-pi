@@ -30,7 +30,7 @@ test("well-known file names are typed even without a telling extension", () => {
 });
 
 test("anything not worth telling apart keeps its generic icon", () => {
-  for (const path of ["notes.txt", "photo.png", "archive.zip", "README", ".gitignore", "", "dir/"]) {
+  for (const path of ["README", ".gitignore", "data.bin", "", "dir/"]) {
     assert.equal(fileTypeOf(path), null, path);
   }
 });
@@ -43,8 +43,27 @@ test("every badge colour the helper can name is defined", async () => {
   for (const id of ids) {
     assert.match(styles, new RegExp(`--ds-filetype-${id}:\\s*#[0-9a-f]{6};`), `token for ${id}`);
     assert.ok(
-      styles.includes(`.file-type-badge[data-file-type="${id}"] { --file-type: var(--ds-filetype-${id}); }`),
+      styles.includes(`[data-file-type="${id}"] { --file-type: var(--ds-filetype-${id}); }`),
       `rule for ${id}`,
     );
   }
+});
+
+test("a language shows its own logo and a plain format a line glyph", async () => {
+  const { FILE_TYPE_LOGOS } = await import("../src/lib/file-type-logos.ts");
+  const source = await readFile(new URL("../src/lib/file-type.ts", import.meta.url), "utf8");
+  // Every type either names a glyph or resolves to a vendored logo.
+  for (const [, body] of source.matchAll(/: (\{ id: "[a-z]+"[^}]*\})/g)) {
+    const id = body.match(/id: "([a-z]+)"/)[1];
+    const logo = body.match(/logo: "([a-z]+)"/)?.[1] ?? id;
+    assert.ok(/glyph: "/.test(body) || FILE_TYPE_LOGOS[logo], `mark for ${id}`);
+  }
+  for (const [key, url] of Object.entries(FILE_TYPE_LOGOS)) {
+    assert.match(url, /^data:image\/svg\+xml,%3Csvg/, key);
+    // An <img> runs no script, and the drawings carry none to begin with.
+    assert.doesNotMatch(decodeURIComponent(url), /<script|javascript:|href="http/i, key);
+  }
+  assert.equal(fileTypeOf("notes.txt")?.glyph, "text");
+  assert.equal(fileTypeOf("clip.mp4")?.glyph, "video");
+  assert.equal(fileTypeOf("main.cpp")?.logo, "cpp");
 });

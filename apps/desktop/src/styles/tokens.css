@@ -231,10 +231,18 @@
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  /* Language badges (chat-links.css). These are the languages' own colours,
-     so they are the same in every theme. */
-  --ds-filetype-fg: #ffffff;
+  /* File-type marks (chat-links.css). These are the languages' and formats'
+     own colours, so they are the same in every theme. The plate sits behind a
+     logo: several are drawn in black and vanish on a dark surface. */
+  --ds-filetype-logo-plate: #e2e8f0;
   --ds-filetype-default: #64748b;
+  --ds-filetype-text: #64748b;
+  --ds-filetype-pdf: #ef4444;
+  --ds-filetype-sheet: #16a34a;
+  --ds-filetype-image: #9333ea;
+  --ds-filetype-video: #f43f5e;
+  --ds-filetype-audio: #10b981;
+  --ds-filetype-archive: #d97706;
   --ds-filetype-ts: #3178c6;
   --ds-filetype-js: #b45309;
   --ds-filetype-py: #2f6f9f;
@@ -362,6 +370,7 @@
   --ds-composer-radius: var(--radius-lg);
   --ds-composer-radius-lg: var(--radius-lg);
   --ds-send-glow: 0 2px 8px color-mix(in oklab, #059669 30%, transparent);
+  --ds-filetype-logo-plate: transparent;
   --ds-filter-active-bg: #047857;
   --ds-filter-active-fg: #ffffff;
   --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 82%, transparent);

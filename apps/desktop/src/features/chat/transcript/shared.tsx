@@ -454,14 +454,15 @@ export function FileRefChip({
         type="button"
         className="composer-chip chat-file-chip"
         {...position}
+        data-file-type={fileTypeOf(name)?.id}
         title={`${html ? t("chat.previewUrl") : t("chat.openFile")} — ${path}`}
         aria-label={`${name} — ${path}`}
         onClick={() => onOpen(path, undefined, mimeType, { line, column })}
         onContextMenu={(event) => openFileMenu(event, { path })}
       >
         <span className="composer-chip-icon" aria-hidden>
-          {/* A language says more than a document glyph; others keep the icon. */}
-          {kind !== "image" && kind !== "video" && fileTypeOf(name) ? (
+          {/* A known type shows its own mark; anything else keeps the icon. */}
+          {fileTypeOf(name) ? (
             <FileTypeBadge path={name} />
           ) : (
             <Icon size={13} />
