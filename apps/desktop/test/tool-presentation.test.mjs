@@ -750,3 +750,25 @@ test("TodoWrite has a checklist action and keeps its arguments visible", () => {
   assert.deepEqual(roles(buildToolPresentation(message)), ["input", "notice"]);
   assert.match(byRole(buildToolPresentation(message), "input").text, /Inspect/);
 });
+
+test("an edit or a write shows the lines it added and removed, not its byte size", () => {
+  const edit = {
+    toolName: "Edit",
+    toolStatus: "success",
+    toolResult: { path: "a.ts", tag: "AB12", additions: 48, deletions: 7 },
+  };
+  assert.deepEqual(toolResultChips(edit), [
+    { role: "added", count: 48 },
+    { role: "removed", count: 7 },
+  ]);
+  // A side with nothing to report is left out rather than shown as zero.
+  const write = {
+    toolName: "Write",
+    toolStatus: "success",
+    toolResult: { path: "new.ts", bytes: 120, additions: 5, deletions: 0 },
+  };
+  assert.deepEqual(toolResultChips(write), [{ role: "added", count: 5 }]);
+  // A result from before the counts existed keeps its size chip.
+  const old = { toolName: "Write", toolStatus: "success", toolResult: { path: "x", bytes: 2048 } };
+  assert.deepEqual(toolResultChips(old).map((chip) => chip.role), ["size"]);
+});

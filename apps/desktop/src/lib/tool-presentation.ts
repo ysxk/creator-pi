@@ -42,6 +42,8 @@ export type ToolPresentationMessage = {
 
 export type ToolChip =
   | { role: "exit" | "matches" | "files" | "replacements"; count: number }
+  /** Lines an edit or a write added and removed, shown as `+N` and `−M`. */
+  | { role: "added" | "removed"; count: number }
   | { role: "truncated" | "scratch" }
   | { role: "lines"; text: string }
   | { role: "size"; text: string };
@@ -478,10 +480,18 @@ export function toolResultChips(message: ToolPresentationMessage): ToolChip[] {
   if (replacements !== null && replacements > 0) {
     chips.push({ role: "replacements", count: replacements });
   }
+  // What a change did to the file says more than how many bytes it weighs.
+  const additions = numberAt(details, "additions");
+  const deletions = numberAt(details, "deletions");
+  const changed = additions !== null && deletions !== null;
+  if (changed) {
+    if (additions > 0) chips.push({ role: "added", count: additions });
+    if (deletions > 0) chips.push({ role: "removed", count: deletions });
+  }
   if (action === "read") {
     const lineRange = formatReadLineRange(details);
     if (lineRange !== null) chips.push({ role: "lines", text: lineRange });
-  } else {
+  } else if (!changed) {
     const bytes = numberAt(details, "bytes") ?? numberAt(details, "fileBytes");
     if (bytes !== null) chips.push({ role: "size", text: formatBytes(bytes) });
   }

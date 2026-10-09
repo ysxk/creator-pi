@@ -324,6 +324,40 @@ fn diff_ops(before: &[String], after: &[String]) -> Option<Vec<DiffOp>> {
     Some(ops)
 }
 
+/// Lines added and removed between two versions of a text, for the `+N −M` a
+/// file tool reports beside its row.
+///
+/// An edit touches a few lines of a long file, so the shared head and tail are
+/// set aside first and only the middle is diffed; a middle too large to diff
+/// counts as replaced outright, which is what it would read as anyway.
+pub(crate) fn line_change_counts(before: &str, after: &str) -> (usize, usize) {
+    let before: Vec<&str> = before.lines().collect();
+    let after: Vec<&str> = after.lines().collect();
+    let head = before
+        .iter()
+        .zip(after.iter())
+        .take_while(|(old, new)| old == new)
+        .count();
+    let tail = before[head..]
+        .iter()
+        .rev()
+        .zip(after[head..].iter().rev())
+        .take_while(|(old, new)| old == new)
+        .count();
+    let before_mid: Vec<String> = before[head..before.len() - tail]
+        .iter()
+        .map(|line| line.to_string())
+        .collect();
+    let after_mid: Vec<String> = after[head..after.len() - tail]
+        .iter()
+        .map(|line| line.to_string())
+        .collect();
+    match diff_ops(&before_mid, &after_mid) {
+        Some(ops) => line_counts(&ops),
+        None => (after_mid.len(), before_mid.len()),
+    }
+}
+
 fn line_counts(ops: &[DiffOp]) -> (usize, usize) {
     let mut additions = 0;
     let mut deletions = 0;
@@ -718,5 +752,17 @@ mod tests {
         .unwrap();
         assert_eq!(result.status, "rolledBack");
         assert_eq!(fs::read_to_string(&target).unwrap(), "keep me\n");
+    }
+
+    #[test]
+    fn line_change_counts_ignore_the_shared_head_and_tail() {
+        let before = "a\nb\nc\nd\ne\n";
+        assert_eq!(line_change_counts(before, before), (0, 0));
+        assert_eq!(line_change_counts(before, "a\nb\nX\nY\nd\ne\n"), (2, 1));
+        assert_eq!(line_change_counts(before, "a\nb\nd\ne\n"), (0, 1));
+        assert_eq!(line_change_counts("", "one\ntwo\n"), (2, 0));
+        assert_eq!(line_change_counts("one\ntwo\n", ""), (0, 2));
+        // A repeated line beside the edit is not double counted.
+        assert_eq!(line_change_counts("x\nx\nx\n", "x\nx\nx\nx\n"), (1, 0));
     }
 }

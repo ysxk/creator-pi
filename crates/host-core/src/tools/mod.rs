@@ -1555,6 +1555,12 @@ fn tool_write(
         std::fs::create_dir_all(parent)
             .map_err(|e| ("TOOL_FAILED".into(), format!("mkdir failed: {e}")))?;
     }
+    // What the write replaces, for the line counts in the result. A file that
+    // is missing, unreadable or not text is an empty "before".
+    let previous = std::fs::read(&resolved)
+        .ok()
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .unwrap_or_default();
     std::fs::write(&resolved, &content).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             ("FILE_NOT_FOUND".into(), format!("File not found: {path}"))
@@ -1568,12 +1574,15 @@ fn tool_write(
     let tag = hashline::tag_of_lf_text(&file.text);
     let display = display_tool_path(root_kind, root, &resolved);
     hashline::record_write(hashline, &hashline::canonical_key(&resolved), &file, &tag);
+    let (additions, deletions) = crate::review::line_change_counts(&previous, &file.text);
     Ok(json!({
         "path": display,
         "root": root_label(root_kind),
         "bytes": content.len(),
         "tag": tag,
         "header": hashline::section_header(&display, &tag),
+        "additions": additions,
+        "deletions": deletions,
     }))
 }
 
@@ -1712,6 +1721,7 @@ fn tool_edit(
         hashline.map(|c| c.store),
     )?;
 
+    let before_text = hashline::normalize_file(&live).text;
     if success.delete_file {
         std::fs::remove_file(&resolved)
             .map_err(|e| hashline::ToolError::new("TOOL_FAILED", format!("delete failed: {e}")))?;
@@ -1722,8 +1732,11 @@ fn tool_edit(
             "deleted": true,
             "ops": success.ops_echo,
             "warnings": success.warnings,
+            "additions": 0,
+            "deletions": before_text.lines().count(),
         }));
     }
+    let (additions, deletions) = crate::review::line_change_counts(&before_text, &file.text);
 
     let bytes = hashline::encode_success(&file);
     if let Some(dest) = &success.moved_to {
@@ -1768,6 +1781,8 @@ fn tool_edit(
             "movedFrom": display,
             "ops": success.ops_echo,
             "warnings": success.warnings,
+            "additions": additions,
+            "deletions": deletions,
         }));
     }
 
@@ -1781,6 +1796,8 @@ fn tool_edit(
         "header": hashline::section_header(&display, &success.tag),
         "ops": success.ops_echo,
         "warnings": success.warnings,
+        "additions": additions,
+        "deletions": deletions,
     }))
 }
 

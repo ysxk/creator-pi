@@ -263,7 +263,7 @@ export function ToolDetailBlocks({
   );
 }
 
-const CHIP_LABEL_KEYS: Record<ToolChip["role"], string> = {
+const CHIP_LABEL_KEYS: Record<Exclude<ToolChip["role"], "added" | "removed">, string> = {
   exit: "chat.toolChipExit",
   matches: "chat.toolChipMatches",
   files: "chat.toolChipFiles",
@@ -280,7 +280,15 @@ export function ToolChips({ chips }: { chips: ToolChip[] }) {
   if (chips.length === 0) return null;
   return (
     <span className="tool-row-chips">
-      {chips.map((chip) => (
+      {chips.map((chip) =>
+        chip.role === "added" || chip.role === "removed" ? (
+          // A line count reads the same in every language, and as plain
+          // coloured figures it is not one more grey chip in the row.
+          <span className={`tool-line-delta is-${chip.role}`} key={chip.role}>
+            {chip.role === "added" ? "+" : "\u2212"}
+            {chip.count}
+          </span>
+        ) : (
         <span
           className={cx("tool-chip", chip.role === "exit" && "is-error")}
           key={chip.role}
@@ -294,7 +302,8 @@ export function ToolChips({ chips }: { chips: ToolChip[] }) {
               : {}),
           })}
         </span>
-      ))}
+        ),
+      )}
     </span>
   );
 }
