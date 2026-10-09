@@ -20,9 +20,15 @@ test("the mode chip keeps its click-to-cycle behaviour and its selectors", () =>
   assert.match(toolbarSource, /<ComposerModeSwitch/);
 });
 
-test("the options open on hover without a delay and never take the caret", () => {
-  // No show timer: the menu is there by the time the pointer stops.
-  assert.doesNotMatch(hookSource, /setTimeout\([^)]*\bsetOpen\(true\)/);
+test("the options open for a pointer that stops, not one passing through, and never take the caret", () => {
+  // The menu opens over the editor, so a hand crossing the chip on its way
+  // there must not open it; the dwell stays below what reads as a delay.
+  const dwell = Number(hookSource.match(/const SHOW_DWELL_MS = (\d+);/)?.[1]);
+  assert.ok(dwell >= 80 && dwell <= 120, `dwell ${dwell}`);
+  assert.match(hookSource, /setTimeout\(\(\) => \{\s*showTimer\.current = undefined;\s*setOpen\(true\);\s*\}, SHOW_DWELL_MS\)/);
+  // Leaving inside the dwell cancels the open, and the keyboard never waits.
+  assert.match(hookSource, /const scheduleClose = useCallback\(\(\) => \{[^}]*cancelShow\(\);/);
+  assert.match(hookSource, /openNow: useCallback\(\(\) => \{[^}]*cancelShow\(\);[^}]*setOpen\(true\);/);
   assert.match(hookSource, /if \(disabled \|\| event\.pointerType !== "mouse" \|\| event\.buttons !== 0\) return;/);
   assert.match(hookSource, /const LEAVE_GRACE_MS = 140;/);
   // Hovering must not move focus out of the editor, and closing must not

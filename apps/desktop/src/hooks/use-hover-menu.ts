@@ -3,44 +3,64 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 /** How long the pointer may be outside both the anchor and the menu. */
 const LEAVE_GRACE_MS = 140;
+/** How long the pointer has to stay on the anchor before the menu opens. */
+const SHOW_DWELL_MS = 100;
 
 /**
- * A menu that opens the moment the pointer rests on its anchor and stays open
+ * A menu that opens as the pointer comes to rest on its anchor and stays open
  * while the pointer is over the anchor or the menu itself.
  *
- * There is no show delay: the menu is a second, faster way to do what a click
- * on the anchor already does, so it should be there by the time the pointer
- * stops. The grace period only covers the gap the pointer crosses between the
- * two. Touch and pen never open it — they have no hover, and a tap must keep
- * its click meaning — and neither does a pointer that arrives mid-drag.
+ * The dwell is not a tooltip delay — it is below what reads as waiting — it
+ * only tells a pointer that stopped from one that is passing through. The
+ * menu opens over whatever is next to the anchor, so opening for a pointer on
+ * its way there puts the menu under it and takes that surface away: the
+ * composer's mode menu covered the editor for every hand that crossed the chip
+ * to reach it. The grace period covers the gap the pointer crosses between
+ * anchor and menu. Touch and pen never open it — they have no hover, and a tap
+ * must keep its click meaning — and neither does a pointer that arrives
+ * mid-drag.
  */
 export function useHoverMenu({ disabled = false }: { disabled?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const showTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const cancelClose = useCallback(() => {
     clearTimeout(leaveTimer.current);
     leaveTimer.current = undefined;
   }, []);
 
+  const cancelShow = useCallback(() => {
+    clearTimeout(showTimer.current);
+    showTimer.current = undefined;
+  }, []);
+
   const close = useCallback(() => {
+    cancelShow();
     cancelClose();
     setOpen(false);
-  }, [cancelClose]);
+  }, [cancelClose, cancelShow]);
 
   const scheduleClose = useCallback(() => {
+    // A pointer that left before the dwell ran out was only passing through.
+    cancelShow();
     cancelClose();
     leaveTimer.current = setTimeout(() => {
       leaveTimer.current = undefined;
       setOpen(false);
     }, LEAVE_GRACE_MS);
-  }, [cancelClose]);
+  }, [cancelClose, cancelShow]);
 
   const onPointerEnter = useCallback(
     (event: ReactPointerEvent) => {
       if (disabled || event.pointerType !== "mouse" || event.buttons !== 0) return;
+      // Coming back from the menu keeps it open; only a fresh arrival dwells.
       cancelClose();
-      setOpen(true);
+      if (showTimer.current !== undefined) return;
+      showTimer.current = setTimeout(() => {
+        showTimer.current = undefined;
+        setOpen(true);
+      }, SHOW_DWELL_MS);
     },
     [cancelClose, disabled],
   );
@@ -71,16 +91,23 @@ export function useHoverMenu({ disabled = false }: { disabled?: boolean } = {}) 
     };
   }, [close, open]);
 
-  useEffect(() => cancelClose, [cancelClose]);
+  useEffect(
+    () => () => {
+      cancelClose();
+      cancelShow();
+    },
+    [cancelClose, cancelShow],
+  );
 
   return {
     open,
     /** Open from the keyboard, where there is no pointer to keep it open. */
     openNow: useCallback(() => {
       if (disabled) return;
+      cancelShow();
       cancelClose();
       setOpen(true);
-    }, [cancelClose, disabled]),
+    }, [cancelClose, cancelShow, disabled]),
     close,
     /** Spread on the anchor's wrapper. */
     anchorProps: { onPointerEnter, onPointerLeave },
