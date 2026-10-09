@@ -59,7 +59,7 @@ test("markdown video blocks stream local paths and fall back to a chip", () => {
 
 test("user video attachments render a chip with an operable hover player", () => {
   assert.match(transcriptShared, /export function MessageAttachmentVideo/);
-  assert.match(transcriptShared, /VideoHoverCard src=\{mediaViewUrl\(attachment\.ref\)\}/);
+  assert.match(transcriptShared, /VideoHoverCard\n?\s*src=\{mediaViewUrl\(attachment\.ref\)\}/);
   assert.match(hoverCard, /export function VideoHoverCard/);
   assert.match(hoverCard, /is-interactive/);
   // The card is portal-rendered with a gap from the chip: the chip must not
@@ -76,10 +76,19 @@ test("user video attachments render a chip with an operable hover player", () =>
   assert.match(hoverCard, /event\.key === "Escape"/);
   // Keyboard focus still reveals. Focus moving from the chip into the
   // portal-rendered player's controls must keep the card open; only focus
-  // landing outside the card dismisses.
+  // landing outside THIS attachment's own card dismisses. The own-card ref is
+  // what keeps two simultaneously open cards from being confused — a global
+  // querySelector would always answer with whichever card mounted first.
   assert.match(transcriptShared, /onFocus=\{reveal\}/);
   assert.match(transcriptShared, /onBlur=\{onChipBlur\}/);
-  assert.match(transcriptShared, /card\.contains\(next\)/);
+  assert.match(transcriptShared, /const card = cardRef\.current/);
+  assert.doesNotMatch(transcriptShared, /document\.querySelector/);
+  // The card owns its keyboard exit: focus leaving the player dismisses it,
+  // unless it is heading back to the chip. The own-card element ref crosses
+  // the portal boundary so the chip's blur test can address this card.
+  assert.match(hoverCard, /onBlur=\{onCardBlur\}/);
+  assert.match(transcriptShared, /cardRef=\{cardRef\}/);
+  assert.match(hoverCard, /cardRef\?: RefObject<HTMLDivElement \| null>/);
   // Both placements — inline between words and the trailing list — route video.
   assert.match(messageRow, /MessageAttachmentVideo/);
 });

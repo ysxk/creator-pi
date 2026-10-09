@@ -596,6 +596,10 @@ export function MessageAttachmentVideo({
 }) {
   const [anchor, setAnchor] = useState<ImageHoverAnchor | null>(null);
   const chipRef = useRef<HTMLSpanElement>(null);
+  // This attachment's own player card, portal-rendered elsewhere in the tree;
+  // a querySelector would pick whichever card mounted first, which belongs to
+  // another attachment when two are open at once.
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const reveal = () => {
     const element = chipRef.current;
     if (!element) return;
@@ -604,14 +608,14 @@ export function MessageAttachmentVideo({
   };
   const dismiss = () => setAnchor(null);
   /*
-    Focus moving from the chip into the portal-rendered player's controls is a
-    move INTO the card, not out of it: the chip's blur fires the moment focus
-    crosses. Track where focus lands and only dismiss when it left the card
-    too — the focusin listener sees the next target after the blur.
+    Focus moving from the chip into this card's controls is a move INTO the
+    card, not out of it: the chip's blur fires the moment focus crosses.
+    Only focus landing outside this attachment's own card dismisses — the
+    card itself owns the exit when focus later leaves the player.
   */
   const onChipBlur = (event: React.FocusEvent) => {
     const next = event.relatedTarget as Node | null;
-    const card = document.querySelector(".image-hover-card.is-interactive");
+    const card = cardRef.current;
     if (!card || !(next && card.contains(next))) dismiss();
   };
   return (
@@ -635,11 +639,16 @@ export function MessageAttachmentVideo({
       {/*
         The player card is portal-rendered with a gap from the chip, so the
         chip's own pointerleave must not close it — moving toward the controls
-        crosses that gap. The card dismisses on its own pointer leave; focus
-        leaving both the chip and the card dismisses; scroll/resize matches
-        the image card.
+        crosses that gap. The card dismisses on its own pointer leave; the
+        chip's blur and the card's blur-exit both check this attachment's own
+        card element; scroll/resize matches the image card.
       */}
-      <VideoHoverCard src={mediaViewUrl(attachment.ref)} anchor={anchor} onDismiss={dismiss} />
+      <VideoHoverCard
+        src={mediaViewUrl(attachment.ref)}
+        anchor={anchor}
+        onDismiss={dismiss}
+        cardRef={cardRef}
+      />
     </>
   );
 }
