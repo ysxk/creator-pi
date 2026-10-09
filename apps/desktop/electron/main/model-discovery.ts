@@ -133,11 +133,19 @@ function discoveredModelMetadata(item: Record<string, unknown>): {
 } {
   const contextWindow =
     positiveInt(item.context_window) ?? positiveInt(item.contextWindow);
+  // `supported*Modalities` is the Gemini-style list's spelling of the same fact.
   const input = stringArray(
-    item.input_modalities ?? item.inputModalities ?? item.input_list ?? item.input,
+    item.input_modalities ??
+      item.inputModalities ??
+      item.supportedInputModalities ??
+      item.input_list ??
+      item.input,
   );
   const output = stringArray(
-    item.output_modalities ?? item.outputModalities ?? item.output,
+    item.output_modalities ??
+      item.outputModalities ??
+      item.supportedOutputModalities ??
+      item.output,
   );
   const capabilities = new Set<string>();
   for (const modality of input ?? []) {
@@ -203,7 +211,7 @@ export function normalizeModelList(
           typeof item?.displayName === "string" && item.displayName
             ? item.displayName
             : modelId;
-        return [{ modelId, displayName }];
+        return [{ modelId, displayName, ...discoveredModelMetadata(item ?? {}) }];
       }),
     );
   }

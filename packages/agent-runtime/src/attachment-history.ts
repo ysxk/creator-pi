@@ -40,7 +40,7 @@ export type AttachmentHistoryContext = {
   maxInlinedImageBytes?: number;
   /**
    * Maximum aggregate raw video bytes inlined during history restoration
-   * (default: 60 MB, hard-capped by MAX_INLINED_VIDEO_HISTORY_BYTES).
+   * (default: 100 MB, hard-capped by MAX_INLINED_VIDEO_HISTORY_BYTES).
    * Independent of the image pool so one large clip cannot evict every image.
    */
   maxInlinedVideoBytes?: number;

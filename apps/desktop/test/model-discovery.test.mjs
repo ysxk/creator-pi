@@ -143,6 +143,32 @@ test("optional custom headers are attached to discovery requests", () => {
   assert.equal(google.headers["User-Agent"], undefined);
 });
 
+test("a Gemini-style list carries the modalities a proxy publishes", () => {
+  // CLIProxyAPI's /v1beta/models names them `supportedInputModalities`; without
+  // them a video-capable row was recorded as text-only and its clips went to
+  // the model as file paths.
+  assert.deepEqual(
+    normalizeModelList("google_generative_ai", {
+      models: [
+        {
+          name: "models/gemini-flash",
+          displayName: "Gemini Flash",
+          supportedInputModalities: ["text", "image", "audio", "video"],
+          supportedOutputModalities: ["text"],
+        },
+      ],
+    }),
+    [
+      {
+        modelId: "gemini-flash",
+        displayName: "Gemini Flash",
+        input: ["text", "image", "audio", "video"],
+        capabilities: ["vision", "audio", "video"],
+      },
+    ],
+  );
+});
+
 test("proxy-style rows carry context window, modalities, and effort metadata", () => {
   const models = normalizeModelList("chat_completions", {
     object: "list",

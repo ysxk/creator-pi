@@ -77,9 +77,12 @@ test("a file-kind video attachment is reclassified by MIME and extension", async
 
 test("a video over the inline limit falls back to a path reference", async (t) => {
   const { data, path } = await fixture(t);
-  // Sparse 21 MB file: stat reports the size without consuming disk.
+  // Sparse file one byte past the limit: stat reports the size without
+  // consuming disk.
   const { truncate } = await import("node:fs/promises");
-  await truncate(path, 21_000_000);
+  const { MAX_INLINE_VIDEO_BYTES } = await import("@pi-desktop/shared");
+  const oversize = MAX_INLINE_VIDEO_BYTES + 1;
+  await truncate(path, oversize);
   const attachment = { path, name: "pasted-clip.mp4", kind: "video", mimeType: "video/mp4" };
   const [prepared] = await preparePromptAttachments(
     data,
@@ -91,6 +94,6 @@ test("a video over the inline limit falls back to a path reference", async (t) =
     true,
   );
   assert.equal(prepared.inlineData, undefined);
-  assert.equal(prepared.message.size, 21_000_000);
+  assert.equal(prepared.message.size, oversize);
   assert.equal(prepared.message.kind, "video");
 });

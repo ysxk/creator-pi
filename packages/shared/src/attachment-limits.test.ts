@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_INLINE_IMAGE_BYTES,
+  MAX_INLINE_VIDEO_BYTES,
   MAX_INLINED_IMAGE_HISTORY_BYTES,
+  MAX_INLINED_VIDEO_HISTORY_BYTES,
 } from "./attachment-limits.js";
 
 describe("attachment transport limits", () => {
@@ -11,5 +13,13 @@ describe("attachment transport limits", () => {
 
   it("caps aggregate inlined history images to 30 MB", () => {
     expect(MAX_INLINED_IMAGE_HISTORY_BYTES).toBe(30_000_000);
+  });
+
+  it("inlines a video up to Gemini's 100 MB request limit", () => {
+    expect(MAX_INLINE_VIDEO_BYTES).toBe(100_000_000);
+  });
+
+  it("keeps a clip the first turn could send available to later turns", () => {
+    expect(MAX_INLINED_VIDEO_HISTORY_BYTES).toBeGreaterThanOrEqual(MAX_INLINE_VIDEO_BYTES);
   });
 });
