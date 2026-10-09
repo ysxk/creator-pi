@@ -307,8 +307,8 @@ test("related session links show only active running state", () => {
   assert.match(sidebarSource, /<SessionHoverCard[\s\S]*?pendingPermissions=\{pendingPermissions\}/);
   assert.match(hoverSource, /sessionReferenceIsRunning\(reference, runningSessions, pendingPermissions\)/);
   assert.match(hoverSource, /data-session-running="true"/);
-  assert.match(globalStyles, /\.sidebar-session-hover-card-session-link-status\s*\{[\s\S]*?--ds-warning/);
-  assert.match(globalStyles, /\.sidebar-session-hover-card-session-link-status::before\s*\{[\s\S]*?sidebar-status-breathe/);
+  assert.match(globalStyles, /\.sidebar-session-hover-card-session-link-status\s*\{[\s\S]*?--ds-status-running/);
+  assert.match(globalStyles, /\.sidebar-session-hover-card-session-link-status::before\s*\{[\s\S]*?ds-breathe[\s\S]*?animation-play-state:\s*var\(--motion-play\)/);
 });
 
 test("hidden row actions stay out of the row's click path", () => {
@@ -357,7 +357,8 @@ test("sidebar rows share one hover surface and workspace context never paints se
     globalStyles,
     /\.thread-item:hover,\s*\.thread-item.active,\s*\.project-group > \.sidebar-session-group-header:hover\s*\{[^}]*background:\s*var\(--ds-bg-hover\);/,
   );
-  assert.match(globalStyles, /\.thread-item.active\s*\{[^}]*background:\s*var\(--ds-bg-active\);/);
+  // The open session is a tinted capsule with its own ink, not a darker tile.
+  assert.match(globalStyles, /\.thread-item.active\s*\{[^}]*background:\s*var\(--ds-accent-tint\);[^}]*color:\s*var\(--ds-accent-ink\);/);
   assert.match(globalStyles, /\.sidebar-session-group-title\s*\{[^}]*background:\s*transparent;[^}]*color:\s*inherit;/);
   assert.doesNotMatch(globalStyles, /\.project-group\.active/);
   assert.doesNotMatch(globalStyles, /\.sidebar-session-group-title\.project-toggle:hover/);

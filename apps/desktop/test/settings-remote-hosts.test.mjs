@@ -43,7 +43,7 @@ test("remote hosts is an inventory plus one SSH/Pair add form", () => {
   assert.match(page, /api\.removeRemoteHost\(/);
 
   assert.match(cssRule(".settings-remote-host-add-panel[hidden]"), /display:\s*none/);
-  assert.match(cssRule(".settings-remote-host-card"), /background:\s*var\(--ds-tile\)/);
+  assert.match(cssRule(".settings-remote-host-card"), /background:\s*var\(--ds-card\)/);
   assert.match(cssRule(".settings-remote-host-name"), /font-size:\s*var\(--text-md-plus\)/);
 });
 

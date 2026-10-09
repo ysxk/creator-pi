@@ -55,7 +55,8 @@
   gap: 12px;
   width: 100%;
   border-radius: var(--radius-lg);
-  background: var(--ds-tile);
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
   padding: 12px 14px;
   text-align: left;
   transition: background var(--motion-duration-fast) var(--motion-ease-out);

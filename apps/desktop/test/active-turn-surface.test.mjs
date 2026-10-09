@@ -138,7 +138,7 @@ test("active turns show immediate and phase-specific feedback without a progress
   assert.doesNotMatch(messagesStyles, /\.shimmer-text\s*\{|animation:\s*shimmer\b/);
   assert.match(
     messagesStyles,
-    /\.tool-activity-label\.running::after,\s*\.tool-row-name\.running::after\s*\{[\s\S]*?animation:\s*activity-marker-pulse\s+1s/,
+    /\.tool-activity-label\.running::after,\s*\.tool-row-name\.running::after\s*\{[\s\S]*?animation:\s*ds-breathe\s+var\(--motion-breath-duration\)[\s\S]*?animation-play-state:\s*var\(--motion-play\)/,
   );
   assert.doesNotMatch(
     en,

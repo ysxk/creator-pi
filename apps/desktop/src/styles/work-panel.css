@@ -20,6 +20,7 @@
      `--ds-bg-dock` is a token, not a literal, so a contributed theme can move
      the whole column (D419). */
   background: var(--ds-bg-dock);
+  box-shadow: inset 1px 0 0 var(--ds-pane-seam);
   /*
    * Animate the allocated dock width as well as its small compositor slide.
    * Transform-only feedback used to leave the flex item at full width before

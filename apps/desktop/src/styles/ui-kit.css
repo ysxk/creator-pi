@@ -63,7 +63,8 @@
 }
 .panel-card {
   border-radius: var(--radius-lg);
-  background: var(--ds-tile);
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
 }
 
 .field-input,
@@ -152,11 +153,11 @@
 }
 
 .btn-primary {
-  background: var(--ds-accent);
+  background: var(--ds-accent-strong);
   color: var(--ds-bg-primary);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--ds-accent-hover);
+  background: var(--ds-accent-strong-hover);
   opacity: 1;
 }
 

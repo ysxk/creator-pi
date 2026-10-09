@@ -16,6 +16,7 @@ import { UpdateBanner } from "../../components/UpdateBanner";
 import { cx, TooltipButton } from "../../components/ui";
 import { WindowControls } from "../../components/WindowControls";
 import { useCopyTex } from "../../hooks/use-copy-tex";
+import { useWindowActivity } from "../../hooks/use-window-activity";
 import { api } from "../../lib/api";
 import { PortalVisibilityProvider } from "../../lib/portal-visibility";
 import { workPanelLayout } from "../../lib/work-panel-resize";
@@ -94,6 +95,7 @@ export function AppShell() {
     workPanelWidth,
   } = useAppShellRuntime();
   useCopyTex();
+  useWindowActivity();
 
   useEffect(() => {
     void loadChatSurface().catch((error: unknown) => {

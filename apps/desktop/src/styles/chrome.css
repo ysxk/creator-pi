@@ -290,6 +290,8 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  /* Transparent in dark, where the tone change is the edge. */
+  box-shadow: inset -1px 0 0 var(--ds-pane-seam);
 }
 
 .sidebar.is-entering {

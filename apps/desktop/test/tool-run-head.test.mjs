@@ -64,7 +64,7 @@ test("a run row states what the command did, not what the call did", () => {
   assert.match(transcript, /\{runHead && statusLabel \? null : \(\s*<span className="sr-only" role="status"/);
   assert.match(
     styles,
-    /\.tool-row-state\.is-running \.tool-row-state-dot \{[^}]*animation: tool-row-state-pulse/,
+    /\.tool-row-state\.is-running \.tool-row-state-dot \{[^}]*animation: ds-breathe /,
   );
   assert.match(
     styles,

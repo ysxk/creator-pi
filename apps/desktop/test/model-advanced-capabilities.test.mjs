@@ -134,7 +134,8 @@ test("selected thinking chips keep high contrast in both themes", () => {
     /\.provider-thinking-chip\.selected \{[\s\S]*?\n\}/,
   )?.[0];
   assert.ok(selectedRule);
-  assert.match(selectedRule, /background: var\(--ds-accent\)/);
+  // The darker accent step: white text on the plain light accent is too faint.
+  assert.match(selectedRule, /background: var\(--ds-accent-strong\)/);
   assert.match(selectedRule, /color: var\(--ds-bg-primary\)/);
 });
 

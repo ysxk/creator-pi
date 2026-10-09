@@ -94,10 +94,11 @@ test("the chooser answers the keyboard and never dead-ends", () => {
   assert.match(chooserSource, /data-plugin-provider-id=\{option\.id\}/);
 });
 
-test("chooser tiles are toned in-flow surfaces without strokes (D297)", () => {
+test("chooser tiles are cards: paper with a hairline in light, a toned tile in dark", () => {
   const tile = rule(".service-chooser-tile");
   assert.match(tile, /border: 0;/);
-  assert.match(tile, /background: var\(--ds-tile\);/);
+  assert.match(tile, /background: var\(--ds-card\);/);
+  assert.match(tile, /box-shadow: inset 0 0 0 1px var\(--ds-card-stroke\);/);
   assert.doesNotMatch(tile, /border: (?!0;)/);
   assert.match(rule(".service-chooser-grid"), /repeat\(auto-fill, minmax\(200px, 1fr\)\)/);
   assert.match(rule(".service-chooser-groups"), /overflow-y: auto;/);

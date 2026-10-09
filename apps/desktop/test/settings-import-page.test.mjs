@@ -78,7 +78,7 @@ test("shared inline workbench retains accessible selection and importer controls
   assert.match(workbench, /settings\.importSelected/);
   assert.doesNotMatch(workbench, /<input\s+type="checkbox"/);
 
-  assert.match(cssRule(".import-row"), /background:\s*var\(--ds-tile\)/);
+  assert.match(cssRule(".import-row"), /background:\s*var\(--ds-card\)/);
   assert.match(cssRule(".import-row:hover"), /var\(--ds-tile-hover\)/);
   assert.match(cssRule(".import-row-title"), /font-size:\s*var\(--text-md\)/);
   assert.match(cssRule(".import-row-meta"), /font-size:\s*var\(--text-2xs\)/);

@@ -51,12 +51,10 @@ function reducedMotionBlocks() {
   }
 }
 
-// Running marks were bounded by #1064; the rest stay mounted while nothing is
-// running (a session waiting on permission, plan mode left on, a backend
-// warning banner), so they kept animating on an idle window.
+// These stay mounted while nothing is running (a session waiting on
+// permission, plan mode left on, a backend warning banner), so they would keep
+// animating on an idle window.
 const IDLE_INDICATORS = [
-  ".thread-item-status.running::before",
-  ".sidebar-session-hover-card-session-link-status::before",
   ".thread-item-status.permission::before",
   '.composer-mode-chip[data-planning="true"] svg',
   ".backend-banner.warn .backend-dot",
@@ -91,4 +89,40 @@ test("idle status indicators honour reduced motion", () => {
       `${selector} must disable its animation under reduced motion`,
     );
   }
+});
+
+// A running session is work in flight, so its mark may loop — but only while
+// someone can see it. The loop reads `--motion-play`, which the window-activity
+// hook flips to `paused` on blur or hide, and it moves a halo beside a static
+// dot so a paused frame still shows the state.
+const WORK_IN_FLIGHT = [
+  ".thread-item-status.running::after",
+  ".sidebar-session-hover-card-session-link-status::before",
+  ".tool-row-state.is-running .tool-row-state-dot",
+];
+
+test("work-in-flight indicators loop only while the window is active", () => {
+  assert.match(
+    styles,
+    /:root\[data-window-active="false"\]\s*\{\s*--motion-play:\s*paused;/,
+  );
+  for (const selector of WORK_IN_FLIGHT) {
+    const block = declarationBlock(selector);
+    assert.match(block, /animation:\s*ds-breathe/, `${selector} uses the shared breath`);
+    assert.match(
+      block,
+      /animation-play-state:\s*var\(--motion-play\)/,
+      `${selector} must pause with the window`,
+    );
+  }
+  // Only opacity and transform move, so no frame costs a repaint of its own.
+  for (const name of ["ds-breathe-halo", "ds-breathe"]) {
+    const start = styles.indexOf(`@keyframes ${name} {`);
+    assert.ok(start >= 0, `missing @keyframes ${name}`);
+    const end = styles.indexOf("\n}\n", start);
+    const declared = [...styles.slice(start, end).matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1]);
+    assert.deepEqual([...new Set(declared)].sort(), name === "ds-breathe" ? ["opacity"] : ["opacity", "transform"]);
+  }
+  // The running dot itself never animates: the state reads from a still frame.
+  assert.doesNotMatch(declarationBlock(".thread-item-status.running::before"), /animation/);
 });

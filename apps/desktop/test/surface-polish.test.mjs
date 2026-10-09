@@ -9,7 +9,7 @@ test("work panel uses a quiet light-theme inset surface", () => {
   // The light inset and its raised strips are tokens, not literals pinned by a
   // `:root[data-theme="light"]` override, so a contributed theme can move them
   // (D418). A literal here would put the dock out of every theme's reach.
-  assert.match(styles, /--ds-bg-dock:\s*#fafafa/);
+  assert.match(styles, /--ds-bg-dock:\s*#ffffff/);
   assert.match(styles, /--ds-bg-dock-raised:\s*#ffffff/);
   assert.match(styles, /\.work-panel\s*\{[\s\S]*?background:\s*var\(--ds-bg-dock\)/);
   assert.match(
@@ -97,7 +97,7 @@ test("settings and form controls gain light-theme surfaces", () => {
   // light veil now lives in the light token block, so a theme can move it.
   assert.match(
     styles,
-    /:root\[data-theme="light"\][\s\S]*?--ds-scrim:\s*color-mix\(in oklab,\s*#1a1c1f 28%/,
+    /:root\[data-theme="light"\][\s\S]*?--ds-scrim:\s*color-mix\(in oklab,\s*#0f172a 28%/,
   );
   assert.match(styles, /\.overlay\s*\{[^}]*background:\s*var\(--ds-scrim\)/);
   assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.overlay\s*\{/);

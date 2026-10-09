@@ -78,8 +78,8 @@ test("home and settings use the same material without animating the settings pla
   assert.match(styles, /\.route-surface,\s*\.settings-content-enter\s*\{[^}]*animation:\s*route-surface-in/);
   assert.doesNotMatch(styles, /\.route-surface,\s*\.settings-shell-full\s*\{/);
   assert.match(styles, /--ds-bg-sidebar:\s*var\(--ds-settings-rail-bg, var\(--ds-bg-under\)\)/);
-  assert.match(styles, /--ds-bg-sidebar:\s*var\(--ds-settings-rail-bg, #f3f3f3\)/);
+  assert.match(styles, /--ds-bg-sidebar:\s*var\(--ds-settings-rail-bg, #ffffff\)/);
   assert.match(styles, /--ds-settings-rail-bg:\s*var\(--ds-bg-under\)/);
-  assert.match(styles, /--ds-settings-rail-bg:\s*#f3f3f3/);
+  assert.match(styles, /--ds-settings-rail-bg:\s*#ffffff/);
   assert.doesNotMatch(styles, /--ds-settings-rail-bg:\s*var\(--ds-bg-sidebar/);
 });

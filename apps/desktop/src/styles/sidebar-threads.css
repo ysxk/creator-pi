@@ -56,7 +56,13 @@
 }
 
 .thread-item.active {
-  background: var(--ds-bg-active);
+  background: var(--ds-accent-tint);
+  color: var(--ds-accent-ink);
+}
+
+/* Selection carries weight in the light theme; dark stays on its tile ramp. */
+:root[data-theme="light"] .thread-item.active {
+  font-weight: var(--font-weight-semibold);
 }
 
 .sidebar-session-groups {

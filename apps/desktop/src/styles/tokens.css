@@ -105,6 +105,19 @@
   --ds-accent-soft: var(--gray-300);
   /* Focus rings / resize affordances. Tied to the accent so themes stay monochrome. */
   --ds-focus: var(--ds-accent);
+  /* Roles the light theme separates from the accent; dark keeps them equal. */
+  --ds-accent-strong: var(--ds-accent);
+  --ds-accent-strong-hover: var(--ds-accent-hover);
+  --ds-accent-tint: var(--ds-bg-active);
+  --ds-accent-tint-strong: color-mix(in oklab, var(--gray-0) 14%, transparent);
+  --ds-accent-ink: var(--ds-text-primary);
+  /* Dark keeps borderless tiles (D297); light redefines these as paper. */
+  --ds-card: var(--ds-tile);
+  --ds-card-stroke: transparent;
+  --ds-composer-stroke: transparent;
+  --ds-pane-seam: transparent;
+  --ds-status-running: var(--ds-success);
+  --ds-status-running-halo: color-mix(in oklab, var(--ds-success) 25%, transparent);
   /* Settings fields and shared inset searches keep their built-in tones. */
   --ds-settings-field-bg: #212121;
   --ds-settings-nav-active: color-mix(in oklab, var(--gray-0) 10%, transparent);
@@ -214,87 +227,108 @@
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* Work-in-flight breathing (motion.css): one slow cycle with a rest. */
+  --motion-breath-duration: 2.4s;
+  --motion-ease-breath: cubic-bezier(0.37, 0, 0.63, 1);
+  /* `paused` while the window is blurred or hidden. */
+  --motion-play: running;
   /* Global type scale (D343). 1 = product ramp; Appearance multiplies --text-*. */
   --font-scale: 1;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  /* Codex electron-light */
+  /* Bamboo White: one continuous white sheet, slate ink, hairline strokes,
+     and a single bamboo-green accent. */
   --ds-bg-primary: #ffffff;
-  --ds-settings-rail-bg: #f3f3f3;
-  --ds-bg-sidebar: var(--ds-settings-rail-bg, #f3f3f3);
-  --ds-bg-secondary: #f9f9f9;
-  --ds-bg-tertiary: #f3f3f3;
-  --ds-bg-inset: #ededed;
-  --ds-bg-under: #f9f9f9;
-  /* Dock column reads as quiet inset paper on the white chat pane (D419). */
-  --ds-bg-dock: #fafafa;
+  --ds-settings-rail-bg: #ffffff;
+  --ds-bg-sidebar: var(--ds-settings-rail-bg, #ffffff);
+  --ds-bg-secondary: #ffffff;
+  --ds-bg-tertiary: #f8fafc;
+  --ds-bg-inset: #f1f5f9;
+  --ds-bg-under: #ffffff;
+  /* The dock shares the sheet; a hairline, not a grey fill, sets it apart. */
+  --ds-bg-dock: #ffffff;
   --ds-bg-dock-raised: #ffffff;
-  --ds-bg-elevated: color-mix(in oklab, #ffffff 70%, transparent);
+  --ds-bg-elevated: color-mix(in oklab, #ffffff 82%, transparent);
   --ds-bg-elevated-opaque: #ffffff;
-  --ds-bg-hover: color-mix(in oklab, #1a1c1f 5%, transparent);
-  --ds-bg-active: color-mix(in oklab, #1a1c1f 8%, transparent);
+  --ds-bg-hover: color-mix(in oklab, #0f172a 4%, transparent);
+  --ds-bg-active: color-mix(in oklab, #0f172a 7%, transparent);
   --ds-bg-composer: #ffffff;
-  --ds-sidebar-glass-tint: color-mix(in oklab, var(--ds-bg-sidebar) 55%, transparent);
-  --ds-sidebar-glass-sheen-top: color-mix(in oklab, #ffffff 45%, transparent);
-  --ds-sidebar-glass-sheen-bottom: color-mix(in oklab, #ffffff 30%, transparent);
-  --ds-bg-chip: color-mix(in oklab, #1a1c1f 4%, transparent);
-  --ds-text-primary: #1a1c1f;
-  --ds-text-secondary: color-mix(in oklab, #1a1c1f 74%, transparent);
-  --ds-text-muted: #5d5d5d;
-  --ds-text-faint: #afafaf;
-  --ds-border-default: color-mix(in oklab, #1a1c1f 8%, transparent);
-  --ds-border-subtle: color-mix(in oklab, #1a1c1f 5%, transparent);
-  --ds-border-strong: color-mix(in oklab, #1a1c1f 12%, transparent);
-  --ds-tile: color-mix(in oklab, #1a1c1f 3.5%, transparent);
-  --ds-tile-hover: color-mix(in oklab, #1a1c1f 6%, transparent);
-  --ds-tile-deep: color-mix(in oklab, #1a1c1f 8%, transparent);
+  /* Opaque on purpose: the native vibrancy behind a translucent tint reads as
+     the grey rail this theme removes. */
+  --ds-sidebar-glass-tint: #ffffff;
+  --ds-sidebar-glass-sheen-top: transparent;
+  --ds-sidebar-glass-sheen-bottom: transparent;
+  --ds-bg-chip: color-mix(in oklab, #0f172a 4%, transparent);
+  --ds-text-primary: #0f172a;
+  --ds-text-secondary: #334155;
+  --ds-text-muted: #64748b;
+  --ds-text-faint: #94a3b8;
+  --ds-border-default: color-mix(in oklab, #0f172a 8%, transparent);
+  --ds-border-subtle: color-mix(in oklab, #0f172a 5%, transparent);
+  --ds-border-strong: color-mix(in oklab, #0f172a 12%, transparent);
+  --ds-tile: color-mix(in oklab, #0f172a 3%, transparent);
+  --ds-tile-hover: color-mix(in oklab, #0f172a 5%, transparent);
+  --ds-tile-deep: color-mix(in oklab, #0f172a 7%, transparent);
   --ds-raised: #ffffff;
-  --ds-raised-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
-  /* Light theme accent inverts: dark ink on pale surfaces. */
-  --ds-accent: #1a1c1f;
-  --ds-accent-hover: #303030;
-  --ds-accent-soft: #5d5d5d;
+  --ds-raised-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 0.5px rgba(15, 23, 42, 0.05);
+  /* Cards are white paper with a hairline instead of a grey tile. */
+  --ds-card: #ffffff;
+  --ds-card-stroke: color-mix(in oklab, #0f172a 8%, transparent);
+  --ds-accent: #059669;
+  --ds-accent-hover: #047857;
+  /* Kept solid: it draws outlines and mixes into text. */
+  --ds-accent-soft: #34d399;
+  /* Fill behind white text; the plain accent is too light to read on. */
+  --ds-accent-strong: #047857;
+  --ds-accent-strong-hover: #065f46;
+  /* Selected rows: a mint wash with deep-green ink. */
+  --ds-accent-tint: color-mix(in oklab, #059669 8%, transparent);
+  --ds-accent-tint-strong: color-mix(in oklab, #059669 14%, transparent);
+  --ds-accent-ink: #065f46;
   --ds-focus: var(--ds-accent);
   --ds-settings-field-bg: #ffffff;
-  --ds-settings-nav-active: color-mix(in oklab, #1a1c1f 12%, #ffffff);
-  --ds-field-inset-bg: #f3f3f3;
-  /* Issue #341: the light values these fills used to hardcode in overrides. */
-  --ds-prose-kbd-fg: #303030;
-  --ds-thinking-code-bg: #f0f0f0;
+  --ds-settings-nav-active: var(--ds-accent-tint);
+  --ds-field-inset-bg: #f8fafc;
+  --ds-prose-kbd-fg: #334155;
+  --ds-thinking-code-bg: #f1f5f9;
   --ds-mermaid-canvas: #ffffff;
-  --ds-code-head-bg: color-mix(in oklab, #1a1c1f 3.5%, transparent);
-  --ds-code-hover-bg: color-mix(in oklab, #1a1c1f 6%, transparent);
+  --ds-code-head-bg: color-mix(in oklab, #0f172a 3%, transparent);
+  --ds-code-hover-bg: color-mix(in oklab, #0f172a 6%, transparent);
   /* D148: light drops the scrim to ~28% ink so white dialogs stay readable. */
-  --ds-scrim: color-mix(in oklab, #1a1c1f 28%, transparent);
-  --ds-modal-veil: color-mix(in oklab, #1a1c1f 32%, transparent);
-  --ds-tool-row-bg: color-mix(in oklab, #1a1c1f 2%, transparent);
-  --ds-send-disabled-bg: #8e8e90; /* gold disabled send chip */
+  --ds-scrim: color-mix(in oklab, #0f172a 28%, transparent);
+  --ds-modal-veil: color-mix(in oklab, #0f172a 32%, transparent);
+  --ds-tool-row-bg: color-mix(in oklab, #0f172a 2%, transparent);
+  --ds-send-disabled-bg: #cbd5e1;
   --ds-send-disabled-fg: #ffffff;
-  --ds-placeholder-ink: #4a4c4f;
+  --ds-placeholder-ink: #94a3b8;
   --ds-field-inset-focus-bg: #ffffff;
-  /* Off knob stays white on the pale track; on knob keeps white on near-black. */
-  --ds-switch-track-off: color-mix(in oklab, #1a1c1f 10%, transparent);
-  --ds-switch-track-off-hover: color-mix(in oklab, #1a1c1f 18%, transparent);
-  --ds-switch-ring-off: color-mix(in oklab, #1a1c1f 20%, transparent);
+  --ds-switch-track-off: #e2e8f0;
+  --ds-switch-track-off-hover: #cbd5e1;
+  --ds-switch-ring-off: color-mix(in oklab, #0f172a 12%, transparent);
   --ds-switch-knob-off: #ffffff;
   --ds-switch-knob-on: #ffffff;
-  --ds-success: #00a240;
+  --ds-success: #10b981;
   --ds-warning: #e25507;
-  --ds-error: #e02e2a;
-  --ds-info: #5d5d5d;
+  --ds-error: #ef4444;
+  --ds-info: #0284c7;
   --ds-purple: #7c3aed;
-  --ds-shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.12);
+  /* A running session is healthy work, so it breathes green, not warning orange. */
+  --ds-status-running: #059669;
+  --ds-status-running-halo: color-mix(in oklab, #10b981 25%, transparent);
+  --ds-shadow-dialog: 0 16px 40px rgba(15, 23, 42, 0.14);
   /* Preserve the opaque light model menu's existing stroke and lift. */
   --ds-shadow-model-menu:
     0 0 0 0.5px color-mix(in oklab, #1a1c1f 10%, transparent),
     0 8px 32px rgba(0, 0, 0, 0.1),
     0 2px 8px rgba(0, 0, 0, 0.06);
-  --ds-elevation-stroke: 0 0 0 0.5px color-mix(in oklab, #1a1c1f 12%, transparent);
-  /* Codex elevation-prominent exact (same dark/light formula). */
-  --ds-shadow-composer: 0 3px 7.5px #0000000a, 0 0 20px #0000000d;
-  --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 70%, transparent);
+  --ds-elevation-stroke: 0 0 0 0.5px color-mix(in oklab, #0f172a 12%, transparent);
+  --ds-shadow-composer: 0 2px 12px rgba(15, 23, 42, 0.04);
+  --ds-composer-stroke: color-mix(in oklab, #0f172a 12%, transparent);
+  /* White panes meet white panes, so a hairline marks where one ends. */
+  --ds-pane-seam: color-mix(in oklab, #0f172a 6%, transparent);
+  --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 82%, transparent);
 }
 
 @theme {

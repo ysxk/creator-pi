@@ -173,6 +173,12 @@ test("the sidebar glass tint stays thin enough to reveal the vibrancy material",
     ]) {
       assert.match(block, new RegExp(`${token}:`), `${theme} must define ${token}`);
     }
+    if (theme === "light") {
+      // Bamboo White paints the sidebar as the same opaque sheet as the chat:
+      // any vibrancy showing through reads as the grey rail the theme removes.
+      assert.match(block, /--ds-sidebar-glass-tint:\s*#ffffff;/);
+      continue;
+    }
     const tint = block.match(
       /--ds-sidebar-glass-tint:\s*color-mix\(in oklab,\s*var\(--ds-bg-sidebar\)\s*(\d+)%,\s*transparent\)/,
     );

@@ -9,7 +9,7 @@ const recentSource = await readFile(
   "utf8",
 );
 
-test("design accent tokens are neutral gray, not blue", () => {
+test("the accent is neutral in dark and bamboo green in light, never blue", () => {
   assert.doesNotMatch(stylesSource, /--blue-\d+/);
   assert.doesNotMatch(stylesSource, /#0285ff/i);
   assert.doesNotMatch(stylesSource, /#339cff/i);
@@ -30,15 +30,22 @@ test("design accent tokens are neutral gray, not blue", () => {
   );
   assert.match(
     stylesSource,
-    /:root\[data-theme="light"\][\s\S]*?--ds-accent:\s*#1a1c1f/,
+    /:root\[data-theme="light"\][\s\S]*?--ds-accent:\s*#059669/,
   );
   assert.match(
     stylesSource,
-    /:root\[data-theme="light"\][\s\S]*?--ds-accent-hover:\s*#303030/,
+    /:root\[data-theme="light"\][\s\S]*?--ds-accent-hover:\s*#047857/,
   );
+  // Soft stays a solid colour: it draws outlines and mixes into text.
   assert.match(
     stylesSource,
-    /:root\[data-theme="light"\][\s\S]*?--ds-accent-soft:\s*#5d5d5d/,
+    /:root\[data-theme="light"\][\s\S]*?--ds-accent-soft:\s*#34d399/,
+  );
+  // White text sits on the darker step, which clears 4.5:1; the plain accent
+  // does not.
+  assert.match(
+    stylesSource,
+    /:root\[data-theme="light"\][\s\S]*?--ds-accent-strong:\s*#047857/,
   );
 });
 

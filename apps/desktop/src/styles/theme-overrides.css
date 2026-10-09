@@ -22,7 +22,8 @@
 
 .page-card {
   border-radius: var(--radius-lg-plus);
-  background: var(--ds-tile);
+  background: var(--ds-card);
+  box-shadow: inset 0 0 0 1px var(--ds-card-stroke);
 }
 
 .page-empty {
