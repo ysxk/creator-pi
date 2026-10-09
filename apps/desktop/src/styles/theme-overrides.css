@@ -207,18 +207,6 @@
   border-radius: var(--radius-full);
 }
 
-/* The left cluster (attach, mode, permission) reads as a row of quiet keys in
-   the light theme; in dark the same tokens leave them the bare pills they were. */
-.composer-left .icon-btn {
-  border-radius: var(--ds-composer-chip-radius) !important;
-  background: var(--ds-composer-chip-bg);
-  box-shadow: inset 0 0 0 1px var(--ds-composer-chip-stroke);
-}
-
-.composer-left {
-  gap: 6px;
-}
-
 .mode-chip {
   height: 28px !important;
   padding: 0 10px !important;
