@@ -88,7 +88,9 @@ test("main process registers update handlers and the auto-check lifecycle", () =
     assert.ok(mainSource.includes(channel), channel);
   }
   assert.match(mainSource, /new AppUpdaterController\(/);
-  assert.match(mainSource, /isPackaged:\s*!isDevelopmentBuild/);
+  // Off in development, and in a personal build that must not replace itself
+  // with an upstream release.
+  assert.match(mainSource, /isPackaged:\s*updatesEnabled/);
   assert.match(mainSource, /updater\.startAutoCheck\(\)/);
   assert.match(
     mainSource,

@@ -31,6 +31,57 @@ export const INSTALLATION_DATA_DIR_NAME = ".pi-desktop";
 /** Data directory of a development installation, below the user's home. */
 export const DEVELOPMENT_DATA_DIR_NAME = ".pi-desktop-dev";
 
+/**
+ * The identity of a personal build, read from the packaged app's own
+ * `package.json` (`piInstallation`, written by the pack command).
+ *
+ * Someone who builds PI-Desktop from modified source and installs it next to
+ * the released app needs the two to stay apart for the same reasons a
+ * development build does: a shared `userData` means a shared single-instance
+ * lock, and a shared data directory means two host-cores over one database —
+ * here with different schema versions. A personal build also must not update
+ * itself, because the only release feed there is would replace it with the
+ * upstream app. A released build carries no such metadata and keeps the
+ * shipped identity untouched.
+ */
+export type InstallationProfile = {
+  /** `userData` directory name; absent keeps the shipped one. */
+  name?: string;
+  /** Data directory name below the user's home; absent keeps the shipped one. */
+  dataDirName?: string;
+  /** False for a build that must never replace itself with a release. */
+  updates: boolean;
+};
+
+export const SHIPPED_PROFILE: InstallationProfile = { updates: true };
+
+const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/;
+const PROFILE_DATA_DIR = /^\.[a-z0-9][a-z0-9-]{0,39}$/;
+
+/**
+ * Read `piInstallation` out of parsed package metadata. Each field is taken
+ * only when it is well-formed — a directory name is a single dot-directory,
+ * never a path — and anything else falls back to the shipped value, so a
+ * malformed build can at worst behave like the released app.
+ */
+export function parseInstallationProfile(metadata: unknown): InstallationProfile {
+  const raw =
+    metadata && typeof metadata === "object"
+      ? (metadata as Record<string, unknown>).piInstallation
+      : undefined;
+  if (!raw || typeof raw !== "object") return SHIPPED_PROFILE;
+  const { name, dataDirName, updates } = raw as Record<string, unknown>;
+  return {
+    ...(typeof name === "string" && PROFILE_NAME.test(name) ? { name } : {}),
+    ...(typeof dataDirName === "string" && PROFILE_DATA_DIR.test(dataDirName)
+      ? { dataDirName }
+      : {}),
+    // The pack command passes values on a command line, where `false` may
+    // arrive as text.
+    updates: !(updates === false || updates === "false"),
+  };
+}
+
 export type DataDirInput = {
   /** `PI_DESKTOP_DATA_DIR`; an explicit directory wins over either profile. */
   override: string | undefined;
@@ -38,6 +89,8 @@ export type DataDirInput = {
   development: boolean;
   /** The user's home directory. */
   home: string;
+  /** A personal build's own data directory name, when it has one. */
+  dataDirName?: string;
 };
 
 /**
@@ -56,13 +109,16 @@ export function resolveDataDir({
   override,
   development,
   home,
+  dataDirName,
 }: DataDirInput): string {
   const explicit = override?.trim();
   if (explicit) return resolve(explicit);
   return resolve(
     join(
       home,
-      development ? DEVELOPMENT_DATA_DIR_NAME : INSTALLATION_DATA_DIR_NAME,
+      development
+        ? DEVELOPMENT_DATA_DIR_NAME
+        : (dataDirName ?? INSTALLATION_DATA_DIR_NAME),
     ),
   );
 }
@@ -80,11 +136,13 @@ export function resolveDataDir({
  */
 export function desktopDataDir(
   development: boolean = process.env.PI_DESKTOP_DEV === "1",
+  dataDirName?: string,
 ): string {
   return resolveDataDir({
     override: process.env.PI_DESKTOP_DATA_DIR,
     development,
     home: homedir(),
+    ...(dataDirName ? { dataDirName } : {}),
   });
 }
 
@@ -110,5 +168,16 @@ export function applyDevelopmentUserData(
       "userData",
       join(app.getPath("appData"), DEVELOPMENT_INSTALLATION_NAME),
     );
+  }
+}
+
+/**
+ * Give a personal build its own `userData`, beside the released app's, for the
+ * same reason a development build has one. An explicit `--user-data-dir`
+ * still wins.
+ */
+export function applyProfileUserData(app: UserDataApp, name: string | undefined): void {
+  if (name && !app.commandLine.hasSwitch("user-data-dir")) {
+    app.setPath("userData", join(app.getPath("appData"), name));
   }
 }

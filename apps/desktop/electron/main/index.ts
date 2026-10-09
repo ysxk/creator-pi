@@ -47,7 +47,7 @@ import {
 } from "./work-panel-window";
 import { InflightCheckpointer } from "@pi-desktop/host-runtime";
 import { withGitBranch } from "./workspace-git";
-import { hasSingleInstanceLock, isDevelopmentBuild } from "./installation";
+import { hasSingleInstanceLock, isDevelopmentBuild, updatesEnabled } from "./installation";
 import { getStorageBootstrap } from "./storage/bootstrap";
 import { createPlanUiProbe } from "./plan-ui-probe";
 import { registerIpcHandlers } from "./ipc/register";
@@ -241,7 +241,7 @@ const updater = new AppUpdaterController({
   logger,
   send: sendToRenderer,
   currentVersion: APP_VERSION,
-  isPackaged: !isDevelopmentBuild,
+  isPackaged: updatesEnabled,
   getLocale: () => mainState.updaterLocale,
   readUpdateSettings: async () => {
     const host = getHost();

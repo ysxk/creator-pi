@@ -11,10 +11,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 register(pathToFileURL(join(here, "helpers/ts-import-hooks.mjs")));
 const {
   applyDevelopmentUserData,
+  applyProfileUserData,
   DEVELOPMENT_DATA_DIR_NAME,
   DEVELOPMENT_INSTALLATION_NAME,
   INSTALLATION_DATA_DIR_NAME,
+  parseInstallationProfile,
   resolveDataDir,
+  SHIPPED_PROFILE,
 } = await import("../electron/main/data-paths.ts");
 
 const indexSource = await readMainModule("index.ts");
@@ -130,7 +133,10 @@ test("a development build takes its own userData before the single-instance lock
 });
 
 test("main resolves one data directory and publishes it to everything below", () => {
-  assert.match(installationSource, /const defaultDataDir = desktopDataDir\(isDevelopmentBuild\);/);
+  assert.match(
+    installationSource,
+    /const defaultDataDir = desktopDataDir\(isDevelopmentBuild, installationProfile\.dataDirName\);/,
+  );
   assert.match(entrySource, /prepareStorage\(defaultDataDir, !singleInstanceRequired\)/);
   assert.match(indexSource, /const storage = getStorageBootstrap\(\);/);
   assert.match(indexSource, /const dataDir = storage\.preferences\.roots\.data;/);
@@ -161,4 +167,75 @@ test("downstream data directories follow the profile instead of the shipped defa
   const servicesSource = await readMainModule("services/plugin-services.ts");
   assert.match(servicesSource, /return join\(dataDir, "scratch", sessionId\);/);
   assert.doesNotMatch(servicesSource, /join\(homedir\(\), "\.pi-desktop"\)/);
+});
+
+test("a personal build owns its own data directory, userData, and never self-updates", () => {
+  const home = join(tmpdir(), "pi-desktop-profile-home");
+  const profile = parseInstallationProfile({
+    piInstallation: { name: "PI-Ultra", dataDirName: ".pi-ultra", updates: "false" },
+  });
+  assert.deepEqual(profile, { name: "PI-Ultra", dataDirName: ".pi-ultra", updates: false });
+
+  // Beside the released app's directory, not inside or over it.
+  assert.equal(
+    resolveDataDir({ override: undefined, development: false, home, dataDirName: profile.dataDirName }),
+    join(home, ".pi-ultra"),
+  );
+  // A development launch of the same source keeps the development directory,
+  // and an explicit directory still wins over the profile.
+  assert.equal(
+    resolveDataDir({ override: undefined, development: true, home, dataDirName: profile.dataDirName }),
+    join(home, DEVELOPMENT_DATA_DIR_NAME),
+  );
+  const override = join(tmpdir(), "pi-desktop-explicit-profile");
+  assert.equal(
+    resolveDataDir({ override, development: false, home, dataDirName: profile.dataDirName }),
+    override,
+  );
+
+  const paths = [];
+  const app = {
+    commandLine: { hasSwitch: () => false },
+    getPath: () => "/appdata",
+    setPath: (name, path) => paths.push([name, path]),
+  };
+  applyProfileUserData(app, profile.name);
+  assert.deepEqual(paths, [["userData", join("/appdata", "PI-Ultra")]]);
+  // The released build, and an explicit profile directory, are left alone.
+  applyProfileUserData(app, undefined);
+  applyProfileUserData({ ...app, commandLine: { hasSwitch: () => true } }, "PI-Ultra");
+  assert.equal(paths.length, 1);
+});
+
+test("malformed profile metadata can only fall back to the shipped identity", () => {
+  assert.equal(parseInstallationProfile({}), SHIPPED_PROFILE);
+  assert.equal(parseInstallationProfile(null), SHIPPED_PROFILE);
+  assert.equal(parseInstallationProfile({ piInstallation: "PI-Ultra" }), SHIPPED_PROFILE);
+  // A data directory is one dot-directory name, never a path.
+  for (const dataDirName of ["../elsewhere", "/tmp/x", ".pi/ultra", "pi-ultra", ".", ""]) {
+    assert.equal(
+      parseInstallationProfile({ piInstallation: { dataDirName } }).dataDirName,
+      undefined,
+      dataDirName,
+    );
+  }
+  for (const name of ["../x", "a/b", "", " leading"]) {
+    assert.equal(parseInstallationProfile({ piInstallation: { name } }).name, undefined, name);
+  }
+  // Updates stay on unless the build says otherwise.
+  assert.equal(parseInstallationProfile({ piInstallation: {} }).updates, true);
+  assert.equal(parseInstallationProfile({ piInstallation: { updates: false } }).updates, false);
+});
+
+test("the installation reads its profile once and the updater follows it", () => {
+  assert.match(installationSource, /const installationProfile = readInstallationProfile\(\);/);
+  assert.match(
+    installationSource,
+    /export const updatesEnabled = !isDevelopmentBuild && installationProfile\.updates;/,
+  );
+  assert.match(
+    installationSource,
+    /desktopDataDir\(isDevelopmentBuild, installationProfile\.dataDirName\)/,
+  );
+  assert.match(indexSource, /isPackaged: updatesEnabled,/);
 });

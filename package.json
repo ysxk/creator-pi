@@ -12,6 +12,7 @@
     "dev": "pnpm --filter @pi-desktop/desktop dev",
     "preview": "pnpm --filter @pi-desktop/desktop run preview",
     "pack": "pnpm --filter @pi-desktop/desktop run pack",
+    "pack:ultra": "pnpm --filter @pi-desktop/desktop run pack -c.productName=PI-Ultra -c.appId=net.aiuo.pi-ultra -c.mac.identity=- -c.extraMetadata.piInstallation.name=PI-Ultra -c.extraMetadata.piInstallation.dataDirName=.pi-ultra -c.extraMetadata.piInstallation.updates=false",
     "dist": "pnpm --filter @pi-desktop/desktop run dist",
     "pi-plugin": "pi-plugin",
     "build": "pnpm -r --if-present build && cargo build --release -p host-core",
