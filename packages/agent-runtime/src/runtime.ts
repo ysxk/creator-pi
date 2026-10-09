@@ -14,6 +14,7 @@ import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
+import { hostVideoReference, loadToolResultVideo, toolResultVideoSupported } from "./tool-result-video.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
 import { withPiFileOpToolNames } from "./pi-file-ops.js";
@@ -3111,6 +3112,11 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       : "";
     const externalPathHint =
       " An explicit path outside the workspace and session scratch roots requires permission unless the effective mode is Auto.";
+    // Said only to a model that will actually receive the clip: told this, it
+    // reads the file instead of reaching for ffmpeg to extract frames.
+    const videoHint = toolResultVideoSupported(this.provider)
+      ? " Reading a video file (mp4, mov, webm, …) attaches the video itself to the result, so you watch and hear it natively: Read it instead of extracting frames or audio."
+      : "";
     const describe = (toolName: string): string => {
       if (toolName === "GenerateImages") return imageGenerationDescription;
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
@@ -3126,7 +3132,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             "For files beyond the default window, use Grep to locate the target content first, then Read " +
             "the relevant range with `offset` and `limit`. Activate and use Glob " +
             "when a directory must be listed or the file name is uncertain." +
-            `${scratchPathHint}${externalPathHint}`
+            `${videoHint}${scratchPathHint}${externalPathHint}`
           );
         case "Glob":
           return (
@@ -3585,6 +3591,25 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           collectImageBlocks(contentBlocks);
           text = textParts.join("\n") || JSON.stringify(rawContent, null, 2);
           details = { ...rawContent, imageCount: imageBlocks.length };
+        } else if (isRecord(rawContent) && hostVideoReference(rawContent)) {
+          // Read of a video file: the host admitted the path and named the
+          // file; whether the clip can ride this result is decided here.
+          const reference = hostVideoReference(rawContent)!;
+          const video = await loadToolResultVideo(
+            reference,
+            typeof rawContent.text === "string"
+              ? rawContent.text
+              : `Video file ${reference.path}.`,
+            this.provider,
+            { delegate: this.mutationOwners.has(toolCallId) },
+          );
+          text = video.text;
+          if (video.block) imageBlocks.push(video.block);
+          details = {
+            ...(typeof rawContent.path === "string" ? { path: rawContent.path } : {}),
+            video: reference,
+            videoAttached: video.block !== undefined,
+          };
         } else if (isRecord(rawContent) && Array.isArray(rawContent.images)) {
           text =
             typeof rawContent.text === "string"

@@ -1313,6 +1313,72 @@ fn read_image_block(
     }))
 }
 
+/// Video containers Read answers with a reference instead of refusing them as
+/// binary content. Mirrors `VIDEO_EXTENSIONS` in
+/// packages/shared/src/attachment-formats.ts; host-core cannot import it.
+fn inline_video_mime(extension: &str) -> Option<&'static str> {
+    match extension {
+        "mp4" => Some("video/mp4"),
+        "mov" => Some("video/quicktime"),
+        "webm" => Some("video/webm"),
+        "mpeg" | "mpg" => Some("video/mpeg"),
+        "avi" => Some("video/x-msvideo"),
+        "wmv" => Some("video/x-ms-wmv"),
+        "flv" => Some("video/x-flv"),
+        "3gp" => Some("video/3gpp"),
+        _ => None,
+    }
+}
+
+/// Whether the head of a file is one of the containers `inline_video_mime`
+/// names. A text file renamed to `.mp4` must not reach a provider as video
+/// data: the request it rides in would be refused and the turn lost with it.
+fn looks_like_video_container(head: &[u8]) -> bool {
+    const ISO_BMFF_BOXES: [&[u8]; 6] = [b"ftyp", b"moov", b"mdat", b"free", b"wide", b"skip"];
+    (head.len() >= 8 && ISO_BMFF_BOXES.contains(&&head[4..8]))
+        || head.starts_with(b"\x1a\x45\xdf\xa3")
+        || head.starts_with(b"RIFF")
+        || head.starts_with(b"\x00\x00\x01\xba")
+        || head.starts_with(b"\x00\x00\x01\xb3")
+        || head.starts_with(b"\x30\x26\xb2\x75")
+        || head.starts_with(b"FLV")
+}
+
+/// Answer a Read of a video file with where it is, never with its bytes.
+///
+/// The path policy has already been applied by the caller, so the reference
+/// names a file this session may read. Whether the model can watch it is the
+/// runtime's knowledge, not the host's: the runtime attaches the clip to the
+/// tool result for a model that takes video, and says so in words for one
+/// that does not. Shipping tens of megabytes through two JSON hops to maybe
+/// discard them would be the wrong default.
+fn read_video_reference(
+    resolved: &Path,
+    display: &str,
+    size: u64,
+    mime: &str,
+) -> Result<Value, (String, String)> {
+    let mut head = [0u8; 12];
+    let read = File::open(resolved)
+        .and_then(|mut file| file.read(&mut head))
+        .map_err(|e| ("TOOL_FAILED".into(), format!("read failed: {e}")))?;
+    if !looks_like_video_container(&head[..read]) {
+        return Err((
+            "TOOL_BINARY_CONTENT".into(),
+            format!("{display} does not look like a valid {mime} video"),
+        ));
+    }
+    Ok(json!({
+        "path": display,
+        "text": format!("Video file {display} ({size} bytes, {mime})."),
+        "video": {
+            "path": resolved.to_string_lossy(),
+            "mimeType": mime,
+            "size": size,
+        },
+    }))
+}
+
 fn tool_read(
     workspace: Option<&Path>,
     scratch: Option<&Path>,
@@ -1372,6 +1438,9 @@ fn tool_read(
     if let Some(ext) = &extension {
         if let Some(mime) = inline_image_mime(ext) {
             return read_image_block(&resolved, &display, meta.len(), mime);
+        }
+        if let Some(mime) = inline_video_mime(ext) {
+            return read_video_reference(&resolved, &display, meta.len(), mime);
         }
         if BINARY_EXTENSIONS.contains(&ext.as_str()) {
             return Err((
@@ -3721,6 +3790,45 @@ mod tests {
         .await;
         assert!(!result.ok);
         assert_eq!(result.error_code.as_deref(), Some("TOOL_BINARY_CONTENT"));
+    }
+
+    #[test]
+    fn read_answers_a_video_with_a_reference_not_its_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("clip.mp4");
+        let mut bytes = vec![0, 0, 0, 0x20];
+        bytes.extend_from_slice(b"ftypisom");
+        bytes.extend_from_slice(&[0u8; 64]);
+        std::fs::write(&path, &bytes).unwrap();
+
+        let content =
+            read_video_reference(&path, "clip.mp4", bytes.len() as u64, "video/mp4").unwrap();
+        assert_eq!(content["video"]["mimeType"], "video/mp4");
+        assert_eq!(content["video"]["size"], bytes.len() as u64);
+        assert_eq!(content["video"]["path"], path.to_string_lossy().as_ref());
+        assert!(content.get("images").is_none());
+
+        // A text file with a video extension is refused, not referenced.
+        let fake = dir.path().join("notes.mp4");
+        std::fs::write(&fake, b"just some notes, nothing to watch").unwrap();
+        let error = read_video_reference(&fake, "notes.mp4", 33, "video/mp4").unwrap_err();
+        assert_eq!(error.0, "TOOL_BINARY_CONTENT");
+    }
+
+    #[test]
+    fn video_containers_are_recognized_by_their_first_bytes() {
+        assert!(looks_like_video_container(b"\x00\x00\x00\x18ftypmp42"));
+        assert!(looks_like_video_container(b"\x00\x00\x00\x08wide\x00\x00"));
+        assert!(looks_like_video_container(b"\x1a\x45\xdf\xa3\x01\x00"));
+        assert!(looks_like_video_container(b"RIFF\x00\x00\x00\x00AVI "));
+        assert!(!looks_like_video_container(b"#!/bin/sh\n"));
+        assert!(!looks_like_video_container(b""));
+        for extension in [
+            "mp4", "mov", "webm", "mpeg", "mpg", "avi", "wmv", "flv", "3gp",
+        ] {
+            assert!(inline_video_mime(extension).is_some(), "{extension}");
+        }
+        assert!(inline_video_mime("txt").is_none());
     }
 
     #[tokio::test]

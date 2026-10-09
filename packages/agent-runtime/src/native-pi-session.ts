@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { toolResultWithoutVideoBytes } from "./tool-result-video.js";
 import {
   closeSync,
   existsSync,
@@ -433,7 +434,8 @@ class NativePiRuntime {
     } else if (event.type === "tool_execution_update") {
       this.emit({ type: "tool_update", toolCallId: event.toolCallId, partialResult: event.partialResult });
     } else if (event.type === "tool_execution_end") {
-      this.emit({ type: "tool_end", toolCallId: event.toolCallId, result: event.result, isError: event.isError });
+      // The model keeps a watched clip; the transcript row keeps a note.
+      this.emit({ type: "tool_end", toolCallId: event.toolCallId, result: toolResultWithoutVideoBytes(event.result), isError: event.isError });
     }
   }
 
