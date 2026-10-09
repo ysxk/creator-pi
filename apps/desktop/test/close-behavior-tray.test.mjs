@@ -115,7 +115,7 @@ test("close behavior is not settable on macOS", () => {
   assert.match(body, /behavior !== "tray" && behavior !== "quit"/);
 });
 
-test("explicit quit asks for confirmation except probes and update restarts", () => {
+test("explicit quit asks for confirmation only when a turn is running, never for probes or update restarts", () => {
   assert.match(closeBehaviorSource, /const confirmQuitDialog = async/);
   assert.match(closeBehaviorSource, /labels\.tray\.confirmQuitTitle/);
   const quitHandler = shutdownSource.slice(
@@ -123,10 +123,13 @@ test("explicit quit asks for confirmation except probes and update restarts", ()
   );
   const body = quitHandler.slice(0, quitHandler.indexOf("shutdownPromise ="));
   assert.match(body, /PI_DESKTOP_BOOT_PROBE/);
+  // The dialog warns that running sessions will stop; with none running there
+  // is nothing to confirm.
+  assert.match(body, /const interruptsRunningTurn = activeTurns\.size > 0;/);
   assert.match(
     body,
-    /!state\.quitConfirmed && !isAutomatedMode && !isUpdateRestart/,
-    "automated probes and update restarts are the only confirmation exemptions",
+    /!state\.quitConfirmed &&\s*interruptsRunningTurn &&\s*!isAutomatedMode &&\s*!isUpdateRestart/,
+    "an idle app, automated probes and update restarts quit without a dialog",
   );
   assert.match(
     body,

@@ -97,10 +97,12 @@ export function registerShutdownHandlers({
     event.preventDefault();
     if (state.shutdownPromise) return;
 
-    // Show a confirmation dialog on the first explicit quit (Cmd+Q, tray quit,
-    // application-menu Quit). The data-saving shutdown runs after confirmation.
-    // Skip confirmation in automated probe/capture modes where no human is
-    // present to interact with the dialog.
+    // Confirm the first explicit quit (Cmd+Q, tray quit, application-menu
+    // Quit) only when it would stop a turn in flight: that is the one thing the
+    // dialog warns about, and with nothing running it is a question with one
+    // answer. The data-saving shutdown runs either way. Skip confirmation in
+    // automated probe/capture modes where no human is present to answer.
+    const interruptsRunningTurn = activeTurns.size > 0;
     const isAutomatedMode =
       process.env.PI_DESKTOP_BOOT_PROBE === "1" ||
       process.env.PI_DESKTOP_SUPERVISION_PROBE === "1" ||
@@ -111,7 +113,12 @@ export function registerShutdownHandlers({
     // behind a dialog fails the update. There is no decision left either: the
     // user chose "restart to update" to get here.
     const isUpdateRestart = updater.isInstallingUpdate();
-    if (!state.quitConfirmed && !isAutomatedMode && !isUpdateRestart) {
+    if (
+      !state.quitConfirmed &&
+      interruptsRunningTurn &&
+      !isAutomatedMode &&
+      !isUpdateRestart
+    ) {
       state.quitConfirmed = true;
       void confirmQuitDialog().then((confirmed) => {
         if (confirmed) {
