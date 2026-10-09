@@ -324,6 +324,21 @@
   color: var(--ds-text-primary);
 }
 
+/* A mentioned subagent: a round pill led by its portrait. */
+.composer-chip[data-subagent] {
+  gap: 5px;
+  padding: 0 4px 0 2px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.composer-chip-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+}
+
 .composer-chip-icon {
   display: inline-flex;
   flex: 0 0 auto;

@@ -27,6 +27,8 @@ import { initialHighlight } from "../../../../lib/composer-ac-navigation";
 import { slotRegistry } from "../../../../plugins/renderer-slots/registry";
 import { useAppStore } from "../../../../stores/app-store";
 import { isVideoAttachment } from "@pi-desktop/shared";
+import { useTranslation } from "react-i18next";
+import { subagentDisplayName } from "../../../../lib/subagent-names";
 import { createFileReference, isImageFilePath, nextChipToken } from "../editor";
 import type { ComposerFileReference } from "../model";
 import { placePluginMark } from "../plugins/plugin-marks";
@@ -89,6 +91,7 @@ export function useComposerCompletions({
   handleInput: (source: string, caret: number) => string;
   invalidateComposerTransforms: () => void;
 }) {
+  const { t } = useTranslation();
   const host = useComposerAutocomplete({ value, cursor, composing, enabled });
   const { triggers } = useSyncExternalStore(
     slotRegistry.subscribe,
@@ -221,19 +224,28 @@ export function useComposerCompletions({
       nextText,
       [
         ...fileReferencesRef.current,
-        createFileReference(
-          acceptedFileReference.path,
-          acceptedFileReference.name,
-          referenceSessionId,
-          {
-            kind: isImageFilePath(acceptedFileReference.path)
-              ? "image"
-              : isVideoAttachment(undefined, acceptedFileReference.path)
-                ? "video"
-                : "file",
-            token,
-          },
-        ),
+        acceptedFileReference.subagent
+          ? // The chip shows the subagent as the panel named it; the handle
+            // stays the path, so the prompt still reads `@handle`.
+            createFileReference(
+              acceptedFileReference.path,
+              subagentDisplayName(t, acceptedFileReference.path),
+              referenceSessionId,
+              { kind: "subagent", token },
+            )
+          : createFileReference(
+              acceptedFileReference.path,
+              acceptedFileReference.name,
+              referenceSessionId,
+              {
+                kind: isImageFilePath(acceptedFileReference.path)
+                  ? "image"
+                  : isVideoAttachment(undefined, acceptedFileReference.path)
+                    ? "video"
+                    : "file",
+                token,
+              },
+            ),
       ],
       result.cursor + token.length,
     );

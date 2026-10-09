@@ -358,7 +358,7 @@ export function useComposerAutocomplete({
       | {
           value: string;
           cursor: number;
-          fileReference?: { path: string; name: string };
+          fileReference?: { path: string; name: string; subagent?: boolean };
         }
       | null => {
       if (!trigger) return null;
@@ -366,8 +366,13 @@ export function useComposerAutocomplete({
       if (!item) return null;
       if (item.kind === "subagent") {
         // A delegation mention is prompt text: the model's Task catalog lists
-        // the same names, so `@name` is the signal to delegate to it.
-        return applyCompletion(value, trigger, formatFileInsert(item.agent.name, "file"));
+        // the same names, so `@name` is the signal to delegate to it. In the
+        // draft it is a chip whose path is the handle, which serializes to
+        // exactly that text when the prompt is sent.
+        return {
+          ...applyCompletion(value, trigger, ""),
+          fileReference: { path: item.agent.name, name: item.agent.name, subagent: true },
+        };
       }
       if (item.kind === "path" && item.entry.kind === "file") {
         return {

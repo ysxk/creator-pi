@@ -11,7 +11,7 @@ import {
 type OptimisticFileReference = {
   path: string;
   name: string;
-  kind?: "image" | "video" | "file" | "session";
+  kind?: "image" | "video" | "file" | "session" | "subagent";
   mimeType?: string;
   /** Large-text paste tokens travel inline in the text, not as attachments. */
   token?: string;
@@ -37,6 +37,8 @@ export function optimisticUserMessage(
   // an image chip is one: it also records where its path sits, so the row shows
   // the image in place before the durable echo arrives (D288).
   const rendered = fileReferences.flatMap((reference) => {
+    // A subagent mention is `@handle` text in the prompt, never a row.
+    if (reference.kind === "subagent") return [];
     const kind =
       reference.kind ??
       (IMAGE_PATH_PATTERN.test(reference.path) ? ("image" as const) : ("file" as const));

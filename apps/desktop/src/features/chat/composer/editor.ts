@@ -2,6 +2,7 @@ import {
   fileReferenceLabel,
   formatFileInsert,
   isVideoAttachment,
+  subagentAvatarDataUrl,
 } from "@pi-desktop/shared";
 import type { ComposerPluginPart } from "../../../lib/composer-smart-stop";
 import type { ComposerFileReference } from "./model";
@@ -40,7 +41,7 @@ export function createFileReference(
   preferredName?: string,
   sessionId = "",
   metadata?: {
-    kind?: "image" | "video" | "file" | "session";
+    kind?: "image" | "video" | "file" | "session" | "subagent";
     mimeType?: string;
     token?: string;
     plugin?: ComposerPluginPart;
@@ -55,7 +56,7 @@ export function createFileReference(
     // A plugin mark's label is shown as given, and a session reference is
     // named by its conversation; neither is a path.
     name:
-      isPluginMark(metadata) || metadata?.kind === "session"
+      isPluginMark(metadata) || metadata?.kind === "session" || metadata?.kind === "subagent"
         ? (preferredName ?? "")
         : fileReferenceLabel(path, preferredName),
     kind:
@@ -344,7 +345,19 @@ function buildChipElement(
 
   const icon = document.createElement("span");
   icon.className = "composer-chip-icon";
-  icon.innerHTML = chipSvg(chipIconKey(reference));
+  if (reference.kind === "subagent") {
+    // A mentioned subagent wears its portrait; the handle is what is sent.
+    chip.dataset.subagent = reference.path;
+    chip.title = `@${reference.path}`;
+    const avatar = document.createElement("img");
+    avatar.className = "composer-chip-avatar";
+    avatar.alt = "";
+    avatar.draggable = false;
+    avatar.src = subagentAvatarDataUrl(reference.path);
+    icon.append(avatar);
+  } else {
+    icon.innerHTML = chipSvg(chipIconKey(reference));
+  }
 
   const nameSpan = document.createElement("span");
   nameSpan.className = "composer-chip-name";
