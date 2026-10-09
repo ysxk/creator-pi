@@ -1,6 +1,7 @@
 # ADR 0063: A Managed Surface for Global Subagent Definitions
 
-- Status: Accepted (amended by ADR 0112)
+- Status: Accepted (amended by ADR 0112; the global-only boundary of §1, §3
+  and §4 is lifted by ADR 0326)
 - Date: 2026-08-06
 - Deciders: PI-Desktop core
 - Related: D202, ADR 0062 (bounded subagents), ADR 0112

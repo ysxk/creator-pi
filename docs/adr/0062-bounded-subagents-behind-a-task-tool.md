@@ -4,7 +4,8 @@
 - Status: Accepted for implementation (definition roots amended by ADR 0112;
   timeout policy amended by ADR 0119; delegation presentation amended by D265;
   opt-in parent-tool inherit amended by ADR 0246; resumable delegations amended
-  by ADR 0279; report spillover amended by RFC #1196)
+  by ADR 0279; report spillover amended by RFC #1196; project-level
+  definitions added by ADR 0326)
 - Date: 2026-08-06
 - Deciders: PI-Desktop core
 - Related: D201, ADR 0041 (persistence outbox), ADR 0048 (lazy per-turn tool

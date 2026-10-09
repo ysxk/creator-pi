@@ -266,10 +266,12 @@ fn capture_subagents(
 ) -> Result<(Vec<PortableEntity>, ResourceMap)> {
     let mut result = Vec::new();
     let mut resources = BTreeMap::new();
-    for record in st.user_subagents.list()? {
+    // Sync carries the global catalog only: a project document belongs to its
+    // repository and travels with it.
+    for record in st.user_subagents.list(CapabilityLevel::Global, None)? {
         let bytes = st
             .user_subagents
-            .read(&record.id)?
+            .read(&record.id, CapabilityLevel::Global, None)?
             .map(|(_, body)| body.into_bytes())
             .ok_or_else(|| anyhow::anyhow!("subagent disappeared while capturing"))?;
         let resource_id = object_id(key, &bytes);

@@ -42,7 +42,12 @@ let filesCache: {
   entries: FsIndexEntry[];
   truncated: boolean;
 } | null = null;
-let subagentsCache: { at: number; agents: SubagentDefinition[] } | null = null;
+/** Keyed by workspace: a project's own subagents belong to that project only. */
+let subagentsCache: {
+  key: string;
+  at: number;
+  agents: SubagentDefinition[];
+} | null = null;
 
 const COMMAND_GROUP_ORDER = {
   template: 0,
@@ -262,13 +267,21 @@ export function useComposerAutocomplete({
     // open with no files, because the effect's inputs do not change while
     // the user keeps typing.
     let cancelled = false;
-    if (subagentsCache && now - subagentsCache.at < SOURCE_TTL_MS) {
+    if (
+      subagentsCache &&
+      subagentsCache.key === workspaceKey &&
+      now - subagentsCache.at < SOURCE_TTL_MS
+    ) {
       setSubagents(subagentsCache.agents);
     } else {
       void api
         .subagentCatalog()
         .then((res) => {
-          subagentsCache = { at: Date.now(), agents: res.subagents };
+          subagentsCache = {
+            key: workspaceKey,
+            at: Date.now(),
+            agents: res.subagents,
+          };
           if (!cancelled) setSubagents(res.subagents);
         })
         .catch(() => {

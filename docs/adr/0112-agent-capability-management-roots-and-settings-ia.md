@@ -1,6 +1,7 @@
 # ADR 0112: Agent Capability Management Roots and Settings IA
 
-- Status: Accepted
+- Status: Accepted (ADR 0326 adds `<project>/.agents/subagents` and gives
+  subagents the project level this ADR withheld)
 - Date: 2026-08-20
 - Deciders: PI-Desktop core
 - Supersedes the capability-storage and capability-IA portions of ADR 0056,

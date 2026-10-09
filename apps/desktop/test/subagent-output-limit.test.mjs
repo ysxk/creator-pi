@@ -40,10 +40,15 @@ const bindingSource = await readFile(
   new URL("../../../packages/agent-runtime/src/subagent-model-binding.ts", import.meta.url),
   "utf8",
 );
-const hostSource = await readFile(
-  new URL("../../../crates/host-core/src/user_subagents.rs", import.meta.url),
-  "utf8",
-);
+// The registry and the document format it reads and writes are one module
+// split across two files.
+const hostSource = (
+  await Promise.all(
+    ["user_subagents.rs", "user_subagents/document.rs"].map((file) =>
+      readFile(new URL(`../../../crates/host-core/src/${file}`, import.meta.url), "utf8"),
+    ),
+  )
+).join("\n");
 
 test("the definition declares the cap and keeps it optional", () => {
   assert.match(sharedDefinition, /maxTokens\?: number;/);

@@ -13,6 +13,7 @@ export const deEntries: ChangelogEntry[] = [
       "Öffnen Sie lokale Markdown-Links aus dem Chat im integrierten Dateimanager, auch relative Links und Zeilenverweise.",
       "Die Modellliste im Composer zeigt jetzt konfigurierte Kontextfensterlimits.",
       "Plugins können Netzwerkweiterleitungen prüfen oder ablehnen; bestehende Fetch-Aufrufe folgen Weiterleitungen weiterhin standardmäßig.",
+      "Subagenten können im Ordner .agents/subagents eines Projekts liegen: Sie gelten nur für dieses Projekt und können ihre eigenen Berechtigungen nicht erhöhen.",
     ],
   },
   {

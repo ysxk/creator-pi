@@ -837,13 +837,19 @@ transient and never restored into durable UI messages or transcript records.
 The session Agent can hand separable pieces of work to delegates that run in
 their own context, in the background, and report back on demand.
 
-**Catalog.** Definitions are Markdown documents from two sources: the five
-builtins shipped inline in `agent-runtime` (`explorer`, `code-reviewer`,
-`test-runner`, `fixer`, `ui-designer`) and the global user documents under
-`~/.agents/subagents/*.md`. There is no project-level subagent directory and
-`.pi/agents` is not scanned for capabilities. User documents are filtered by
-the app-local enabled state before they reach the loader, and the shipped
-builtins are filtered by that same app-local state inside it (ADR 0270).
+**Catalog.** Definitions are Markdown documents from three sources, in
+shadowing order (ADR 0326): the project's documents under
+`<project>/.agents/subagents/*.md`, the global user documents under
+`~/.agents/subagents/*.md`, and the five builtins shipped inline in
+`agent-runtime` (`explorer`, `code-reviewer`, `test-runner`, `fixer`,
+`ui-designer`). `.pi/agents` is not scanned for capabilities. host-core
+resolves project-over-global shadowing and the app-local enabled state before
+the documents reach the loader, and reports the handles a switched-off project
+document still claims; the shipped builtins are filtered by app-local state
+and by those handles inside the loader (ADR 0270). At most
+`MAX_PROJECT_SUBAGENT_DEFINITIONS` (8) catalog entries come from the project,
+and a project document's model pins resolve only against models the user
+offered to subagents or pinned in a definition of their own.
 Electron main loads
 `subagentProviders` in the sidecar params, so editing a definition takes effect
 on the next prompt. The catalog is capped at `MAX_SUBAGENT_DEFINITIONS` (16);

@@ -39,8 +39,9 @@ test("agent settings have three independent destinations and extensions have two
   assert.doesNotMatch(pluginsPage, /plugins-(?:tab|panel)-(?:mcp|skills|subagents)/);
 });
 
-test("skills and MCP filter one list by level instead of stacking two sections", () => {
-  for (const source of [skills, mcp]) {
+test("every capability page filters one list by level instead of stacking two sections", () => {
+  // The subagents page reads its two directories through its data loader.
+  for (const source of [skills, mcp, `${subagents}\n${subagentSettings}`]) {
     assert.match(source, /useAgentProjects\(\)/);
     assert.match(source, /AgentProjectPicker/);
     assert.match(source, /level: "global"/);
@@ -57,11 +58,13 @@ test("skills and MCP filter one list by level instead of stacking two sections",
   assert.match(layout, /agent-capability-list/);
   assert.match(layout, /<SegmentedControl[\s\S]*?value=\{filter\}/);
   assert.match(layout, /settings\.capabilityFilterAll/);
-  // Subagents are global-only, so they get no level filter and no project.
-  assert.doesNotMatch(subagents, /AgentProjectPicker|projectPath|CapabilityFilter/);
-  assert.doesNotMatch(subagentSettings, /AgentProjectPicker|projectPath|CapabilityFilter/);
-  assert.match(subagents, /settings\.globalOnly/);
+  // A project carries its own subagent documents, so the page lists both
+  // directories and says which one it is looking at.
+  assert.match(subagentSettings, /level: "project", projectPath/);
+  assert.match(subagents, /projectSubagentsPath\(selectedProjectPath\)/);
+  assert.doesNotMatch(subagents, /settings\.globalOnly/);
   assert.match(subagents, /t\("settings\.subagentsEmpty"\)/);
+  assert.match(subagents, /t\("settings\.projectSubagentsEmpty"\)/);
   assert.doesNotMatch(subagents, /settings\.subagents\.empty|t\("subagents\.empty"\)/);
 });
 
@@ -72,7 +75,7 @@ test("one search field covers the page and every row carries its level", () => {
   }
   assert.match(layout, /agent-capability-search-clear/);
   assert.match(layout, /settings\.clearSearch/);
-  for (const source of [skills, mcp]) {
+  for (const source of [skills, mcp, subagents]) {
     assert.match(source, /agent-capability-badge is-level/);
   }
   assert.match(styles, /\.agent-capability-badge\.is-level\s*\{/);
@@ -348,7 +351,10 @@ test("Settings lists shipped builtin subagents with a switch of their own", () =
   assert.match(subagentSettings, /api\.subagentCatalog/);
   assert.match(subagentSettings, /item\.source === "builtin"/);
   assert.match(subagentSettings, /fallbackBuiltinDefinitions/);
-  assert.match(subagentSettings, /owned\.filter\(\(row\) => row\.enabled\)/);
+  // A switched-off global document gives its handle back to the builtin; a
+  // project document keeps it claimed either way.
+  assert.match(subagentSettings, /global\.filter\(\(row\) => row\.enabled\)/);
+  assert.match(subagentSettings, /\.\.\.project\.map\(\(row\) => row\.id\)/);
   assert.match(subagentSettings, /catalog\.builtins/);
   assert.match(subagents, /extensions\.subagents\.sourceBuiltin/);
   assert.match(subagents, /extensions\.subagents\.copy/);

@@ -13,6 +13,7 @@ export const enEntries: ChangelogEntry[] = [
       "Open local Markdown links from chat in the bundled File Manager, including relative links and line references.",
       "Show configured context-window limits in the Composer's model list.",
       "Plugins can inspect or refuse network redirects; existing fetch calls still follow redirects by default.",
+      "Keep subagents in a project's .agents/subagents folder: they apply only to that project and cannot raise their own permissions.",
     ],
   },
   {

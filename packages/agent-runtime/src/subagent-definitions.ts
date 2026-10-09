@@ -2,10 +2,17 @@
  * Where subagent definitions come from, and how a definition's model pin turns
  * into a usable provider binding (ADR 0062).
  *
- * Discovery has two sources, in shadowing order: the user's global
- * `~/.agents/subagents/*.md` documents handed in by Electron main (D202), and
- * the definitions PI-Desktop ships. Project workspaces never provide subagents;
- * a repository cannot silently add a delegate to a user's agent catalog.
+ * Discovery has three sources, in shadowing order: the project's
+ * `<project>/.agents/subagents/*.md` documents, the user's global
+ * `~/.agents/subagents/*.md` documents, and the definitions PI-Desktop ships.
+ * host-core owns both directories and the project-over-global shadowing; the
+ * launch path hands the surviving documents in with their source. This module
+ * never reads a project directory itself.
+ *
+ * A project document is repository content, so it is held to two limits a
+ * user's own document is not: its `permission` key is ignored by the shared
+ * parser, and its model pins resolve only against models the user has offered
+ * to delegates (`resolveSubagentProviders`).
  *
  * Builtins are inline rather than packaged resource files. There are a handful
  * of them, they must exist in every install for the `Task` tool to be worth
@@ -261,9 +268,9 @@ async function loadGlobalSubagents(
 }
 
 /**
- * One document from the user's registry (D202). Electron main reads the
- * registry — host-core owns it — and hands the documents in, so this module
- * keeps one parser and one merge for all three sources.
+ * One document from the registry (D202). The launch path reads the registry —
+ * host-core owns it — and hands the documents in, so this module keeps one
+ * parser and one merge for all three sources.
  */
 export type UserSubagentDocument = {
   /** Registry id, used as the fallback name when the frontmatter omits one. */
@@ -272,12 +279,14 @@ export type UserSubagentDocument = {
   document: string;
   /** Absolute path, so a diagnostic and the UI can point at the same file. */
   filePath?: string;
+  /** `project` for a document from the project directory; absent is `user`. */
+  source?: "user" | "project";
 };
 
 export type LoadSubagentOptions = {
   /** Global directory override, primarily for isolated tests. */
   overrideDir?: string;
-  /** Documents already scanned by host-core from `~/.agents/subagents`. */
+  /** Documents already scanned and shadowed by host-core for this project. */
   userDocuments?: readonly UserSubagentDocument[];
   /**
    * Handles whose shipped definition the user turned off (D202 activation for
@@ -285,7 +294,58 @@ export type LoadSubagentOptions = {
    * stay out of `definitions` but still reach `builtins`.
    */
   disabledBuiltins?: readonly string[];
+  /**
+   * Handles claimed by a project document the user switched off. host-core
+   * resolves shadowing before the enabled filter, so the global document of
+   * that name is already gone; the builtin is merged here and has to be kept
+   * out here, or switching a project's `explorer` off would bring the shipped
+   * `explorer` back.
+   */
+  suppressedHandles?: readonly string[];
 };
+
+/** The part of a host-core subagent record a launch path needs. */
+export type ActiveSubagentRecord = {
+  id: string;
+  path: string;
+  level?: "global" | "project";
+};
+
+/** What a launch path hands `loadSubagentDefinitions` for one project. */
+export type ActiveSubagentDocuments = {
+  documents: UserSubagentDocument[];
+  /** See `LoadSubagentOptions.suppressedHandles`. */
+  suppressedHandles: string[];
+};
+
+/**
+ * Read the documents host-core reported as active into the shape
+ * `loadSubagentDefinitions` takes, tagging each with its source.
+ *
+ * Both launch paths (Electron main and the headless host runtime) share this so
+ * a project document can never reach the parser as a `user` one in one of them.
+ * A document deleted behind the registry's back is one lost delegate, never a
+ * lost turn: it is reported through `onUnreadable` and skipped.
+ */
+export async function readActiveSubagentDocuments(
+  records: readonly ActiveSubagentRecord[],
+  onUnreadable: (record: ActiveSubagentRecord, error: unknown) => void,
+): Promise<UserSubagentDocument[]> {
+  const documents: UserSubagentDocument[] = [];
+  for (const record of records) {
+    try {
+      documents.push({
+        id: record.id,
+        document: await readFile(record.path, "utf8"),
+        filePath: record.path,
+        source: record.level === "project" ? "project" : "user",
+      });
+    } catch (error) {
+      onUnreadable(record, error);
+    }
+  }
+  return documents;
+}
 
 function loadUserSubagents(documents: readonly UserSubagentDocument[]): {
   definitions: SubagentDefinition[];
@@ -296,7 +356,7 @@ function loadUserSubagents(documents: readonly UserSubagentDocument[]): {
   for (const entry of documents) {
     const label = entry.filePath ?? `user subagent "${entry.id}"`;
     const parsed = parseSubagentDefinition(entry.document, {
-      source: "user",
+      source: entry.source ?? "user",
       fallbackName: entry.id,
       ...(entry.filePath ? { filePath: entry.filePath } : {}),
     });
@@ -308,8 +368,9 @@ function loadUserSubagents(documents: readonly UserSubagentDocument[]): {
 }
 
 /**
- * Definitions offered to a session: the user's global documents and the
- * builtins, minus the builtins the user turned off. Load failures degrade to
+ * Definitions offered to a session: the project's documents, the user's global
+ * documents and the builtins, minus the builtins the user turned off or a
+ * switched-off project document still claims. Load failures degrade to
  * diagnostics: a malformed document must not cost the session its other
  * delegates, let alone its turn.
  *
@@ -351,8 +412,12 @@ export async function loadSubagentDefinitions(
   }
   // A switched-off builtin is excluded from the delegation catalog and from
   // nothing else: a user document of the same name still shadows it, and a
-  // handle the user re-enables needs no document of its own to come back.
-  const disabled = new Set(options.disabledBuiltins ?? []);
+  // handle the user re-enables needs no document of its own to come back. A
+  // handle a switched-off project document claims is excluded the same way.
+  const disabled = new Set([
+    ...(options.disabledBuiltins ?? []),
+    ...(options.suppressedHandles ?? []),
+  ]);
   const builtins = merged.definitions.filter(
     (definition) => definition.source === "builtin",
   );
@@ -450,6 +515,14 @@ export async function resolveSubagentProviders(input: {
     provider: SubagentProviderSource,
     modelId: string,
   ) => Promise<{ modelConfig: ModelConfig; capabilities: ThinkingCapabilitySet } | undefined>;
+  /**
+   * Whether the user offered this provider model to delegates
+   * (`availableForSubagents`). A project document's pin resolves only when
+   * this says so, or when one of the user's own definitions pins the same
+   * model: a repository must not be able to spend a credential the user never
+   * put up for delegation. Absent means no project pin is offered.
+   */
+  projectPinAllowed?: (provider: SubagentProviderSource, modelId: string) => boolean;
 }): Promise<{
   providers: Record<string, RuntimeProviderConfig>;
   diagnostics: string[];
@@ -461,11 +534,20 @@ export async function resolveSubagentProviders(input: {
 
   const pins = input.definitions.flatMap((definition) =>
     [definition.model, ...(definition.fallbackModels ?? [])]
-      .flatMap((pin) => pin ? [{ name: definition.name, pin }] : []),
+      .flatMap((pin) =>
+        pin ? [{ name: definition.name, pin, source: definition.source }] : [],
+      ),
   );
-  for (const { name, pin } of pins) {
+  // Resolved first, so a pin the user wrote themselves is never reported as a
+  // refused project pin just because the project document comes first.
+  const ordered = [
+    ...pins.filter((entry) => entry.source !== "project"),
+    ...pins.filter((entry) => entry.source === "project"),
+  ];
+  const refused = new Set<string>();
+  for (const { name, pin, source } of ordered) {
     const key = subagentModelKey(pin);
-    if (resolved[key]) continue;
+    if (resolved[key] || refused.has(key)) continue;
     if (!allowed.includes(pin.providerId)) {
       diagnostics.push(
         `${name}: too many pinned providers, ignoring "${key}"`,
@@ -476,6 +558,19 @@ export async function resolveSubagentProviders(input: {
     if (!provider || provider.enabled === false) {
       diagnostics.push(
         `${name}: no enabled provider matches "${pin.providerId}"`,
+      );
+      continue;
+    }
+    if (
+      source === "project" &&
+      !input.projectPinAllowed?.(provider, pin.modelId)
+    ) {
+      // Left unresolved on purpose, like any other pin that cannot be used:
+      // the runtime reports the pin by name instead of quietly running the
+      // delegate on the session model.
+      refused.add(key);
+      diagnostics.push(
+        `${name}: project document pins "${key}", which is not offered to subagents; enable the model for subagents or remove the pin`,
       );
       continue;
     }
@@ -538,4 +633,25 @@ export async function resolveSubagentProviders(input: {
     };
   }
   return { providers: resolved, diagnostics };
+}
+
+/** A provider row as the launch paths hold it, with its model bindings. */
+export type SubagentOptInSource = {
+  id: string;
+  models?: readonly { id: string; availableForSubagents?: boolean }[];
+};
+
+/**
+ * `projectPinAllowed` for `resolveSubagentProviders`, answered from the
+ * provider rows' `availableForSubagents` flags.
+ */
+export function subagentModelOptIn(
+  rows: readonly SubagentOptInSource[],
+): (provider: SubagentProviderSource, modelId: string) => boolean {
+  return (provider, modelId) =>
+    rows
+      .find((row) => row.id === provider.id)
+      ?.models?.some(
+        (model) => model.id === modelId && model.availableForSubagents === true,
+      ) ?? false;
 }

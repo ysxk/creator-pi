@@ -285,9 +285,15 @@ fn apply_entity(
         if !entity.deleted {
             input.body = Some(required_resource(bundle, entity)?);
         }
+        // A synced entity is always a global document. The level is pinned
+        // here instead of trusted from the payload, so a bundle can never
+        // write into a project directory on this machine.
+        input.level = None;
+        input.project_path = None;
         let id = input.id.clone().unwrap_or_default();
         if entity.deleted {
-            st.user_subagents.remove(&id)?;
+            st.user_subagents
+                .remove(&id, CapabilityLevel::Global, None)?;
         } else if st.user_subagents.update(&id, input.clone())?.is_none() {
             st.user_subagents.create(input)?;
         }

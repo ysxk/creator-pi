@@ -1,37 +1,28 @@
+mod document;
 mod model_fallbacks;
+mod transfer;
 
 use crate::activation::ActivationScope;
 use crate::agent_capabilities::{
-    capability_dir, file_timestamp, parse_front_matter, slugify, sorted_files, CapabilityLevel,
+    capability_dir, normalize_project_path, parse_front_matter, sorted_files, CapabilityLevel,
     CapabilityState,
 };
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
+use document::{
+    clip, default_body, normalize_model, normalize_name, normalize_thinking, normalize_tools,
+    parse_record, render_document, MAX_DESCRIPTION_CHARS, MAX_TOKENS_CEILING,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
+pub use document::MAX_SUBAGENT_BYTES;
+
+/// Documents per directory: the global one, and each project's own.
 const MAX_USER_SUBAGENTS: usize = 64;
-pub const MAX_SUBAGENT_BYTES: usize = 32 * 1024;
-const MAX_NAME_CHARS: usize = 40;
-const MAX_DESCRIPTION_CHARS: usize = 400;
-/// Mirrors `MAX_SUBAGENT_MAX_TOKENS` in `packages/shared`. No published model
-/// accepts an output limit above 128k, so a larger declared value is a typo.
-const MAX_TOKENS_CEILING: u32 = 200_000;
-const DEFAULT_TOOLS: [&str; 3] = ["Read", "Glob", "Grep"];
-const ASSIGNABLE_TOOLS: [&str; 7] = [
-    "Read",
-    "Glob",
-    "Grep",
-    "BrowserPreview",
-    "Bash",
-    "Edit",
-    "Write",
-];
-const THINKING_LEVELS: [&str; 8] = [
-    "off", "minimal", "low", "medium", "high", "xhigh", "max", "omit",
-];
+/// Capability directory leaf and state-file kind for subagent documents.
 const SUBAGENT_KIND: &str = "subagents";
 /// Activation state for the subagent builtins, kept in its own file
 /// (`<data-dir>/agent-capabilities/subagent-builtins.json`).
@@ -53,6 +44,9 @@ pub struct UserSubagentRecord {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level: Option<String>,
+    /// The project that owns a project-level document; absent for a global one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_path: Option<String>,
     pub description: String,
     pub enabled: bool,
     #[serde(default)]
@@ -87,9 +81,24 @@ pub struct UserSubagentInput {
     pub thinking_level: Option<String>,
     pub max_tokens: Option<u32>,
     pub enabled: Option<bool>,
-    /// Kept for protocol compatibility; subagents are global-only now.
+    /// `global` (the default) or `project`; names the directory the document
+    /// lives in, never a per-project override of a global document.
+    pub level: Option<String>,
+    pub project_path: Option<String>,
+    /// Kept for protocol compatibility; activation is a level, not a scope.
     #[allow(dead_code)]
     pub scope: Option<ActivationScope>,
+}
+
+/// What a session on one project may delegate to.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ActiveSubagents {
+    /// Enabled documents after project-over-global shadowing.
+    pub subagents: Vec<UserSubagentRecord>,
+    /// Handles owned by a project document the user switched off. The handle
+    /// stays claimed: neither the global document nor the shipped builtin of
+    /// the same name may answer for it (ADR 0112 §3 extended to builtins).
+    pub suppressed_handles: Vec<String>,
 }
 
 pub struct UserSubagentRegistry {
@@ -97,172 +106,51 @@ pub struct UserSubagentRegistry {
     builtins: CapabilityState,
 }
 
-fn normalize_name(value: &str) -> String {
-    slugify(value, MAX_NAME_CHARS)
+/// The level and owner a create/update payload addresses.
+fn level_and_owner(input: &UserSubagentInput) -> Result<(CapabilityLevel, Option<String>)> {
+    let level = CapabilityLevel::parse(input.level.as_deref())?;
+    owner_for(level, input.project_path.as_deref()).map(|owner| (level, owner))
 }
 
-fn clip(value: &str, max_chars: usize) -> String {
-    let trimmed = value.trim();
-    if trimmed.chars().count() <= max_chars {
-        return trimmed.to_string();
+/// The project that owns documents at `level`: required for the project level,
+/// and deliberately dropped for the global one, whose switch is not per project.
+fn owner_for(level: CapabilityLevel, project_path: Option<&str>) -> Result<Option<String>> {
+    match level {
+        CapabilityLevel::Global => Ok(None),
+        CapabilityLevel::Project => project_path
+            .map(normalize_project_path)
+            .filter(|value| !value.is_empty())
+            .map(Some)
+            .ok_or_else(|| {
+                anyhow::anyhow!("CAPABILITY_INVALID: projectPath is required for project subagents")
+            }),
     }
-    trimmed.chars().take(max_chars).collect()
 }
 
-fn normalize_tools(requested: Option<&Vec<String>>) -> Vec<String> {
-    let requested = requested
-        .filter(|tools| !tools.is_empty())
-        .cloned()
-        .unwrap_or_else(|| {
-            DEFAULT_TOOLS
-                .iter()
-                .map(|tool| (*tool).to_string())
-                .collect()
-        });
-    let mut inherit = false;
-    let mut result = Vec::new();
-    for tool in &requested {
-        let trimmed = tool.trim();
-        if trimmed.eq_ignore_ascii_case("inherit") {
-            inherit = true;
-            continue;
+/// Project documents shadow global ones by handle, and the shadow is resolved
+/// before the enabled filter so a switched-off project document does not let
+/// the global one back in.
+fn merge_active_records(
+    global: Vec<UserSubagentRecord>,
+    project: Vec<UserSubagentRecord>,
+) -> ActiveSubagents {
+    let mut subagents = global;
+    let mut suppressed_handles = Vec::new();
+    for record in project {
+        subagents.retain(|existing| existing.id != record.id);
+        if record.enabled {
+            subagents.push(record);
+        } else {
+            suppressed_handles.push(record.id);
         }
-        if let Some(canonical) = ASSIGNABLE_TOOLS
-            .iter()
-            .find(|candidate| candidate.eq_ignore_ascii_case(trimmed))
-        {
-            if !result.iter().any(|value: &String| value == canonical) {
-                result.push((*canonical).to_string());
-            }
-        }
     }
-    if inherit {
-        let mut tools = vec!["inherit".to_string()];
-        tools.extend(result);
-        tools
-    } else {
-        result
+    subagents.retain(|record| record.enabled);
+    subagents.sort_by(|a, b| a.name.cmp(&b.name));
+    suppressed_handles.sort();
+    ActiveSubagents {
+        subagents,
+        suppressed_handles,
     }
-}
-
-fn normalize_thinking(value: Option<&str>) -> Option<String> {
-    let candidate = value?.trim().to_lowercase();
-    THINKING_LEVELS
-        .iter()
-        .find(|level| **level == candidate)
-        .map(|level| (*level).to_string())
-}
-
-/// A definition pin, normalized, or an error when it is not a pin.
-///
-/// The stored shape is `provider/model`. Only the slash is structural: the
-/// provider half is matched by a normalized alias in the runtime
-/// (`findProvider`), and a custom endpoint's display name may contain spaces,
-/// so those are valid here too. Rejecting a value the editor offers would leave
-/// the user with a definition that saves but can never resolve.
-fn normalize_model(value: Option<&str>) -> Result<Option<String>> {
-    let Some(trimmed) = value.map(str::trim).filter(|value| !value.is_empty()) else {
-        return Ok(None);
-    };
-    let Some((provider, model)) = trimmed.split_once('/') else {
-        bail!("SUBAGENT_INVALID: `model` must be written as provider/model");
-    };
-    if provider.is_empty() || model.is_empty() {
-        bail!("SUBAGENT_INVALID: `model` must be written as provider/model");
-    }
-    Ok(Some(trimmed.to_string()))
-}
-
-fn parse_record(path: &Path, state: &CapabilityState) -> Option<UserSubagentRecord> {
-    let raw = fs::read_to_string(path).ok()?;
-    if raw.len() > MAX_SUBAGENT_BYTES {
-        return None;
-    }
-    let (front, body) = parse_front_matter(&raw);
-    if body.trim().is_empty() {
-        return None;
-    }
-    let fallback = path.file_stem()?.to_str()?;
-    let name = normalize_name(front.get("name").map(String::as_str).unwrap_or(fallback));
-    let description = clip(front.get("description")?, MAX_DESCRIPTION_CHARS);
-    if name.is_empty() || description.is_empty() {
-        return None;
-    }
-    let tools = front.get("tools").map(|value| {
-        value
-            .trim_matches(['[', ']'])
-            .split(',')
-            .map(|tool| tool.trim().to_string())
-            .collect::<Vec<_>>()
-    });
-    let tools = normalize_tools(tools.as_ref());
-    if tools.is_empty() {
-        return None;
-    }
-    let enabled = state.enabled(SUBAGENT_KIND, CapabilityLevel::Global, &name, None);
-    let updated_at = file_timestamp(path);
-    let max_tokens = front
-        .get("maxtokens")
-        .and_then(|value| value.parse::<u32>().ok())
-        .filter(|value| *value > 0)
-        .map(|value| value.min(MAX_TOKENS_CEILING));
-    Some(UserSubagentRecord {
-        id: name.clone(),
-        name,
-        level: Some("global".into()),
-        description,
-        enabled,
-        scope: ActivationScope::default(),
-        tools,
-        model: front
-            .get("model")
-            .cloned()
-            .filter(|value| !value.is_empty()),
-        fallback_models: model_fallbacks::parse(&raw).ok()?,
-        thinking_level: normalize_thinking(front.get("thinkinglevel").map(String::as_str)),
-        max_tokens,
-        path: path.to_string_lossy().to_string(),
-        size_bytes: raw.len() as u64,
-        created_at: updated_at.clone(),
-        updated_at,
-    })
-}
-
-fn render_document(record: &UserSubagentRecord, body: &str) -> String {
-    let mut output = String::from("---\n");
-    output.push_str(&format!("name: {}\n", record.name));
-    output.push_str(&format!(
-        "description: {}\n",
-        record.description.replace('\n', " ")
-    ));
-    if record.tools.len() == 1 && record.tools[0].eq_ignore_ascii_case("inherit") {
-        output.push_str("tools: inherit\n");
-    } else {
-        output.push_str(&format!("tools: [{}]\n", record.tools.join(", ")));
-    }
-    if let Some(model) = &record.model {
-        output.push_str(&format!("model: {model}\n"));
-    }
-    if !record.fallback_models.is_empty() {
-        output.push_str(&format!(
-            "fallbackModels: [{}]\n",
-            record.fallback_models.join(", ")
-        ));
-    }
-    if let Some(level) = &record.thinking_level {
-        output.push_str(&format!("thinkingLevel: {level}\n"));
-    }
-    if let Some(max_tokens) = record.max_tokens {
-        output.push_str(&format!("maxTokens: {max_tokens}\n"));
-    }
-    output.push_str("---\n\n");
-    output.push_str(body.trim());
-    output.push('\n');
-    output
-}
-
-fn default_body(name: &str) -> String {
-    format!("Do the work the task names and report only what the parent needs. Start with the first concrete step for `{name}`.\n")
 }
 
 impl UserSubagentRegistry {
@@ -273,12 +161,17 @@ impl UserSubagentRegistry {
         }
     }
 
-    fn scan(&mut self) -> Result<Vec<UserSubagentRecord>> {
-        let directory = capability_dir(CapabilityLevel::Global, None, "subagents")?;
+    fn scan_level(
+        &mut self,
+        level: CapabilityLevel,
+        project_path: Option<&str>,
+    ) -> Result<Vec<UserSubagentRecord>> {
+        let owner = owner_for(level, project_path)?;
+        let directory = capability_dir(level, owner.as_deref(), SUBAGENT_KIND)?;
         let mut records = Vec::new();
         let mut seen = HashSet::new();
         for path in sorted_files(&directory, "md") {
-            let Some(record) = parse_record(&path, &self.state) else {
+            let Some(record) = parse_record(&path, &self.state, level, owner.as_deref()) else {
                 continue;
             };
             if seen.insert(record.id.clone()) {
@@ -287,28 +180,47 @@ impl UserSubagentRegistry {
         }
         let ids = records.iter().map(|record| record.id.clone()).collect();
         self.state
-            .prune(SUBAGENT_KIND, CapabilityLevel::Global, None, &ids)?;
+            .prune(SUBAGENT_KIND, level, owner.as_deref(), &ids)?;
         records.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(records)
     }
 
-    pub fn list(&mut self) -> Result<Vec<UserSubagentRecord>> {
-        self.scan()
+    /// The documents in one directory: the global one, or one project's.
+    pub fn list(
+        &mut self,
+        level: CapabilityLevel,
+        project_path: Option<&str>,
+    ) -> Result<Vec<UserSubagentRecord>> {
+        self.scan_level(level, project_path)
     }
 
-    pub fn active_for(&mut self, _project_path: Option<&str>) -> Result<Vec<UserSubagentRecord>> {
+    /// The effective catalog for a session on `project_path`.
+    pub fn active_for(&mut self, project_path: Option<&str>) -> Result<ActiveSubagents> {
+        let global = self.scan_level(CapabilityLevel::Global, None)?;
+        let selected = project_path
+            .map(normalize_project_path)
+            .filter(|value| !value.is_empty());
+        let project = match selected.as_deref() {
+            Some(path) => self.scan_level(CapabilityLevel::Project, Some(path))?,
+            None => Vec::new(),
+        };
+        Ok(merge_active_records(global, project))
+    }
+
+    fn find(
+        &mut self,
+        id: &str,
+        level: CapabilityLevel,
+        project_path: Option<&str>,
+    ) -> Result<Option<UserSubagentRecord>> {
         Ok(self
-            .scan()?
+            .scan_level(level, project_path)?
             .into_iter()
-            .filter(|record| record.enabled)
-            .collect())
-    }
-
-    fn find(&mut self, id: &str) -> Result<Option<UserSubagentRecord>> {
-        Ok(self.scan()?.into_iter().find(|record| record.id == id))
+            .find(|record| record.id == id))
     }
 
     pub fn create(&mut self, input: UserSubagentInput) -> Result<UserSubagentRecord> {
+        let (level, owner) = level_and_owner(&input)?;
         let name = normalize_name(
             input
                 .id
@@ -327,14 +239,11 @@ impl UserSubagentRegistry {
         if description.is_empty() {
             bail!("SUBAGENT_INVALID: description is required");
         }
-        if self
-            .scan()?
-            .iter()
-            .any(|record| record.id == name || record.name == name)
-        {
+        let existing = self.scan_level(level, owner.as_deref())?;
+        if existing.iter().any(|record| record.id == name) {
             bail!("SUBAGENT_INVALID: a subagent named \"{name}\" already exists");
         }
-        if self.scan()?.len() >= MAX_USER_SUBAGENTS {
+        if existing.len() >= MAX_USER_SUBAGENTS {
             bail!("SUBAGENT_INVALID: at most {MAX_USER_SUBAGENTS} subagents");
         }
         let tools = normalize_tools(input.tools.as_ref());
@@ -344,7 +253,8 @@ impl UserSubagentRegistry {
         let record = UserSubagentRecord {
             id: name.clone(),
             name,
-            level: Some("global".into()),
+            level: Some(level.as_str().to_string()),
+            project_path: owner.clone(),
             description,
             enabled: input.enabled.unwrap_or(true),
             scope: ActivationScope::default(),
@@ -363,9 +273,17 @@ impl UserSubagentRegistry {
             created_at: Utc::now().to_rfc3339(),
             updated_at: Utc::now().to_rfc3339(),
         };
-        let directory = capability_dir(CapabilityLevel::Global, None, "subagents")?;
-        fs::create_dir_all(&directory)?;
+        let directory = capability_dir(level, owner.as_deref(), SUBAGENT_KIND)?;
         let path = directory.join(format!("{}.md", record.id));
+        if path.exists() {
+            // A file the scan skipped (unreadable, no description, an empty
+            // body) still owns its filename; never overwrite it.
+            bail!(
+                "SUBAGENT_INVALID: a document already exists at {}",
+                path.display()
+            );
+        }
+        fs::create_dir_all(&directory)?;
         let default_body = default_body(&record.name);
         let body = input.body.as_deref().unwrap_or(default_body.as_str());
         let document = render_document(&record, body);
@@ -374,15 +292,10 @@ impl UserSubagentRegistry {
         }
         fs::write(&path, &document).with_context(|| format!("write {}", path.display()))?;
         if !record.enabled {
-            self.state.set_enabled(
-                SUBAGENT_KIND,
-                CapabilityLevel::Global,
-                &record.id,
-                None,
-                false,
-            )?;
+            self.state
+                .set_enabled(SUBAGENT_KIND, level, &record.id, owner.as_deref(), false)?;
         }
-        self.find(&record.id)?
+        self.find(&record.id, level, owner.as_deref())?
             .ok_or_else(|| anyhow::anyhow!("SUBAGENT_INVALID: created subagent was not found"))
     }
 
@@ -391,7 +304,8 @@ impl UserSubagentRegistry {
         id: &str,
         input: UserSubagentInput,
     ) -> Result<Option<UserSubagentRecord>> {
-        let Some(current) = self.find(id)? else {
+        let (level, owner) = level_and_owner(&input)?;
+        let Some(current) = self.find(id, level, owner.as_deref())? else {
             return Ok(None);
         };
         let name = input
@@ -400,7 +314,12 @@ impl UserSubagentRegistry {
             .filter(|value| !value.trim().is_empty())
             .map(normalize_name)
             .unwrap_or_else(|| current.name.clone());
-        if name != current.name && self.scan()?.iter().any(|record| record.id == name) {
+        if name != current.name
+            && self
+                .scan_level(level, owner.as_deref())?
+                .iter()
+                .any(|record| record.id == name)
+        {
             bail!("SUBAGENT_INVALID: a subagent named \"{name}\" already exists");
         }
         let description = input
@@ -444,7 +363,7 @@ impl UserSubagentRegistry {
         next.enabled = input.enabled.unwrap_or(current.enabled);
         next.path = current.path.clone();
         if next.id != current.id {
-            next.path = capability_dir(CapabilityLevel::Global, None, "subagents")?
+            next.path = capability_dir(level, owner.as_deref(), SUBAGENT_KIND)?
                 .join(format!("{}.md", next.id))
                 .to_string_lossy()
                 .to_string();
@@ -460,17 +379,22 @@ impl UserSubagentRegistry {
         if next.enabled != current.enabled {
             self.state.set_enabled(
                 SUBAGENT_KIND,
-                CapabilityLevel::Global,
+                level,
                 &next.id,
-                None,
+                owner.as_deref(),
                 next.enabled,
             )?;
         }
-        self.find(&next.id)
+        self.find(&next.id, level, owner.as_deref())
     }
 
-    pub fn read(&mut self, id: &str) -> Result<Option<(UserSubagentRecord, String)>> {
-        let Some(record) = self.find(id)? else {
+    pub fn read(
+        &mut self,
+        id: &str,
+        level: CapabilityLevel,
+        project_path: Option<&str>,
+    ) -> Result<Option<(UserSubagentRecord, String)>> {
+        let Some(record) = self.find(id, level, project_path)? else {
             return Ok(None);
         };
         let raw = fs::read_to_string(&record.path)?;
@@ -481,27 +405,39 @@ impl UserSubagentRegistry {
         Ok(Some((record, body)))
     }
 
-    pub fn remove(&mut self, id: &str) -> Result<bool> {
-        let Some(record) = self.find(id)? else {
+    pub fn remove(
+        &mut self,
+        id: &str,
+        level: CapabilityLevel,
+        project_path: Option<&str>,
+    ) -> Result<bool> {
+        let Some(record) = self.find(id, level, project_path)? else {
             return Ok(false);
         };
         fs::remove_file(&record.path).ok();
-        let _ = self.scan()?;
+        // The rescan prunes the state the removed document owned.
+        let _ = self.scan_level(level, project_path)?;
         Ok(true)
     }
 
-    pub fn set_enabled(&mut self, id: &str, enabled: bool) -> Result<Option<UserSubagentRecord>> {
-        let Some(record) = self.find(id)? else {
+    pub fn set_enabled(
+        &mut self,
+        id: &str,
+        enabled: bool,
+        level: CapabilityLevel,
+        project_path: Option<&str>,
+    ) -> Result<Option<UserSubagentRecord>> {
+        let Some(record) = self.find(id, level, project_path)? else {
             return Ok(None);
         };
         self.state.set_enabled(
             SUBAGENT_KIND,
-            CapabilityLevel::Global,
+            level,
             &record.id,
-            None,
+            record.project_path.as_deref(),
             enabled,
         )?;
-        self.find(id)
+        self.find(id, level, project_path)
     }
 
     pub fn set_scope(
@@ -509,8 +445,10 @@ impl UserSubagentRegistry {
         id: &str,
         scope: ActivationScope,
     ) -> Result<Option<UserSubagentRecord>> {
+        // Scope is not persisted; a document's level is its directory. Kept so
+        // an older caller gets the scanned record instead of an error.
         let _ = scope;
-        self.find(id)
+        self.find(id, CapabilityLevel::Global, None)
     }
 
     /// Handles the user turned off among the shipped subagent builtins.
@@ -546,267 +484,4 @@ impl UserSubagentRegistry {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::tempdir;
-
-    #[test]
-    fn parser_rejects_missing_description() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("agent.md");
-        fs::write(&path, "---\nname: agent\n---\n\nDo it\n").unwrap();
-        let state = CapabilityState::new(dir.path(), SUBAGENT_KIND);
-        assert!(parse_record(&path, &state).is_none());
-    }
-
-    #[test]
-    fn tools_are_normalized_and_unknown_tools_are_dropped() {
-        assert_eq!(
-            normalize_tools(Some(&vec!["read".into(), "Nope".into(), "Bash".into()])),
-            vec!["Read", "Bash"]
-        );
-    }
-
-    #[test]
-    fn inherit_token_is_kept_and_unknown_tools_still_drop() {
-        assert_eq!(
-            normalize_tools(Some(&vec!["inherit".into()])),
-            vec!["inherit"]
-        );
-        assert_eq!(
-            normalize_tools(Some(&vec!["inherit".into(), "Bash".into(), "Nope".into()])),
-            vec!["inherit".to_string(), "Bash".to_string()]
-        );
-    }
-
-    #[test]
-    fn inherit_only_documents_round_trip() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("worker.md");
-        fs::write(
-            &path,
-            "---\nname: worker\ndescription: Uses the parent tools.\ntools: inherit\n---\n\nDo the job.\n",
-        )
-        .unwrap();
-        let state = CapabilityState::new(dir.path(), SUBAGENT_KIND);
-        let record = parse_record(&path, &state).expect("inherit-only document must load");
-        assert_eq!(record.tools, vec!["inherit"]);
-        let rendered = render_document(&record, "Do the job.");
-        assert!(rendered.contains("tools: inherit\n"));
-        assert!(!rendered.contains("tools: [inherit]"));
-    }
-
-    #[test]
-    fn fallback_pins_survive_record_document_round_trips() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("worker.md");
-        fs::write(&path, "---\nname: worker\ndescription: Fixture.\nmodel: primary/model\nfallbackModels: [backup/one, Other Gateway/vendor/two]\n---\n\nKeep the body.\n").unwrap();
-        let state = CapabilityState::new(dir.path(), SUBAGENT_KIND);
-        let mut record = parse_record(&path, &state).unwrap();
-        assert_eq!(
-            record.fallback_models,
-            vec!["backup/one", "Other Gateway/vendor/two"]
-        );
-        let wire = serde_json::to_value(&record).unwrap();
-        assert_eq!(
-            wire["fallbackModels"],
-            serde_json::json!(["backup/one", "Other Gateway/vendor/two"])
-        );
-        fs::write(&path, render_document(&record, "Keep the body.")).unwrap();
-        assert_eq!(
-            parse_record(&path, &state).unwrap().fallback_models,
-            record.fallback_models
-        );
-        record.fallback_models.clear();
-        let cleared = render_document(&record, "Keep the body.");
-        assert!(!cleared.contains("fallbackModels"));
-        fs::write(&path, cleared).unwrap();
-        assert!(parse_record(&path, &state)
-            .unwrap()
-            .fallback_models
-            .is_empty());
-        let old: UserSubagentInput = serde_json::from_str("{}").unwrap();
-        assert!(old.fallback_models.is_none());
-        let clear: UserSubagentInput = serde_json::from_str(r#"{"fallbackModels":[]}"#).unwrap();
-        assert_eq!(clear.fallback_models, Some(vec![]));
-    }
-
-    #[test]
-    fn omit_is_a_valid_thinking_override() {
-        assert_eq!(normalize_thinking(Some("omit")), Some("omit".into()));
-        assert_eq!(normalize_thinking(Some(" OMIT ")), Some("omit".into()));
-    }
-
-    #[test]
-    fn document_contains_no_activation_state() {
-        let record = UserSubagentRecord {
-            id: "review".into(),
-            name: "review".into(),
-            level: Some("global".into()),
-            description: "Review code".into(),
-            enabled: false,
-            scope: ActivationScope::default(),
-            tools: vec!["Read".into()],
-            model: None,
-            fallback_models: Vec::new(),
-            thinking_level: None,
-            max_tokens: None,
-            path: "/tmp/review.md".into(),
-            size_bytes: 0,
-            created_at: String::new(),
-            updated_at: String::new(),
-        };
-        assert!(!render_document(&record, "Review it").contains("enabled"));
-    }
-
-    #[test]
-    fn an_output_cap_is_written_and_an_absent_one_is_omitted() {
-        let mut record = UserSubagentRecord {
-            id: "review".into(),
-            name: "review".into(),
-            level: Some("global".into()),
-            description: "Review code".into(),
-            enabled: true,
-            scope: ActivationScope::default(),
-            tools: vec!["Read".into()],
-            model: None,
-            fallback_models: Vec::new(),
-            thinking_level: None,
-            max_tokens: Some(16_000),
-            path: "/tmp/review.md".into(),
-            size_bytes: 0,
-            created_at: String::new(),
-            updated_at: String::new(),
-        };
-        let document = render_document(&record, "Review it");
-        assert!(document.contains("maxTokens: 16000\n"));
-
-        // Absent means "follow the model", so the key must not appear at all —
-        // a written `maxTokens: 0` would read back as an explicit empty cap.
-        record.max_tokens = None;
-        assert!(!render_document(&record, "Review it").contains("maxTokens"));
-    }
-
-    #[test]
-    fn legacy_max_turns_frontmatter_is_ignored() {
-        // The turn limit is gone (ADR 0253). A document that still declares the
-        // key must load like any other unknown frontmatter key: keys are only
-        // lowercased, so `maxTurns` used to normalize to `maxturns`, while
-        // `max-turns` was never read in the first place.
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("worker.md");
-        fs::write(
-            &path,
-            "---\nname: worker\ndescription: Uses the parent tools.\ntools: [Read]\nmaxTurns: 20\nmax-turns: 20\n---\n\nDo the job.\n",
-        )
-        .unwrap();
-        let state = CapabilityState::new(dir.path(), SUBAGENT_KIND);
-        let record =
-            parse_record(&path, &state).expect("a legacy maxTurns key must not fail the load");
-        assert_eq!(record.description, "Uses the parent tools.");
-        assert!(!render_document(&record, "Do the job.").contains("maxTurns"));
-    }
-
-    #[test]
-    fn a_model_pin_requires_a_slash_and_keeps_the_users_spelling() {
-        // The shape is `provider/model`; the provider half may be a vendor key
-        // or a display name, and a custom endpoint's name contains spaces.
-        assert_eq!(
-            normalize_model(Some("anthropic/claude-haiku-4-5")).unwrap(),
-            Some("anthropic/claude-haiku-4-5".into())
-        );
-        assert_eq!(
-            normalize_model(Some("  My Gateway/local-model  ")).unwrap(),
-            Some("My Gateway/local-model".into())
-        );
-        // An openrouter-style model id keeps its own slashes.
-        assert_eq!(
-            normalize_model(Some("openrouter/deepseek/deepseek-chat")).unwrap(),
-            Some("openrouter/deepseek/deepseek-chat".into())
-        );
-    }
-
-    #[test]
-    fn a_cleared_model_is_none_and_a_malformed_one_is_rejected() {
-        assert_eq!(normalize_model(None).unwrap(), None);
-        assert_eq!(normalize_model(Some("   ")).unwrap(), None);
-
-        // A bare id has no provider to look up, so the runtime could never
-        // resolve it; the editor rejects the same shape before saving.
-        assert!(normalize_model(Some("claude-haiku-4-5")).is_err());
-        assert!(normalize_model(Some("/claude-haiku-4-5")).is_err());
-        assert!(normalize_model(Some("anthropic/")).is_err());
-    }
-
-    #[test]
-    fn builtins_are_enabled_until_one_is_turned_off() {
-        let dir = tempdir().unwrap();
-        let mut registry = UserSubagentRegistry::new(dir.path());
-        assert!(registry.disabled_builtins().is_empty());
-
-        let handle = registry.set_builtin_enabled("Fixer", false).unwrap();
-        assert_eq!(handle, "fixer");
-        assert_eq!(registry.disabled_builtins(), vec!["fixer".to_string()]);
-
-        registry.set_builtin_enabled("fixer", true).unwrap();
-        assert!(registry.disabled_builtins().is_empty());
-    }
-
-    #[test]
-    fn builtin_state_survives_a_registry_rebuild() {
-        let dir = tempdir().unwrap();
-        let mut registry = UserSubagentRegistry::new(dir.path());
-        registry.set_builtin_enabled("fixer", false).unwrap();
-        registry
-            .set_builtin_enabled("code-reviewer", false)
-            .unwrap();
-
-        let reopened = UserSubagentRegistry::new(dir.path());
-        // Sorted, so the answer never depends on insertion order.
-        assert_eq!(
-            reopened.disabled_builtins(),
-            vec!["code-reviewer".to_string(), "fixer".to_string()]
-        );
-    }
-
-    #[test]
-    fn a_blank_builtin_handle_is_rejected() {
-        let dir = tempdir().unwrap();
-        let mut registry = UserSubagentRegistry::new(dir.path());
-        let error = registry.set_builtin_enabled("   ", false).unwrap_err();
-        assert!(error.to_string().contains("SUBAGENT_INVALID"));
-        assert!(registry.disabled_builtins().is_empty());
-    }
-
-    #[test]
-    fn listing_documents_does_not_prune_builtin_state() {
-        // The scan prunes state for ids it did not find. A builtin has no
-        // document at all, so the two kinds must never share one state file or
-        // the first `list()` would delete every builtin the user turned off.
-        use crate::agent_capabilities::test_support;
-
-        let dir = tempdir().unwrap();
-        let agents = tempdir().unwrap();
-        let mut registry = UserSubagentRegistry::new(dir.path());
-        registry.set_builtin_enabled("fixer", false).unwrap();
-
-        test_support::with_global_agents(agents.path(), || {
-            registry.list().unwrap();
-        });
-        assert_eq!(registry.disabled_builtins(), vec!["fixer".to_string()]);
-
-        // And a rebuilt registry still agrees after the listing.
-        let mut reopened = UserSubagentRegistry::new(dir.path());
-        test_support::with_global_agents(agents.path(), || {
-            reopened.list().unwrap();
-        });
-        assert_eq!(reopened.disabled_builtins(), vec!["fixer".to_string()]);
-
-        // The document kind keeps its own file, so the builtin entry is not
-        // mistaken for a user subagent either.
-        assert!(dir
-            .path()
-            .join("agent-capabilities/subagent-builtins.json")
-            .exists());
-    }
-}
+mod tests;

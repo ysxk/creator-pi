@@ -212,7 +212,7 @@ export function CapabilityToolbar({
   projectPicker,
   actions,
 }: {
-  /** Omit to hide the filter entirely, as the global-only subagents page does. */
+  /** Omit to hide the filter entirely, for a page with a single level. */
   filter?: CapabilityFilter;
   onFilterChange?: (filter: CapabilityFilter) => void;
   counts?: { all: number; global: number; project: number };

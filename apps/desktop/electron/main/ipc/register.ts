@@ -58,7 +58,7 @@ export type RegisterIpcDependencies = {
   getBackendRouter?: () => BackendRouter | null;
   getNotificationViewingSessionId: () => string | null;
   setNotificationViewingSessionId: (sessionId: string | null) => void;
-  activeUserSubagentDocuments: (...args: any[]) => Promise<any>;
+  activeSubagentDocuments: (...args: any[]) => Promise<any>;
   disabledBuiltinSubagents: () => Promise<string[]>;
   liveCallService?: LiveCallService;
   liveVoiceWidget?: LiveVoiceWidget;
@@ -123,7 +123,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     bindingForModel,
     agentExtensions,
     activeUserSkills,
-    activeUserSubagentDocuments,
+    activeSubagentDocuments,
     disabledBuiltinSubagents,
     pluginActiveInProject,
     getWorkPanelReservationWidth,
@@ -453,7 +453,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     searchSkillMarket,
     fetchSkillMarketDocument,
     optionalWorkspaceRoot,
-    activeUserSubagentDocuments,
+    activeSubagentDocuments,
     disabledBuiltinSubagents,
     stripWinLongPrefix,
     sendToRenderer,

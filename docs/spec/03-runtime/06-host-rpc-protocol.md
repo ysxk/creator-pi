@@ -686,14 +686,16 @@ against a live host, and replaying one after the final row would be wrong.
   documents (`SKILL_INVALID` on validation failure)
 - `agents.list` / `agents.active` / `agents.read` / `agents.create` /
   `agents.update` / `agents.remove` / `agents.setEnabled` /
-  `agents.setScope` — user subagent documents (`SUBAGENT_INVALID`)
+  `agents.setScope` / `agents.transfer` — global and project subagent
+  documents (`SUBAGENT_INVALID`)
 - `mcp.list` / `mcp.active` / `mcp.upsert` / `mcp.remove` /
   `mcp.setEnabled` / `mcp.setScope` / `mcp.transfer` — user MCP server
   definitions (`MCP_INVALID`)
 
-`skills.transfer` and `mcp.transfer` take `{ id, from, to }`, each end a
-`{ level, projectPath? }` target (`projectPath` is required for the project
-level), and return `{ skill }` / `{ server }` for the document where it landed.
+`skills.transfer`, `mcp.transfer` and `agents.transfer` take `{ id, from, to }`,
+each end a `{ level, projectPath? }` target (`projectPath` is required for the
+project level), and return `{ skill }` / `{ server }` / `{ subagent }` for the
+document where it landed.
 A transfer moves the document between the two levels rather than copying it, so
 the source level stops listing the entry. A destination that already owns the
 same id gives the arriving document a `-2`/`-3` id suffix; one that owns the
@@ -705,8 +707,13 @@ source was showing (a project target keeps that project's state, a global
 target the global default). Naming the source's own directory as the
 destination is a no-op.
 
+A subagent document leaving a project additionally loses its `permission`
+frontmatter key (ADR 0326).
+
 `*.active` returns the entries that apply to the given project after
 activation-scope filtering (`CAPABILITY_INVALID` for an unknown scope).
+`agents.active` also returns `suppressedHandles`, the handles of project
+documents that are switched off and therefore still claimed.
 
 ### Search, artifacts, keyboard
 - `search.query` — legacy indexed-message hits; existing response and limit remain compatible

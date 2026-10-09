@@ -13,6 +13,7 @@ import {
   isSubagentMutatingTool,
   resolveScope,
   type ActivationScope,
+  type AgentCapabilityLevel,
   type SubagentDefinition,
   type SubagentPreset,
   type SubagentThinkingLevel,
@@ -355,25 +356,40 @@ function PresetPicker({
 }
 
 /**
- * Subagents are global-only (D202), so there is no level to choose: this states
- * where the document lands and leaves only the active decision.
+ * Where the document will be written. Settings owns the level, so this states
+ * it instead of offering a second, conflicting scope control; the only decision
+ * left here is whether the subagent is active.
  */
 function ManagementScope({
   draft,
   setDraft,
+  level,
+  projectName,
 }: {
   draft: SubagentDraft;
   setDraft: (next: SubagentDraft) => void;
+  level: AgentCapabilityLevel;
+  projectName?: string;
 }) {
   const { t } = useTranslation();
   return (
     <div className="agent-mcp-scope">
       <div className="agent-mcp-scope-copy">
         <span className="agent-mcp-scope-label">
-          {t("settings.globalScope")}
-          {/* Why there is no scope choice here: the answer belongs to the label
-              it applies to, not to a line under it. */}
-          <HelpIcon label={t("settings.subagentsOnlyGlobal")} />
+          {level === "global"
+            ? t("settings.globalScope")
+            : t("settings.projectScope", {
+                project: projectName || t("settings.currentProject"),
+              })}
+          {/* A project document is repository content, so what the level
+              changes about it rides on the label it applies to. */}
+          <HelpIcon
+            label={
+              level === "global"
+                ? t("settings.globalScopeDescription")
+                : t("settings.projectSubagentLimits")
+            }
+          />
         </span>
       </div>
       <SettingsToggle
@@ -581,6 +597,8 @@ function AdvancedFields({
   modelChoices,
   modelGroups,
   orphanModel,
+  level,
+  projectName,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -589,6 +607,8 @@ function AdvancedFields({
   modelChoices: ReturnType<typeof subagentModelChoices>;
   modelGroups: ReturnType<typeof groupSubagentModelChoices>;
   orphanModel: string | null;
+  level: AgentCapabilityLevel;
+  projectName?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -633,7 +653,12 @@ function AdvancedFields({
         </Field>
         <div className="ext-field-group">
           <div className="ext-field-label">{t("settings.scope")}</div>
-          <ManagementScope draft={draft} setDraft={setDraft} />
+          <ManagementScope
+            draft={draft}
+            setDraft={setDraft}
+            level={level}
+            projectName={projectName}
+          />
         </div>
       </div>
     </div>
@@ -655,6 +680,8 @@ export function SubagentEditorSheet({
   editing,
   saving,
   initialPresetId,
+  level = "global",
+  projectName,
   onClose,
   onSave,
   onReveal,
@@ -665,6 +692,10 @@ export function SubagentEditorSheet({
   saving: boolean;
   /** Template chip to select on create, e.g. after Copy as mine. */
   initialPresetId?: string;
+  /** Where the document is written; Settings owns the level, this states it. */
+  level?: AgentCapabilityLevel;
+  /** Display name of the owning project, for a project-level document. */
+  projectName?: string;
   onClose: () => void;
   onSave: () => void;
   onReveal?: () => void;
@@ -883,6 +914,8 @@ export function SubagentEditorSheet({
             modelChoices={modelChoices}
             modelGroups={modelGroups}
             orphanModel={orphanModel}
+            level={level}
+            projectName={projectName}
           />
         </div>
 

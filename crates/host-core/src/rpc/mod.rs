@@ -1651,7 +1651,9 @@ fn parse_skill_input(params: &Value) -> Result<crate::user_skills::UserSkillInpu
 
 fn subagent_err(err: impl ToString) -> JsonRpcError {
     let msg = err.to_string();
-    if msg.contains("SUBAGENT_INVALID") {
+    if msg.contains("CAPABILITY_INVALID") {
+        capability_err(msg)
+    } else if msg.contains("SUBAGENT_INVALID") {
         rpc_err(1017, msg, "SUBAGENT_INVALID")
     } else {
         rpc_err(1000, msg, "INTERNAL")
@@ -1660,6 +1662,11 @@ fn subagent_err(err: impl ToString) -> JsonRpcError {
 
 /// Read the create/update payload for a user subagent. Absent fields stay absent
 /// so `update` can distinguish "unchanged" from "cleared".
+///
+/// The level may ride inside the nested `subagent` object or beside it, like
+/// the flat `level`/`projectPath` of the read-side queries; a caller that names
+/// neither addresses the global directory, as every caller did before project
+/// documents existed.
 fn parse_subagent_input(
     params: &Value,
 ) -> Result<crate::user_subagents::UserSubagentInput, JsonRpcError> {
@@ -1667,7 +1674,21 @@ fn parse_subagent_input(
         .get("subagent")
         .cloned()
         .unwrap_or_else(|| params.clone());
-    serde_json::from_value(raw).map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))
+    let mut input: crate::user_subagents::UserSubagentInput =
+        serde_json::from_value(raw).map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+    if input.level.is_none() {
+        input.level = params
+            .get("level")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+    }
+    if input.project_path.is_none() {
+        input.project_path = params
+            .get("projectPath")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+    }
+    Ok(input)
 }
 
 fn require_id(params: &Value) -> Result<String, JsonRpcError> {
@@ -4811,15 +4832,25 @@ async fn handle_request(
         }
 
         "agents.list" => {
+            let (level, project_path) = parse_capability_query(&params)?;
             let mut st = state.lock().await;
-            Ok(json!({ "subagents": st.user_subagents.list().map_err(subagent_err)? }))
+            let subagents = st
+                .user_subagents
+                .list(level, project_path.as_deref())
+                .map_err(subagent_err)?;
+            Ok(json!({ "subagents": subagents }))
         }
         "agents.active" => {
             let project_path = params.get("projectPath").and_then(Value::as_str);
             let mut st = state.lock().await;
-            Ok(
-                json!({ "subagents": st.user_subagents.active_for(project_path).map_err(subagent_err)? }),
-            )
+            let active = st
+                .user_subagents
+                .active_for(project_path)
+                .map_err(subagent_err)?;
+            Ok(json!({
+                "subagents": active.subagents,
+                "suppressedHandles": active.suppressed_handles,
+            }))
         }
         "agents.create" => {
             let input = parse_subagent_input(&params)?;
@@ -4836,16 +4867,25 @@ async fn handle_request(
         }
         "agents.read" => {
             let id = require_id(&params)?;
+            let (level, project_path) = parse_capability_query(&params)?;
             let mut st = state.lock().await;
-            match st.user_subagents.read(&id).map_err(subagent_err)? {
+            match st
+                .user_subagents
+                .read(&id, level, project_path.as_deref())
+                .map_err(subagent_err)?
+            {
                 Some((subagent, body)) => Ok(json!({ "subagent": subagent, "body": body })),
                 None => Ok(json!({ "subagent": null, "body": null })),
             }
         }
         "agents.remove" => {
             let id = require_id(&params)?;
+            let (level, project_path) = parse_capability_query(&params)?;
             let mut st = state.lock().await;
-            let ok = st.user_subagents.remove(&id).map_err(subagent_err)?;
+            let ok = st
+                .user_subagents
+                .remove(&id, level, project_path.as_deref())
+                .map_err(subagent_err)?;
             Ok(json!({ "ok": ok }))
         }
         "agents.setEnabled" => {
@@ -4854,10 +4894,22 @@ async fn handle_request(
                 .get("enabled")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
+            let (level, project_path) = parse_capability_query(&params)?;
             let mut st = state.lock().await;
             let subagent = st
                 .user_subagents
-                .set_enabled(&id, enabled)
+                .set_enabled(&id, enabled, level, project_path.as_deref())
+                .map_err(subagent_err)?;
+            Ok(json!({ "subagent": subagent }))
+        }
+        "agents.transfer" => {
+            let id = require_id(&params)?;
+            let from = parse_capability_target(&params, "from")?;
+            let to = parse_capability_target(&params, "to")?;
+            let mut st = state.lock().await;
+            let subagent = st
+                .user_subagents
+                .transfer(&id, &from, &to)
                 .map_err(subagent_err)?;
             Ok(json!({ "subagent": subagent }))
         }

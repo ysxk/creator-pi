@@ -1,7 +1,7 @@
 import { app, dialog, shell } from "electron";
 import { importSkillFolders, readLastSkillImportDirectory, writeLastSkillImportDirectory } from "../skill-folder-import";
 import { ErrorCodes, IPC, type ActivationScope, type AgentCapabilityMove, type AgentCapabilityQuery, type ProviderPublic, type UserSkillRecord, type UserSubagentRecord } from "@pi-desktop/shared";
-import { loadSubagentDefinitions, type UserSubagentDocument } from "@pi-desktop/agent-runtime";
+import { loadSubagentDefinitions, type ActiveSubagentDocuments } from "@pi-desktop/agent-runtime";
 import {
   deleteSubagentIcon,
   generateSubagentIcon,
@@ -38,7 +38,7 @@ export type SkillsIpcDependencies = {
     modelId: string,
   ) => Promise<unknown> | unknown;
   optionalWorkspaceRoot: () => Promise<string | null>;
-  activeUserSubagentDocuments: (projectPath: string | undefined) => Promise<UserSubagentDocument[]>;
+  activeSubagentDocuments: (projectPath: string | undefined) => Promise<ActiveSubagentDocuments>;
   /** Handles whose shipped definition the user turned off (builtin activation). */
   disabledBuiltinSubagents: () => Promise<string[]>;
   stripWinLongPrefix: (path: string) => string;
@@ -56,7 +56,7 @@ export function registerSkillsIpc({
   resolveAuth,
   resolveImageModel,
   optionalWorkspaceRoot,
-  activeUserSubagentDocuments,
+  activeSubagentDocuments,
   disabledBuiltinSubagents,
   stripWinLongPrefix,
   sendToRenderer,
@@ -322,27 +322,34 @@ export function registerSkillsIpc({
 
   // --- Subagents the user owns ----------------------------------------------
 
-  handle(IPC.invoke.subagentList, async () => {
+  handle(IPC.invoke.subagentList, async (query: Partial<AgentCapabilityQuery> = {}) => {
     if (!host) throw new Error("host unavailable");
-    return host.call("agents.list");
+    return host.call("agents.list", query);
   });
 
   /**
-   * The effective catalog: what `Task` would actually offer right now, merged
-   * across builtin and registry documents. The renderer needs this to list the
-   * shipped defaults and to name the definition that wins each handle.
+   * The effective catalog: what `Task` would actually offer right now on the
+   * open project, merged across builtin, global and project documents. The
+   * renderer needs this to list the shipped defaults and to name the
+   * definition that wins each handle.
    *
    * `builtins` carries a switched-off builtin too, with `enabled: false`, so the
    * page can keep its row and let the user turn it back on; `subagents` is the
    * delegation catalog and never lists one.
    */
-  handle(IPC.invoke.subagentCatalog, async () => {
-    const projectPath = (await optionalWorkspaceRoot()) ?? undefined;
+  handle(IPC.invoke.subagentCatalog, async (query: { projectPath?: unknown } = {}) => {
+    // Settings names the project its picker shows; every other caller means
+    // the open workspace.
+    const requested =
+      typeof query?.projectPath === "string" ? query.projectPath.trim() : "";
+    const projectPath = requested || ((await optionalWorkspaceRoot()) ?? undefined);
     const disabled = await disabledBuiltinSubagents();
+    const active = await activeSubagentDocuments(projectPath);
     const { definitions, builtins, diagnostics } = await loadSubagentDefinitions(
       projectPath,
       {
-        userDocuments: await activeUserSubagentDocuments(projectPath),
+        userDocuments: active.documents,
+        suppressedHandles: active.suppressedHandles,
         disabledBuiltins: disabled,
       },
     );
@@ -424,27 +431,53 @@ export function registerSkillsIpc({
     },
   );
 
-  handle(IPC.invoke.subagentRead, async (id: string) => {
-    if (!host) throw new Error("host unavailable");
-    return host.call("agents.read", { id });
-  });
+  handle(
+    IPC.invoke.subagentRead,
+    async (payload: string | ({ id: string } & Partial<AgentCapabilityQuery>)) => {
+      if (!host) throw new Error("host unavailable");
+      const request = typeof payload === "string" ? { id: payload } : payload;
+      return host.call("agents.read", request);
+    },
+  );
 
-  handle(IPC.invoke.subagentRemove, async (id: string) => {
-    if (!host) throw new Error("host unavailable");
-    const res = await host.call("agents.remove", { id });
-    sendToRenderer(IPC.event.pluginChanged,{ reason: "subagent" });
-    return res;
-  });
+  handle(
+    IPC.invoke.subagentRemove,
+    async (payload: string | ({ id: string } & Partial<AgentCapabilityQuery>)) => {
+      if (!host) throw new Error("host unavailable");
+      const request = typeof payload === "string" ? { id: payload } : payload;
+      const res = await host.call("agents.remove", request);
+      sendToRenderer(IPC.event.pluginChanged,{ reason: "subagent" });
+      return res;
+    },
+  );
 
   handle(
     IPC.invoke.subagentSetEnabled,
-    async (payload: { id: string; enabled: boolean }) => {
+    async (payload: { id: string; enabled: boolean } & Partial<AgentCapabilityQuery>) => {
       if (!host) throw new Error("host unavailable");
       const res = await host.call("agents.setEnabled", payload);
       sendToRenderer(IPC.event.pluginChanged,{ reason: "subagent" });
       return res;
     },
   );
+
+  /**
+   * Move a subagent document between the global and a project's
+   * `.agents/subagents`.
+   *
+   * The response carries the handle the document ended up under, because a
+   * move into an occupied destination renames it. host-core drops a
+   * `permission` key on the way out of a project.
+   */
+  handle(IPC.invoke.subagentTransfer, async (payload: AgentCapabilityMove) => {
+    if (!host) throw new Error("host unavailable");
+    const res = await host.call<{ subagent: UserSubagentRecord }>(
+      "agents.transfer",
+      payload,
+    );
+    sendToRenderer(IPC.event.pluginChanged, { reason: "subagent" });
+    return res;
+  });
 
   /**
    * Turn one shipped default off, or back on. The row owns no document:
@@ -476,17 +509,20 @@ export function registerSkillsIpc({
    * from the host registry: a renderer-supplied path is never handed to the
    * shell, so this channel cannot be used to reveal arbitrary locations.
    */
-  handle(IPC.invoke.subagentReveal, async (payload: { id?: string; path?: string }) => {
+  handle(
+    IPC.invoke.subagentReveal,
+    async (payload: { id?: string; path?: string } & Partial<AgentCapabilityQuery>) => {
     if (!host) throw new Error("host unavailable");
     if (!payload.id) throw new Error("subagent id required");
     const res = await host.call<{ subagent: UserSubagentRecord | null }>(
       "agents.read",
-      { id: payload.id },
+      { id: payload.id, level: payload.level, projectPath: payload.projectPath },
     );
     const path = res.subagent?.path;
     if (!path) throw new Error("subagent not found");
     shell.showItemInFolder(stripWinLongPrefix(path));
     return { ok: true };
-  });
+    },
+  );
 
 }

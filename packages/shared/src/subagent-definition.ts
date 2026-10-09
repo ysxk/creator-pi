@@ -21,10 +21,13 @@ import {
 } from "./types.js";
 
 /**
- * Where a definition came from. User-owned global documents shadow builtins by
- * name; project workspaces do not provide subagent definitions (D202).
+ * Where a definition came from. A project document
+ * (`<project>/.agents/subagents`) shadows a user-owned global one, which
+ * shadows a builtin, all by name. A project document is repository content the
+ * user did not necessarily write, so it is the one source that may not declare
+ * a permission scope or spend a model the user has not offered to delegates.
  */
-export type SubagentSource = "builtin" | "user";
+export type SubagentSource = "builtin" | "user" | "project";
 
 /** Provider/model pin declared by a definition (resolved in Electron main). */
 export type SubagentModelPin = {
@@ -77,7 +80,7 @@ export type SubagentDefinition = {
   /** Markdown body used as the delegate's system prompt. */
   prompt: string;
   source: SubagentSource;
-  /** Absolute path of a user-owned global document. */
+  /** Absolute path of a global or project document. */
   filePath?: string;
 };
 
@@ -199,13 +202,24 @@ export function isSubagentPermission(value: unknown): value is SubagentPermissio
   );
 }
 
-/** Builtins and global user documents may declare a permission scope. */
+/**
+ * Builtins and global user documents may declare a permission scope. A project
+ * document may not: cloning a repository must never hand it a permission
+ * upgrade, so its `permission` key is ignored with a warning.
+ */
 export const PERMISSION_DECLARING_SOURCES: ReadonlySet<SubagentSource> = new Set(
   ["builtin", "user"] as const,
 );
 
 /** Caps that keep delegation cheap and predictable (see ADR 0062). */
 export const MAX_SUBAGENT_DEFINITIONS = 16;
+/**
+ * Share of the catalog project documents may take. Project documents win
+ * their handles first, so without a cap of their own a repository shipping
+ * sixteen definitions would push every one of the user's delegates and every
+ * builtin out of the session.
+ */
+export const MAX_PROJECT_SUBAGENT_DEFINITIONS = 8;
 export const MAX_SUBAGENT_PROVIDERS = 8;
 /** Running delegates per session, across batches (see ADR 0089). */
 export const MAX_SUBAGENT_CONCURRENCY = 10;
@@ -441,11 +455,14 @@ export function parseSubagentDefinition(
       warnings.push(
         `ignoring unknown permission "${declaredPermission}" (use inherit, ask, accept-edits or auto)`,
       );
-    } else if (
-      candidate !== DEFAULT_SUBAGENT_PERMISSION &&
-      PERMISSION_DECLARING_SOURCES.has(options.source)
-    ) {
-      permission = candidate;
+    } else if (candidate !== DEFAULT_SUBAGENT_PERMISSION) {
+      if (PERMISSION_DECLARING_SOURCES.has(options.source)) {
+        permission = candidate;
+      } else {
+        warnings.push(
+          `ignoring \`permission: ${candidate}\` (a ${options.source} document cannot change the permission scope)`,
+        );
+      }
     }
   }
 
@@ -587,10 +604,14 @@ function parseTimeoutSeconds(
 /**
  * Merge discovered definitions into the list the runtime offers.
  *
- * Precedence is user registry > builtin, so a global document retunes a
- * builtin without renaming it. The result is capped: past
- * `MAX_SUBAGENT_DEFINITIONS` the catalog stops being a menu the model can
- * reason about, and every extra entry costs prompt tokens on every turn.
+ * Precedence is project > user registry > builtin, so a repository retunes a
+ * delegate for its own sessions and a global document retunes a builtin, both
+ * without renaming it. The result is capped: past `MAX_SUBAGENT_DEFINITIONS`
+ * the catalog stops being a menu the model can reason about, and every extra
+ * entry costs prompt tokens on every turn. Project documents are capped a
+ * second time (`MAX_PROJECT_SUBAGENT_DEFINITIONS`) because they are first in
+ * line: a project document past that cap is dropped without claiming its
+ * name, so the lower-precedence definition of the same name still loads.
  */
 export function mergeSubagentDefinitions(
   definitions: readonly SubagentDefinition[],
@@ -598,16 +619,22 @@ export function mergeSubagentDefinitions(
   const byName = new Map<string, SubagentDefinition>();
   // Highest-precedence source first, so the first entry for a name wins it.
   const ordered = [
+    ...definitions.filter((d) => d.source === "project"),
     ...definitions.filter((d) => d.source === "user"),
     ...definitions.filter((d) => d.source === "builtin"),
   ];
   const dropped: string[] = [];
+  let projectCount = 0;
   for (const definition of ordered) {
     if (byName.has(definition.name)) continue;
-    if (byName.size >= MAX_SUBAGENT_DEFINITIONS) {
+    const overProjectCap =
+      definition.source === "project" &&
+      projectCount >= MAX_PROJECT_SUBAGENT_DEFINITIONS;
+    if (overProjectCap || byName.size >= MAX_SUBAGENT_DEFINITIONS) {
       dropped.push(definition.name);
       continue;
     }
+    if (definition.source === "project") projectCount += 1;
     byName.set(definition.name, definition);
   }
   return { definitions: [...byName.values()], dropped };

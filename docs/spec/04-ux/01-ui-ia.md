@@ -364,8 +364,10 @@ shared capability contract:
   duplicate checks, locked edit ids, scope text, and Test connection feedback.
   **Scan other tools** opens the external MCP workbench inline and uses the
   active Global / Project filter and selected project for its import target.
-- Subagents use one full-width global surface under `~/.agents/subagents`; they
-  have no project picker, project surface, or project-level toggle. Creating or
+- Subagents use the same workbench: a global surface under
+  `~/.agents/subagents` and a project surface under
+  `<project>/.agents/subagents`, chosen by the level filter and the project
+  picker (ADR 0326). Creating or
   editing a subagent picks the pinned model from configured provider models, or
   inherits the session model; it does not require typing a `provider/model` id.
 - All three lists flow at natural page height, render a quiet centered empty

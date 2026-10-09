@@ -584,15 +584,21 @@ system while preserving their different data ownership:
   single toolbar above a single elevated panel. The toolbar carries the level
   filter as a segmented control with live counts (All / Global / Project), one
   search field with a clear affordance, the selected-project picker, and the
-  page's primary actions right-aligned. Subagents omits the filter and the
-  picker because it is global-only, keeping only search and its actions.
-  The panel still uses two in-panel groups: **Built-in** (the five shipped
+  page's primary actions right-aligned. Subagents uses the same filter and
+  picker (ADR 0326) and three in-panel groups: **Built-in** (the five shipped
   definitions `explorer`, `code-reviewer`, `test-runner`, `fixer`, and
-  `ui-designer`) and **Global** (`~/.agents/subagents`, user-owned). An enabled
-  user document of the same name shadows that builtin in the Task catalog, so
-  the Built-in row is omitted while the user row remains. A disabled user
-  document of the same name leaves the builtin in the catalog (and on the
-  Built-in list) because Task uses the shipped definition again. Built-in rows
+  `ui-designer`, listed with the Global level), **Global**
+  (`~/.agents/subagents`, user-owned) and **Project**
+  (`<project>/.agents/subagents`). An enabled global document of the same name
+  shadows that builtin in the Task catalog, so the Built-in row is omitted
+  while the user row remains. A disabled global document of the same name
+  leaves the builtin in the catalog (and on the Built-in list) because Task
+  uses the shipped definition again; a project document keeps the handle
+  claimed for its project whether it is on or off, so the Built-in row stays
+  hidden while that project is selected. A project row's level badge and the
+  editor's scope label state the limits a project document is held to: its
+  permission scope is ignored and it can use only models enabled for
+  subagents. Built-in rows
   carry a source badge, **Copy as mine** (opens the create sheet pre-filled from
   that definition, with the matching template chip selected), and the same
   enablement switch a user row has (D202 activation, ADR 0270): turning one off
@@ -623,8 +629,8 @@ system while preserving their different data ownership:
   list is read for. Without hover the quiet actions are always shown. The
   overflow menu holds the level-aware destructive, move, and out-of-app
   actions — Reveal and Remove for skills and subagents, Test connection and
-  Remove for MCP, and Move to Global / Move into <project> on MCP and Skill
-  rows — and Remove arms on first press, relabels to ask for confirmation,
+  Remove for MCP, and Move to Global / Move into <project> on MCP, Skill and
+  Subagent rows — and Remove arms on first press, relabels to ask for confirmation,
   and disarms on its own if the menu is dismissed or left alone. The move
   direction follows the row's own level: a global row offers Move into the
   project named by the page toolbar's project picker, and a project row offers

@@ -105,7 +105,7 @@ MVP passes when:
 
 ### M6+ Current product increment
 - [x] Extensions keeps only Installed and Marketplace tabs; Settings > Agent
-  provides independent Skills, MCP, and global-only Subagents pages with fixed
+  provides independent Skills, MCP, and Subagents pages with fixed
   columns, local enablement, project selection, and source scanning —
   unit/source contracts plus E2E-100–E2E-103
 - [x] Session import, scheduled task records, composer file references and

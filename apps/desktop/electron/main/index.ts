@@ -383,7 +383,7 @@ sessionLaunchRuntime = createdSessionLaunchRuntime;
 const {
   refreshUserMcp,
   activeUserSkills,
-  activeUserSubagentDocuments,
+  activeSubagentDocuments,
   disabledBuiltinSubagents,
   loadUserSkillBody,
   resolveEffectiveCommandShell,
@@ -928,7 +928,7 @@ function registerIpc() {
     mcpOAuth,
     refreshUserMcp,
     describeError,
-    activeUserSubagentDocuments,
+    activeSubagentDocuments,
     disabledBuiltinSubagents,
     pluginViews,
     pluginScopes,

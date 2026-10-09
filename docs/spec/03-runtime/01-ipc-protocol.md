@@ -1699,18 +1699,20 @@ type McpOAuthLoginEvent = {
 
 ## 12c. Subagent API (D202)
 
-User-owned subagents are global-only Markdown documents under
-`~/.agents/subagents/<id>.md`. There is no project-level subagent directory.
-Enablement is stored in `<data>/agent-capabilities/subagents.json` and is never
-written into the Markdown file.
+Subagent documents are Markdown files at two levels (ADR 0326): the user's
+global `~/.agents/subagents/<id>.md` and a project's
+`<project>/.agents/subagents/<id>.md`. Enablement is stored in
+`<data>/agent-capabilities/subagents.json` — keyed by the owning project for a
+project document — and is never written into the Markdown file.
 
-- `agents.list` → `{ subagents: UserSubagentRecord[] }`
-- `agents.active` → enabled global documents
-- `agents.create(subagent)` — duplicate names fail with `SUBAGENT_INVALID`
+- `agents.list({ level?, projectPath? })` → `{ subagents: UserSubagentRecord[] }`
+- `agents.active({ projectPath? })` → `{ subagents, suppressedHandles }`
+- `agents.create(subagent)` — duplicate names at one level fail with `SUBAGENT_INVALID`
 - `agents.update(id, subagent)`
-- `agents.read(id)` → `{ subagent, body }`
-- `agents.remove(id)`
-- `agents.setEnabled(id, enabled)`
+- `agents.read(id, { level?, projectPath? })` → `{ subagent, body }`
+- `agents.remove(id, { level?, projectPath? })`
+- `agents.setEnabled(id, enabled, { level?, projectPath? })`
+- `agents.transfer({ id, from, to })` → `{ subagent }`
 - `agents.disabledBuiltins` → `{ disabled: string[] }`
 - `agents.setBuiltinEnabled(id, enabled)` → `{ id, enabled }`
 
@@ -1740,14 +1742,30 @@ name is normalized and rejects an empty one with `SUBAGENT_INVALID`; a handle no
 current builtin uses is stored inertly rather than refused, because host-core
 does not ship the builtin list.
 
-Electron's `subagent/list` IPC channel exposes the same global-only list to
-Settings > Agent > Subagents. `subagent/catalog` returns the effective Task
-catalog — enabled user documents merged with the five shipped builtins, minus the
-builtins the user switched off — together with `builtins`: every shipped
+`level` is `global` (the default, so a caller that names no level reads and
+writes the global directory) or `project`, which requires `projectPath` and
+fails with `CAPABILITY_INVALID` without it. `create` and `update` take the same
+two fields inside the payload. A record carries its `level` and, for a project
+document, its `projectPath`.
+
+`agents.active` resolves the catalog for one project: project documents shadow
+global ones by handle, and the shadow is taken before the enabled filter.
+`suppressedHandles` lists the handles of project documents the user switched
+off; the launch path passes them to the runtime so the shipped builtin of that
+name stays out as well. `agents.transfer` moves a document between levels with
+the semantics of `skills.transfer` (§12d), and additionally drops the
+`permission` frontmatter key from a document leaving a project.
+
+Electron's `subagent/list` IPC channel exposes one level's list to Settings >
+Agent > Subagents, and `subagent/transfer` the move. `subagent/catalog` returns
+the effective Task catalog for the open project, or for the `projectPath` the
+Settings picker names — enabled project and global documents merged with the
+five shipped builtins, minus the builtins the user switched off or a
+switched-off project document claims — together with `builtins`: every shipped
 definition that still wins its handle, each carrying `enabled`, so the page can
 render a switched-off default as a row with its own switch. The runtime catalog
 combines the same sources and applies the same exclusions; it does not scan
-`.pi/agents` or any project capability directory.
+`.pi/agents`, and it never reads a project directory itself.
 
 ## 12d. Capability level and local activation
 

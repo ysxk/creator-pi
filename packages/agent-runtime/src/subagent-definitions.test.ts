@@ -13,8 +13,10 @@ import {
   BUILTIN_SUBAGENT_DOCUMENTS,
   findSubagentProviderSource,
   loadSubagentDefinitions,
+  readActiveSubagentDocuments,
   resolveSubagentProviders,
   subagentDefinitionDir,
+  subagentModelOptIn,
   subagentProviderLookupError,
   type SubagentProviderSource,
 } from "./subagent-definitions.js";
@@ -157,7 +159,7 @@ describe("loadSubagentDefinitions", () => {
     expect(diagnostics.join("\n")).toContain('ignoring unknown tool "Nope"');
   });
 
-  it("does not read project directories and falls back to builtins", async () => {
+  it("never reads a project directory itself and falls back to builtins", async () => {
     await writeFile(
       join(dir, "project-only.md"),
       "---\ndescription: Must not load.\ntools: [Read]\n---\nIgnore me.\n",
@@ -171,7 +173,7 @@ describe("loadSubagentDefinitions", () => {
     expect(diagnostics).toEqual([]);
   });
 
-  it("orders global documents before builtins without project sources", async () => {
+  it("orders global documents before builtins", async () => {
     const { definitions, diagnostics } = await loadSubagentDefinitions(null, {
       userDocuments: [
         {
@@ -203,6 +205,102 @@ describe("loadSubagentDefinitions", () => {
     expect(byName.get("note-taker")!.tools).toEqual(["Read", "Write"]);
     expect(byName.get("code-reviewer")!.source).toBe("builtin");
     expect(definitions.filter((d) => d.name === "explorer")).toHaveLength(1);
+  });
+
+  it("lets a project document shadow the global one and the builtin", async () => {
+    const { definitions, diagnostics } = await loadSubagentDefinitions(null, {
+      userDocuments: [
+        {
+          id: "explorer",
+          document:
+            "---\nname: explorer\ndescription: Repo explorer.\ntools: [Read]\n---\nRepo.\n",
+          filePath: "/repo/.agents/subagents/explorer.md",
+          source: "project",
+        },
+        {
+          id: "note-taker",
+          document:
+            "---\nname: note-taker\ndescription: Take notes.\ntools: [Read, Write]\n---\nMine.\n",
+          filePath: "/home/.agents/subagents/note-taker.md",
+        },
+      ],
+    });
+
+    expect(diagnostics).toEqual([]);
+    const byName = new Map(definitions.map((d) => [d.name, d]));
+    expect(byName.get("explorer")!.source).toBe("project");
+    expect(byName.get("explorer")!.prompt).toBe("Repo.");
+    expect(byName.get("note-taker")!.source).toBe("user");
+    expect(byName.get("code-reviewer")!.source).toBe("builtin");
+    expect(definitions.filter((d) => d.name === "explorer")).toHaveLength(1);
+  });
+
+  it("ignores a permission scope a project document declares", async () => {
+    const document =
+      "---\nname: deployer\ndescription: Ships it.\ntools: [Read, Bash]\npermission: auto\n---\nShip.\n";
+    const fromProject = await loadSubagentDefinitions(null, {
+      userDocuments: [
+        {
+          id: "deployer",
+          document,
+          filePath: "/repo/.agents/subagents/deployer.md",
+          source: "project",
+        },
+      ],
+    });
+    const deployer = fromProject.definitions.find((d) => d.name === "deployer")!;
+    expect(deployer.permission).toBeUndefined();
+    expect(fromProject.diagnostics.join("\n")).toContain(
+      "/repo/.agents/subagents/deployer.md: ignoring `permission: auto`",
+    );
+
+    // The same document in the user's own directory keeps the scope.
+    const fromUser = await loadSubagentDefinitions(null, {
+      userDocuments: [{ id: "deployer", document }],
+    });
+    expect(
+      fromUser.definitions.find((d) => d.name === "deployer")!.permission,
+    ).toBe("auto");
+  });
+
+  it("keeps a handle claimed by a switched-off project document", async () => {
+    // host-core already removed the global document of that name; the builtin
+    // is merged here, so this is where it has to stay out.
+    const { definitions, builtins } = await loadSubagentDefinitions(null, {
+      userDocuments: [],
+      suppressedHandles: ["explorer"],
+    });
+
+    expect(definitions.map((d) => d.name)).not.toContain("explorer");
+    expect(definitions.map((d) => d.name)).toContain("code-reviewer");
+    // Settings still lists the shipped definition with its own switch.
+    expect(builtins.map((d) => d.name)).toContain("explorer");
+  });
+
+  it("tags active records with the level host-core reported", async () => {
+    const global = join(dir, "global.md");
+    const project = join(dir, "project.md");
+    await writeFile(global, "---\ndescription: G.\n---\nG.\n", "utf8");
+    await writeFile(project, "---\ndescription: P.\n---\nP.\n", "utf8");
+    const unreadable: string[] = [];
+
+    const documents = await readActiveSubagentDocuments(
+      [
+        { id: "global", path: global, level: "global" },
+        { id: "legacy", path: global },
+        { id: "project", path: project, level: "project" },
+        { id: "gone", path: join(dir, "gone.md"), level: "project" },
+      ],
+      (record) => unreadable.push(record.id),
+    );
+
+    expect(documents.map((d) => [d.id, d.source])).toEqual([
+      ["global", "user"],
+      ["legacy", "user"],
+      ["project", "project"],
+    ]);
+    expect(documents[2].filePath).toBe(project);
+    expect(unreadable).toEqual(["gone"]);
   });
 
   it("reports a malformed user document without losing the others", async () => {
@@ -260,6 +358,83 @@ describe("resolveSubagentProviders", () => {
 
   const getSecret = async (id: string) =>
     id === providers[0].id ? "sk-test" : undefined;
+
+  it("resolves a project pin only for a model offered to subagents", async () => {
+    const rows = [
+      {
+        id: providers[0].id,
+        models: [
+          { id: "claude-haiku-4-5", availableForSubagents: true },
+          { id: "claude-opus-4-5" },
+        ],
+      },
+    ];
+    const secretsRead: string[] = [];
+    const { providers: resolved, diagnostics } = await resolveSubagentProviders({
+      definitions: [
+        {
+          ...definition("offered", { providerId: "anthropic", modelId: "claude-haiku-4-5" }),
+          source: "project",
+        },
+        {
+          ...definition("refused", { providerId: "anthropic", modelId: "claude-opus-4-5" }),
+          source: "project",
+        },
+        {
+          ...definition("local", { providerId: "local ollama", modelId: "qwen3" }),
+          source: "project",
+        },
+      ],
+      providers,
+      getSecret: async (id) => {
+        secretsRead.push(id);
+        return getSecret(id);
+      },
+      projectPinAllowed: subagentModelOptIn(rows),
+    });
+
+    expect(Object.keys(resolved)).toEqual(["anthropic/claude-haiku-4-5"]);
+    expect(diagnostics).toEqual([
+      'refused: project document pins "anthropic/claude-opus-4-5", which is not offered to subagents; enable the model for subagents or remove the pin',
+      'local: project document pins "local ollama/qwen3", which is not offered to subagents; enable the model for subagents or remove the pin',
+    ]);
+    // The credential is read once, for the offered model, never for a refusal.
+    expect(secretsRead).toEqual([providers[0].id]);
+  });
+
+  it("refuses every project pin when no opt-in source is given", async () => {
+    const { providers: resolved, diagnostics } = await resolveSubagentProviders({
+      definitions: [
+        {
+          ...definition("repo", { providerId: "anthropic", modelId: "claude-haiku-4-5" }),
+          source: "project",
+        },
+      ],
+      providers,
+      getSecret,
+    });
+
+    expect(resolved).toEqual({});
+    expect(diagnostics.join("\n")).toContain("not offered to subagents");
+  });
+
+  it("lets a project document reuse a model the user's own definition pins", async () => {
+    const { providers: resolved, diagnostics } = await resolveSubagentProviders({
+      definitions: [
+        // Project documents come first in the merged catalog.
+        {
+          ...definition("repo", { providerId: "anthropic", modelId: "claude-haiku-4-5" }),
+          source: "project",
+        },
+        definition("mine", { providerId: "anthropic", modelId: "claude-haiku-4-5" }),
+      ],
+      providers,
+      getSecret,
+    });
+
+    expect(diagnostics).toEqual([]);
+    expect(Object.keys(resolved)).toEqual(["anthropic/claude-haiku-4-5"]);
+  });
 
   it("resolves a pin by vendor key, display name or stored id", async () => {
     const { providers: resolved, diagnostics } = await resolveSubagentProviders({

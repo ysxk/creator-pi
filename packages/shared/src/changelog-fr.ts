@@ -13,6 +13,7 @@ export const frEntries: ChangelogEntry[] = [
       "Ouvrez depuis le chat les liens locaux vers des fichiers Markdown dans le gestionnaire intégré, y compris les liens relatifs et les références de ligne.",
       "La liste des modèles du Composer affiche maintenant les limites de contexte configurées.",
       "Les plugins peuvent inspecter ou refuser les redirections réseau ; les appels fetch existants continuent de les suivre par défaut.",
+      "Conservez des sous-agents dans le dossier .agents/subagents d’un projet : ils ne s’appliquent qu’à ce projet et ne peuvent pas élever leurs propres permissions.",
     ],
   },
   {

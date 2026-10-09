@@ -3,6 +3,7 @@ import {
   DEFAULT_SUBAGENT_IDLE_TIMEOUT_SECONDS,
   DEFAULT_SUBAGENT_MAX_DURATION_SECONDS,
   DEFAULT_SUBAGENT_TOOLS,
+  MAX_PROJECT_SUBAGENT_DEFINITIONS,
   MAX_SUBAGENT_DEFINITIONS,
   MAX_SUBAGENT_MAX_TOKENS,
   SUBAGENT_ASSIGNABLE_TOOLS,
@@ -144,6 +145,43 @@ Explain it.`);
     expect(inherited.ok).toBe(true);
     if (!inherited.ok) return;
     expect(inherited.definition.permission).toBeUndefined();
+    expect(inherited.warnings).toEqual([]);
+  });
+
+  it("ignores a permission scope declared by a project document", () => {
+    // A repository is content the user did not necessarily write, so cloning
+    // one must never hand its delegates a permission upgrade.
+    for (const declared of ["auto", "accept-edits", "ask"]) {
+      const result = parseSubagentDefinition(
+        `---
+description: Ships the release.
+tools: [Read, Bash]
+permission: ${declared}
+---
+Ship it.`,
+        { source: "project", fallbackName: "deployer" },
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.definition.source).toBe("project");
+      expect(result.definition.permission).toBeUndefined();
+      expect(result.definition.tools).toEqual(["Read", "Bash"]);
+      expect(result.warnings.join("\n")).toContain(
+        `ignoring \`permission: ${declared}\``,
+      );
+    }
+
+    // `inherit` is the default everywhere, so it is not worth a warning.
+    const inherited = parseSubagentDefinition(
+      `---
+description: Explains a subsystem.
+permission: inherit
+---
+Explain it.`,
+      { source: "project", fallbackName: "explainer" },
+    );
+    expect(inherited.ok).toBe(true);
+    if (!inherited.ok) return;
     expect(inherited.warnings).toEqual([]);
   });
 
@@ -597,6 +635,56 @@ describe("mergeSubagentDefinitions", () => {
     expect(merged.definitions.find((d) => d.name === "reviewer")?.prompt).toBe("user");
     expect(merged.definitions.find((d) => d.name === "explorer")?.prompt).toBe("user");
     expect(merged.dropped).toEqual([]);
+  });
+
+  it("ranks a project document over the user registry and the builtin", () => {
+    const merged = mergeSubagentDefinitions([
+      definition({ name: "reviewer", source: "builtin", prompt: "builtin" }),
+      definition({ name: "reviewer", source: "user", prompt: "user" }),
+      definition({ name: "reviewer", source: "project", prompt: "project" }),
+      definition({ name: "explorer", source: "builtin", prompt: "builtin" }),
+      definition({ name: "explorer", source: "project", prompt: "project" }),
+      definition({ name: "mine", source: "user", prompt: "user" }),
+    ]);
+
+    expect(merged.definitions).toHaveLength(3);
+    expect(merged.definitions.find((d) => d.name === "reviewer")?.prompt).toBe("project");
+    expect(merged.definitions.find((d) => d.name === "explorer")?.prompt).toBe("project");
+    expect(merged.definitions.find((d) => d.name === "mine")?.prompt).toBe("user");
+    expect(merged.dropped).toEqual([]);
+  });
+
+  it("keeps project documents from crowding out the user's catalog", () => {
+    const project = Array.from(
+      { length: MAX_PROJECT_SUBAGENT_DEFINITIONS + 2 },
+      (_, i) => definition({ name: `repo-${i}`, source: "project" }),
+    );
+    const merged = mergeSubagentDefinitions([
+      ...project,
+      definition({ name: "mine", source: "user" }),
+      definition({ name: "explorer", source: "builtin" }),
+      // Past the project cap the document does not claim its name, so the
+      // user's own definition of that name still loads.
+      definition({
+        name: `repo-${MAX_PROJECT_SUBAGENT_DEFINITIONS}`,
+        source: "user",
+        prompt: "user",
+      }),
+    ]);
+
+    const projectLoaded = merged.definitions.filter((d) => d.source === "project");
+    expect(projectLoaded).toHaveLength(MAX_PROJECT_SUBAGENT_DEFINITIONS);
+    expect(merged.definitions.map((d) => d.name)).toContain("mine");
+    expect(merged.definitions.map((d) => d.name)).toContain("explorer");
+    expect(
+      merged.definitions.find(
+        (d) => d.name === `repo-${MAX_PROJECT_SUBAGENT_DEFINITIONS}`,
+      )?.prompt,
+    ).toBe("user");
+    expect(merged.dropped).toEqual([
+      `repo-${MAX_PROJECT_SUBAGENT_DEFINITIONS}`,
+      `repo-${MAX_PROJECT_SUBAGENT_DEFINITIONS + 1}`,
+    ]);
   });
 
   it("caps the catalog and reports what it dropped", () => {

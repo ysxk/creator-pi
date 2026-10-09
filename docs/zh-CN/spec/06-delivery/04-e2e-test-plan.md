@@ -1869,6 +1869,34 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
   `apps/desktop/test/subagent-wiring.test.mjs`、`packages/agent-runtime/src/subagent-definitions.test.ts`、
   `packages/shared/src/subagent-presets.test.ts`）；完整 UI 旅程为草稿
 
+
+#### E2E-SUBAGENT-project-definition-shadows-global
+
+- **前提条件**：已打开项目 A 与 B。存在全局文档 `~/.agents/subagents/log-reader.md`。项目 A 带有
+  声明了 `permission: auto` 和 `model:` pin 的 `<A>/.agents/subagents/log-reader.md`，以及
+  `<A>/.agents/subagents/repo-helper.md`。没有任何提供商模型开放给子智能体。
+- **步骤**：
+  1. 选中项目 A 打开设置 → 智能体 → 子智能体，查看全局、项目和内置分组。
+  2. 分别在 A 和 B 上开始智能体会话，比较 `Task` 提供的对象。
+  3. 委派给 A 的 `log-reader`。
+  4. 关掉 A 的 `log-reader`，在 A 上再发一次提示。
+  5. 在行菜单中把 A 的 `log-reader` 迁移到全局级，然后打开迁移后的文档。
+- **预期**：项目分组以 `<A>/.agents/subagents` 为标题并列出两份文档，带「项目」角标；角标和编辑器的范围
+  标签说明项目文档的 permission 设置被忽略，且只能使用已开放给子智能体的模型。在 A 上 `log-reader`
+  解析为项目文档并提供 `repo-helper`；在 B 上 `log-reader` 是全局文档，没有 `repo-helper`。委派对象
+  按会话的权限模式运行而不是 `auto`，启动日志对被忽略的 `permission` 和未开放给子智能体的模型 pin 各
+  记录一条诊断，委派以指明该 pin 的错误失败，而不是改用会话模型。项目文档关闭后，A 上既不提供全局
+  `log-reader` 也不提供同名内置定义，B 不受影响。迁移后的文档因全局级已占用该句柄而落为
+  `log-reader-2`，保留关闭状态，A 的目录中不再有该文件，且落地文档没有 `permission` 键。
+- **链接规格**：`03-runtime/02-agent-runtime.md` §5f、`03-runtime/01-ipc-protocol.md` §12c、
+  `04-ux/06-settings-ia.md`、ADR 0326
+- **验收**：E（工具与权限）、安全
+- **里程碑**：M6+
+- **状态**：host-core 部分由 `test:e2e:subagents` 自动化（项目写入位置、仅本项目生效、遮蔽、已停用
+  文档仍占用句柄、缺少项目的查询被拒绝、迁移时改名并去掉 `permission`）。解析器忽略权限范围、模型 pin
+  闸门、被压制的内置定义和项目名额上限由 `packages/shared` 与 `packages/agent-runtime` 的单元测试
+  覆盖；设置页流程与真实委派仍为草稿。所需套件：`test:e2e`、`test:e2e:subagents`。
+
 #### E2E-192a：Linux arm64 发布通道发布原生 arm64 包
 
 - **先决条件**：`vX.Y.Z` 标签与 `apps/desktop/package.json` 一致；仓库可使用 GitHub
@@ -5692,6 +5720,8 @@ eleven-tool-round desktop paths are verified by
 | M6+（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
 | E — 工具与权限（内置子智能体默认项） | E2E-SUBAGENT-settings-lists-builtin-defaults |
 | 品质（内置子智能体默认项） | E2E-SUBAGENT-settings-lists-builtin-defaults |
+| E — 工具与权限（项目级子智能体定义） | E2E-SUBAGENT-project-definition-shadows-global |
+| 安全（项目级子智能体定义） | E2E-SUBAGENT-project-definition-shadows-global |
 | C — 对话与流式（不透明浮动表面） | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | 品质（不透明浮动表面） | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | M6（不透明浮动表面） | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |

@@ -161,8 +161,10 @@ export type UserSkillInput = {
 };
 
 /**
- * A global subagent definition the user owns, stored as `~/.agents/subagents/<id>.md`
- * (D202, ADR 0063). Project roots do not provide subagent definitions.
+ * A subagent document: a global one the user owns, stored as
+ * `~/.agents/subagents/<id>.md`, or one a project carries in
+ * `<project>/.agents/subagents/<id>.md`. A project document shadows the global
+ * one of the same handle for sessions on that project.
  *
  * `id` and `name` are deliberately the same string: the name
  * is the handle the model passes to `Task`, and keeping the document named after
@@ -171,8 +173,10 @@ export type UserSkillInput = {
 export type UserSubagentRecord = {
   id: string;
   name: string;
-  /** Subagents are global-only; the level is explicit for the settings API. */
-  level?: "global";
+  /** The directory the document lives in; absent reads as `global`. */
+  level?: AgentCapabilityLevel;
+  /** The project that owns a project-level document. */
+  projectPath?: string;
   description: string;
   enabled: boolean;
   scope?: ActivationScope;
@@ -210,5 +214,9 @@ export type UserSubagentInput = {
   /** `0` clears the cap; absent leaves it unchanged. */
   maxTokens?: number;
   enabled?: boolean;
+  /** Directory to write to; absent means the global one. */
+  level?: AgentCapabilityLevel;
+  /** Required when `level` is `project`. */
+  projectPath?: string;
   scope?: ActivationScope;
 };

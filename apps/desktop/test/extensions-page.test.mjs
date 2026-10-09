@@ -155,7 +155,10 @@ test("Settings exposes three independent Agent capability destinations", () => {
     assert.match(source, /level: "global"/);
     assert.match(source, /level: "project"/);
   }
-  assert.doesNotMatch(settingsComponents.get("AgentSubagentsPage.tsx"), /AgentProjectPicker|projectPath/);
+  const subagentsPage = settingsComponents.get("AgentSubagentsPage.tsx");
+  assert.match(subagentsPage, /useAgentProjects\(\)/);
+  assert.match(subagentsPage, /AgentProjectPicker/);
+  assert.match(subagentsPage, /api\.transferUserSubagent\(/);
 });
 
 test("capability sections flow at natural height with skeleton loading", () => {
@@ -204,18 +207,19 @@ test("project records shadow global records before disabled records are filtered
   assert.match(hostCapabilitySources, /record\.name\.eq_ignore_ascii_case/);
 });
 
-test("subagents are global-only and use the agents root", () => {
+test("subagents use the agents root at the global and the project level", () => {
   const page = settingsComponents.get("AgentSubagentsPage.tsx");
   const helper = readFileSync(join(settingsDir, "subagent-settings.ts"), "utf8");
   assert.match(page, /GLOBAL_SUBAGENTS_PATH = "~\/\.agents\/subagents"/);
-  // Global-only means no level to pick and no project to resolve against. It no
-  // longer means read-only: authoring lives here now (D257).
-  assert.doesNotMatch(page, /AgentProjectPicker|projectPath/);
-  assert.doesNotMatch(helper, /AgentProjectPicker|projectPath/);
+  assert.match(page, /`\$\{projectPath\}\/\.agents\/subagents`/);
   assert.match(helper, /level: "global"/);
+  assert.match(helper, /level: "project", projectPath/);
   assert.match(page, /api\.subagentCatalog|fetchSubagentPageData/);
   assert.match(electronMainSrc, /IPC\.invoke\.subagentList/);
-  assert.match(hostCapabilitySources, /capability_dir\(CapabilityLevel::Global, None, "subagents"\)/);
+  assert.match(electronMainSrc, /IPC\.invoke\.subagentTransfer/);
+  // host-core resolves both directories through the one capability root.
+  assert.match(hostCapabilitySources, /capability_dir\(level, owner\.as_deref\(\), SUBAGENT_KIND\)/);
+  assert.match(hostCapabilitySources, /const SUBAGENT_KIND: &str = "subagents";/);
 });
 
 test("capability implementation does not use legacy .pi capability roots", () => {

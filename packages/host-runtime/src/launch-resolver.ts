@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -24,10 +23,12 @@ import {
   loadSubagentDefinitions,
   modelConfigWithBinding,
   optionalProviderHeaders,
+  readActiveSubagentDocuments,
   resolveSubagentProviders,
+  subagentModelOptIn,
   visionFromModelConfig,
+  type ActiveSubagentDocuments,
   type RuntimeProviderConfig,
-  type UserSubagentDocument,
 } from "@pi-desktop/agent-runtime";
 
 import type { HostRpc } from "./host-ports.js";
@@ -140,26 +141,18 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
     }
   }
 
-  async function activeUserSubagentDocuments(projectPath: string | undefined): Promise<UserSubagentDocument[]> {
-    let records: UserSubagentRecord[] = [];
+  async function activeSubagentDocuments(projectPath: string | undefined): Promise<ActiveSubagentDocuments> {
+    let active: { subagents?: UserSubagentRecord[]; suppressedHandles?: string[] };
     try {
-      const result = await requireHost().call<{ subagents: UserSubagentRecord[] }>("agents.active", {
-        projectPath: projectPath ?? null,
-      });
-      records = result.subagents ?? [];
+      active = await requireHost().call("agents.active", { projectPath: projectPath ?? null });
     } catch (error) {
       if (!isHostUnavailable(error)) log("warn", "subagent list failed", { error: String(error) });
-      return [];
+      return { documents: [], suppressedHandles: [] };
     }
-    const documents: UserSubagentDocument[] = [];
-    for (const record of records) {
-      try {
-        documents.push({ id: record.id, document: await readFile(record.path, "utf8"), filePath: record.path });
-      } catch (error) {
-        log("warn", "subagent document unreadable", { id: record.id, error: String(error) });
-      }
-    }
-    return documents;
+    const documents = await readActiveSubagentDocuments(active.subagents ?? [], (record, error) =>
+      log("warn", "subagent document unreadable", { id: record.id, error: String(error) }),
+    );
+    return { documents, suppressedHandles: active.suppressedHandles ?? [] };
   }
 
   async function disabledBuiltinSubagents(): Promise<string[]> {
@@ -304,13 +297,16 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
     const userSkills = (await activeUserSkills(projectPath)).filter((skill) => isActiveInProject(skill, projectPath ?? null));
     const pluginSkills = userSkills.map((skill) => ({ id: skill.id, name: skill.name, description: skill.description }));
 
+    const activeSubagents = await activeSubagentDocuments(projectPath);
     const subagentCatalog = await loadSubagentDefinitions(projectPath, {
-      userDocuments: await activeUserSubagentDocuments(projectPath),
+      userDocuments: activeSubagents.documents,
+      suppressedHandles: activeSubagents.suppressedHandles,
       disabledBuiltins: await disabledBuiltinSubagents(),
     });
     const subagentBindings = await resolveSubagentProviders({
       definitions: subagentCatalog.definitions,
       providers: providers.providers,
+      projectPinAllowed: subagentModelOptIn(providers.providers),
       getSecret,
       resolveModel: async (pinned, pinnedModelId) => {
         const row = providers.providers.find((candidate) => candidate.id === pinned.id);

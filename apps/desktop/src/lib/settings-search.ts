@@ -236,7 +236,7 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     group: "agent",
     keywordKeys: [
       "settings.subagentsGlobalPath",
-      "settings.subagentsOnlyGlobal",
+      "settings.projectSubagentLimits",
       "settings.globalScopeDescription",
       "extensions.subagents.add",
       "extensions.subagents.edit",

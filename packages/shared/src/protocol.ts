@@ -344,6 +344,7 @@ export const IPC = {
     subagentUpdate: "pi-desktop/subagent/update",
     subagentRead: "pi-desktop/subagent/read",
     subagentRemove: "pi-desktop/subagent/remove",
+    subagentTransfer: "pi-desktop/subagent/transfer",
     subagentSetEnabled: "pi-desktop/subagent/setEnabled",
     subagentSetScope: "pi-desktop/subagent/setScope",
     subagentSetBuiltinEnabled: "pi-desktop/subagent/setBuiltinEnabled",

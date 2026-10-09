@@ -92,7 +92,7 @@ Each ADR includes:
 | 0060 | Archive the Regenerate Branch Under the RPC Lock | Accepted |
 | 0061 | Imperceptible background context compaction | Accepted (amends 0030 / 0049; clauses 2/4/6/7/8 amended by 0064) |
 | 0062 | Bounded Subagents Behind a Task Tool | Accepted for implementation (`maxTurns` clause withdrawn by 0253) |
-| 0063 | A Managed Surface for Global Subagent Definitions | Accepted for implementation (`maxTurns` field withdrawn by 0253) |
+| 0063 | A Managed Surface for Global Subagent Definitions | Accepted for implementation (`maxTurns` field withdrawn by 0253; global-only boundary lifted by 0326) |
 | 0064 | Codex-parity context compaction | Accepted (amended by D623 / issue #970: 90% inline trigger) |
 | 0065 | Smooth shell layout and stream feedback | Accepted for implementation |
 | 0066 | Empty home direct bottom composer | Accepted for implementation (amends D111) |
@@ -142,7 +142,7 @@ Each ADR includes:
 | 0109 | Open Files entries with the OS-associated application | Accepted |
 | 0110 | Version the plugin panel chrome spacing contract | Accepted |
 | 0111 | Reveal Files in the OS File Manager | Accepted |
-| 0112 | Agent Capability Management Roots and Settings IA | Accepted |
+| 0112 | Agent Capability Management Roots and Settings IA | Accepted (project subagent directory added by 0326) |
 | 0113 | Persist the New Task empty slot immediately and deduplicate it by message count | Accepted |
 | 0114 | Persist Provider Model Bindings and Thinking Configuration | Accepted |
 | 0115 | Keep plugin clipboard history host-owned and in memory | Accepted (amended 2026-08-21) |
@@ -368,3 +368,4 @@ Each ADR includes:
 | 0324 | [Make Composer Prompt Enhancement an Optional Plugin](0324-plugin-owned-composer-prompt-enhancement.md) | Accepted (D653; supersedes ADR 0121) |
 | plugin-fetch-redirect-policy | [Host-enforced plugin fetch redirect policy](plugin-fetch-redirect-policy.md) | Accepted (implementation candidate for #1475) |
 | 0325 | [User-Editable Endpoints on Plugin-Declared Providers](0325-plugin-provider-editable-endpoints.md) | Accepted (D656; extends ADR 0259 and 0322) |
+| 0326 | [Project-Level Subagent Definitions](0326-project-level-subagent-definitions.md) | Accepted for implementation (D658; supersedes the global-only clauses of ADR 0062 / 0063 / 0112; amends ADR 0126 / 0269 / 0270) |

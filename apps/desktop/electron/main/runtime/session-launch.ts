@@ -25,9 +25,11 @@ import {
   loadSubagentDefinitions,
   modelConfigWithBinding,
   optionalProviderHeaders,
+  readActiveSubagentDocuments,
   resolveSubagentProviders,
+  subagentModelOptIn,
   visionFromModelConfig,
-  type UserSubagentDocument,
+  type ActiveSubagentDocuments,
 } from "@pi-desktop/agent-runtime";
 import { builtinSkills } from "../builtin-skills";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
@@ -140,48 +142,39 @@ export function createSessionLaunchRuntime({
   }
 
   /**
-   * The user's own subagent definitions, filtered to the ones a session on this
-   * project sees, as documents the runtime can parse (D202).
+   * The subagent documents a session on this project sees — the project's own
+   * and the user's global ones, already shadowed by host-core — as documents
+   * the runtime can parse (D202), plus the handles a switched-off project
+   * document still claims.
    *
-   * host-core owns the registry and the activation scope; the document text is
-   * read here because this is where the other two definition sources are read
-   * too, so all three reach `loadSubagentDefinitions` in the same shape.
+   * host-core owns the registry and the activation state; the document text is
+   * read here because this is where the builtins are merged in too, so every
+   * source reaches `loadSubagentDefinitions` in the same shape.
    */
-  async function activeUserSubagentDocuments(
+  async function activeSubagentDocuments(
     projectPath: string | undefined,
-  ): Promise<UserSubagentDocument[]> {
-    if (!runtimeState.host?.isAvailable()) return [];
-    let records: UserSubagentRecord[] = [];
+  ): Promise<ActiveSubagentDocuments> {
+    const none: ActiveSubagentDocuments = { documents: [], suppressedHandles: [] };
+    if (!runtimeState.host?.isAvailable()) return none;
+    let active: { subagents?: UserSubagentRecord[]; suppressedHandles?: string[] };
     try {
-      const result = await runtimeState.host!.call<{ subagents: UserSubagentRecord[] }>(
-        "agents.active",
-        { projectPath: projectPath ?? null },
-      );
-      records = result.subagents ?? [];
+      active = await runtimeState.host!.call("agents.active", {
+        projectPath: projectPath ?? null,
+      });
     } catch (error) {
       if (!isHostUnavailable(error)) {
         logger.app("plugin", "warn", "subagent list failed", { data: String(error) });
       }
-      return [];
+      return none;
     }
-    const documents: UserSubagentDocument[] = [];
-    const { readFile } = await import("node:fs/promises");
-    for (const record of records) {
-      try {
-        documents.push({
-          id: record.id,
-          document: await readFile(record.path, "utf8"),
-          filePath: record.path,
-        });
-      } catch (error) {
-        // A document deleted behind the registry's back is one lost delegate,
-        // never a lost turn.
+    const documents = await readActiveSubagentDocuments(
+      active.subagents ?? [],
+      (record, error) =>
         logger.app("plugin", "warn", "subagent document unreadable", {
           data: { id: record.id, error: String(error) },
-        });
-      }
-    }
-    return documents;
+        }),
+    );
+    return { documents, suppressedHandles: active.suppressedHandles ?? [] };
   }
 
   /**
@@ -469,14 +462,18 @@ export function createSessionLaunchRuntime({
     // pinned model is resolved here because credentials and the models.dev catalog
     // live on this side. The user's own definitions (D202) are scope-filtered like the
     // skills above; a delegate the model can see is one it will try to call.
+    const activeSubagents = await activeSubagentDocuments(projectPath);
     const subagentCatalog = await loadSubagentDefinitions(projectPath, {
-      userDocuments: await activeUserSubagentDocuments(projectPath),
+      userDocuments: activeSubagents.documents,
+      suppressedHandles: activeSubagents.suppressedHandles,
       // A switched-off builtin is dropped from what this prompt may delegate to.
       disabledBuiltins: await disabledBuiltinSubagents(),
     });
     const subagentBindings = await resolveSubagentProviders({
       definitions: subagentCatalog.definitions,
       providers: providers.providers,
+      // A project document spends only models the user offered to delegates.
+      projectPinAllowed: subagentModelOptIn(providers.providers),
       getSecret: async (id: string) =>
         (await runtimeState.host!.call<{ value?: string }>("providers.getSecret", { id })).value,
       resolveVendorBinding: (pinned, pinnedModelId) =>
@@ -714,7 +711,7 @@ export function createSessionLaunchRuntime({
   return {
     refreshUserMcp,
     activeUserSkills,
-    activeUserSubagentDocuments,
+    activeSubagentDocuments,
     disabledBuiltinSubagents,
     loadUserSkillBody,
     resolveEffectiveCommandShell,

@@ -202,6 +202,96 @@ try {
   );
   await call("agents.setEnabled", { id: "log-reader", enabled: true });
 
+  // Project level: a repository carries its own documents under
+  // `<project>/.agents/subagents`, which shadow the global ones by handle for
+  // sessions on that project and reach no other project.
+  const projectAgentsDir = join(projectA, ".agents", "subagents");
+  const inProjectA = { level: "project", projectPath: projectA };
+  const projectCreated = await call("agents.create", {
+    name: "repo-helper",
+    description: "Knows this repository.",
+    body: "Help in this repository.\n",
+    ...inProjectA,
+  });
+  check(
+    "a project document is written under the project's .agents root",
+    projectCreated.result?.subagent?.level === "project" &&
+      existsSync(join(projectAgentsDir, "repo-helper.md")) &&
+      !existsSync(join(agentsDir, "repo-helper.md")),
+    JSON.stringify(projectCreated.result?.subagent ?? projectCreated.error),
+  );
+  const idsIn = async (projectPath) =>
+    ((await call("agents.active", { projectPath })).result?.subagents ?? []).map(
+      (entry) => entry.id,
+    );
+  const helperInA = await idsIn(projectA);
+  const helperInB = await idsIn(projectB);
+  check(
+    "a project document is active in its own project only",
+    helperInA.includes("repo-helper") && !helperInB.includes("repo-helper"),
+    `A=${helperInA.join(",")} B=${helperInB.join(",")}`,
+  );
+  // Written straight to disk, the way a cloned repository delivers it.
+  writeFileSync(
+    join(projectAgentsDir, "log-reader.md"),
+    "---\nname: log-reader\ndescription: Reads this repository's logs.\npermission: auto\n---\n\nRead the logs under ./logs.\n",
+    "utf8",
+  );
+  const shadowedA = await call("agents.active", { projectPath: projectA });
+  const shadowedB = await call("agents.active", { projectPath: projectB });
+  const winnersA = (shadowedA.result?.subagents ?? []).filter((entry) => entry.id === "log-reader");
+  const winnerB = (shadowedB.result?.subagents ?? []).find((entry) => entry.id === "log-reader");
+  check(
+    "a project document shadows the global one of the same handle",
+    winnersA.length === 1 &&
+      winnersA[0].level === "project" &&
+      winnerB?.level === "global",
+    `A=${winnersA.map((entry) => entry.level).join(",")} B=${winnerB?.level}`,
+  );
+  await call("agents.setEnabled", { id: "log-reader", enabled: false, ...inProjectA });
+  const claimed = await call("agents.active", { projectPath: projectA });
+  check(
+    "a switched-off project document keeps its handle claimed",
+    !(claimed.result?.subagents ?? []).some((entry) => entry.id === "log-reader") &&
+      (claimed.result?.suppressedHandles ?? []).includes("log-reader") &&
+      (await idsIn(projectB)).includes("log-reader"),
+    JSON.stringify(claimed.result?.suppressedHandles),
+  );
+  const projectLess = await call("agents.list", { level: "project" });
+  check(
+    "a project query without its project is refused with CAPABILITY_INVALID",
+    projectLess.error?.data?.errorCode === "CAPABILITY_INVALID",
+    `${projectLess.error?.code}/${projectLess.error?.data?.errorCode}`,
+  );
+  const movedOut = await call("agents.transfer", {
+    id: "log-reader",
+    from: inProjectA,
+    to: { level: "global" },
+  });
+  const movedId = movedOut.result?.subagent?.id;
+  const landedDocument = movedId ? readFileSync(join(agentsDir, `${movedId}.md`), "utf8") : "";
+  check(
+    "moving a project document to global renames it, keeps its switch, and drops its permission key",
+    movedId === "log-reader-2" &&
+      movedOut.result?.subagent?.level === "global" &&
+      movedOut.result?.subagent?.enabled === false &&
+      !/permission/i.test(landedDocument) &&
+      /name: log-reader-2\n/.test(landedDocument) &&
+      !existsSync(join(projectAgentsDir, "log-reader.md")),
+    JSON.stringify(movedOut.result?.subagent ?? movedOut.error),
+  );
+  await call("agents.remove", { id: "log-reader-2" });
+  await call("agents.remove", { id: "repo-helper", ...inProjectA });
+  const restoredA = await call("agents.active", { projectPath: projectA });
+  check(
+    "removing the project documents leaves the global catalog as it was",
+    JSON.stringify((restoredA.result?.subagents ?? []).map((entry) => entry.id)) ===
+      JSON.stringify(["log-reader"]) &&
+      (restoredA.result?.suppressedHandles ?? []).length === 0 &&
+      readdirSync(projectAgentsDir).length === 0,
+    JSON.stringify(restoredA.result),
+  );
+
   // The shipped builtins have no document, so their switch is app-local state
   // (ADR 0270): it must survive the user-document scan, which is what the
   // registry runs on every list, and the loader must drop the handle from the

@@ -7694,6 +7694,51 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Milestone**: M6+
 - **Status**: Automated by `test:e2e:subagents` (host-core create/read/on-disk/active/loader inherit round-trip) and `test:e2e:subagent-models` (real sidecar/local transport Task spawn, inherited Skill/plugin catalog minus the deny list, and builtin explorer isolation). Unit coverage remains in `packages/shared`, `packages/agent-runtime`, and host-core `user_subagents`; the UI inherit-checkbox journey remains Draft. Required suites: `test:e2e`, `test:e2e:subagents`, `test:e2e:subagent-models`.
 
+#### E2E-SUBAGENT-project-definition-shadows-global
+
+- **Preconditions**: Two opened projects A and B. A global document
+  `~/.agents/subagents/log-reader.md`. Project A carries
+  `<A>/.agents/subagents/log-reader.md` declaring `permission: auto` and a
+  `model:` pin, plus `<A>/.agents/subagents/repo-helper.md`. No provider model
+  is enabled for subagents.
+- **Steps**:
+  1. Open Settings → Agent → Subagents with project A selected. Read the
+     Global and Project groups and the Built-in group.
+  2. Start an Agent session on A and one on B and compare what `Task` offers.
+  3. Delegate to A's `log-reader`.
+  4. Switch A's `log-reader` off and start another prompt on A.
+  5. From the row menu, Move A's `log-reader` to Global, then open the moved
+     document.
+- **Expected**:
+  - The Project group is headed by `<A>/.agents/subagents` and lists both
+    documents with a Project badge; the badge and the editor's scope label say
+    a project document's permission scope is ignored and that it can use only
+    models enabled for subagents.
+  - On A, `log-reader` resolves to the project document and `repo-helper` is
+    offered; on B, `log-reader` is the global document and `repo-helper` is
+    absent.
+  - The delegate runs under the session's permission mode, not `auto`, and the
+    launch log carries one diagnostic for the ignored `permission` and one for
+    the model pin that is not offered to subagents. The delegation fails
+    naming the pin instead of running on the session model.
+  - With the project document off, neither the global `log-reader` nor a
+    builtin of that name is offered on A; B is unaffected.
+  - The move lands as `log-reader-2` in `~/.agents/subagents` because Global
+    already owns the handle, keeps the off switch, leaves A's directory
+    without the file, and the landed document has no `permission` key.
+- **Specs linked**: `03-runtime/02-agent-runtime.md` §5f,
+  `03-runtime/01-ipc-protocol.md` §12c, `04-ux/06-settings-ia.md`, ADR 0326
+- **Acceptance**: E (tools & permissions), Security
+- **Milestone**: M6+
+- **Status**: Automated by `test:e2e:subagents` for the host-core half
+  (project write location, project-only activation, shadowing, the claimed
+  handle of a switched-off document, the refused project query, and the move
+  that renames and drops `permission`). The parser's ignored scope, the model
+  pin gate, the suppressed builtin and the project cap are covered by unit
+  tests in `packages/shared` and `packages/agent-runtime`; the Settings
+  journey and the live delegation remain Draft. Required suites: `test:e2e`,
+  `test:e2e:subagents`.
+
 #### E2E-145: Tool results read as structured blocks, never JSON
 
 - **Preconditions**: A project-bound Agent session with permissions allowed for
@@ -8514,9 +8559,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   10. Delete a skill or MCP file outside the app, reload its page, and confirm the
       row disappears and its local state has no orphaned entry. Confirm deleting
       a global file also removes its project overrides.
-  11. Open Subagents. Confirm it is one global-only panel rooted at
-      `~/.agents/subagents`, with no level filter, no project picker, and no
-      project-level controls. Confirm a Built-in group lists the five shipped
+  11. Open Subagents. Confirm it is the same workbench as Skills and MCP: the
+      level filter, the project picker, a Global group rooted at
+      `~/.agents/subagents` and a Project group rooted at
+      `<project>/.agents/subagents` (ADR 0326). Confirm a Built-in group lists the five shipped
       defaults (`explorer`, `code-reviewer`, `test-runner`, `fixer`,
       `ui-designer`) even when the user directory is empty, each with a
       Built-in badge, its tool grant, and an enablement switch, but no reveal
@@ -9675,6 +9721,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | M6+ (capability level move) | E2E-CAPABILITY-move-across-levels |
 | E — Tools & permissions (builtin subagent defaults) | E2E-SUBAGENT-settings-lists-builtin-defaults |
 | Quality (builtin subagent defaults) | E2E-SUBAGENT-settings-lists-builtin-defaults |
+| E — Tools & permissions (project subagent definitions) | E2E-SUBAGENT-project-definition-shadows-global |
+| Security (project subagent definitions) | E2E-SUBAGENT-project-definition-shadows-global |
 | C — Conversation & stream (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | Quality (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | M6 (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |

@@ -35,9 +35,22 @@ test("every launch resolves the subagent catalog and its pinned models", () => {
   // The catalog is re-read per prompt, registry documents included, so an edit
   // in the UI takes effect on the next turn with no restart (D202).
   assert.match(sessionLaunchSource, /await loadSubagentDefinitions\(projectPath, \{/);
+  // One host call answers both halves: the documents that survive
+  // project-over-global shadowing, and the handles a switched-off project
+  // document still claims.
   assert.match(
     sessionLaunchSource,
-    /userDocuments: await activeUserSubagentDocuments\(projectPath\),/,
+    /const activeSubagents = await activeSubagentDocuments\(projectPath\);/,
+  );
+  assert.match(sessionLaunchSource, /userDocuments: activeSubagents\.documents,/);
+  assert.match(
+    sessionLaunchSource,
+    /suppressedHandles: activeSubagents\.suppressedHandles,/,
+  );
+  // A project document may only spend a model the user offered to delegates.
+  assert.match(
+    sessionLaunchSource,
+    /projectPinAllowed: subagentModelOptIn\(providers\.providers\),/,
   );
   assert.match(sessionLaunchSource, /await resolveSubagentProviders\(\{/);
   assert.match(sessionLaunchSource, /subagents: subagentCatalog\.definitions,/);
@@ -113,13 +126,19 @@ test("a dead host transport degrades quietly instead of warning", () => {
   for (const fn of [
     "refreshUserMcp",
     "activeUserSkills",
-    "activeUserSubagentDocuments",
+    "activeSubagentDocuments",
     "disabledBuiltinSubagents",
   ]) {
     const start = sessionLaunchSource.indexOf(`async function ${fn}(`);
     assert.notEqual(start, -1, fn);
     const body = sessionLaunchSource.slice(start, start + 1800);
-    assert.match(body, /if \(!runtimeState\.host\?\.isAvailable\(\)\) return \[\];/, fn);
+    // The subagent read answers with documents plus suppressed handles, so its
+    // empty value is a named object rather than a bare list.
+    assert.match(
+      body,
+      /if \(!runtimeState\.host\?\.isAvailable\(\)\) return (?:\[\]|none);/,
+      fn,
+    );
     // The guard only stops calls that have not started; one already in flight at
     // dispose is rejected too, so the catch has to classify it as well.
     assert.match(body, /if \(!isHostUnavailable\(error\)\) \{/, fn);
@@ -145,7 +164,8 @@ test("a dead host transport degrades quietly instead of warning", () => {
 test("the subagents page recovers when the host comes back", () => {
   // The page loads through the shared host-collection hook, which owns the
   // plugin-changed and host-status subscriptions.
-  assert.match(pageSource, /useHostCollection\(fetchSubagentPageData/);
+  assert.match(pageSource, /fetchSubagentPageData\(selectedProjectPath\)/);
+  assert.match(pageSource, /useHostCollection\(fetchPage,/);
   assert.match(hostCollectionSource, /api\.onHostStatus\(\(status\) => \{\n\s+if \(status\.ok\) void reload\(\);/);
   // Both subscriptions have to be released, so the effect returns a composed
   // cleanup rather than a single unsubscribe.

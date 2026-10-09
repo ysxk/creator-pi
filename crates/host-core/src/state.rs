@@ -36,8 +36,8 @@ pub struct AppState {
     pub mcp_servers: McpServerRegistry,
     /// Skill documents the user wrote or imported directly.
     pub user_skills: UserSkillRegistry,
-    /// Subagent definitions the user owns, alongside the builtin and per-project
-    /// ones the runtime discovers itself (D202).
+    /// Subagent documents: the user's global ones and each project's own. The
+    /// shipped builtins are constants in the runtime (D202).
     pub user_subagents: UserSubagentRegistry,
     /// One reconciliation worker per local vault. The lock is separate from
     /// the AppState mutex so WebDAV I/O never monopolizes the host state lock.

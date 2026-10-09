@@ -479,12 +479,18 @@ off | minimal | low | medium | high | xhigh | max
   `SKILL_INVALID`）
 - `agents.list` / `agents.active` / `agents.read` / `agents.create` /
   `agents.update` / `agents.remove` / `agents.setEnabled` /
-  `agents.setScope` — 用户子代理文档（`SUBAGENT_INVALID`）
+  `agents.setScope` / `agents.transfer` — 全局与项目级子代理文档
+  （`SUBAGENT_INVALID`）
 - `mcp.list` / `mcp.active` / `mcp.upsert` / `mcp.remove` /
   `mcp.setEnabled` / `mcp.setScope` — 用户 MCP 服务器定义（`MCP_INVALID`）
 
+`agents.transfer` 接受 `{ id, from, to }`，两端各为 `{ level, projectPath? }`，
+返回落地后的 `{ subagent }`；移出项目的子代理文档会失去 `permission` 键
+（ADR 0326）。
+
 `*.active` 返回经激活作用域过滤后适用于给定项目的条目（未知作用域返回
-`CAPABILITY_INVALID`）。
+`CAPABILITY_INVALID`）。`agents.active` 还返回 `suppressedHandles`，即已停用、
+因而仍被占用的项目文档句柄。
 
 ### 搜索、工件、键盘
 - `search.query` — 跨会话、项目和设置目的地的全局搜索（ADR 0034）

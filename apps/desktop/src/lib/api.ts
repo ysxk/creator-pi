@@ -1237,21 +1237,23 @@ export const api = {
   revealUserSkill: (id: string, query?: Partial<AgentCapabilityQuery>) =>
     invoke(IPC.invoke.skillReveal, { id, ...query }),
 
-  // --- Subagents the user owns ----------------------------------------------
-  listUserSubagents: (query?: Pick<AgentCapabilityQuery, "level">) =>
+  // --- Subagent documents: the user's global ones and a project's ------------
+  /** One directory's documents; no query lists the global directory. */
+  listUserSubagents: (query?: Partial<AgentCapabilityQuery>) =>
     invoke<{ subagents: UserSubagentRecord[] }>(IPC.invoke.subagentList, query),
   /**
-   * What `Task` would offer right now, merged across the shipped builtins and
-   * the registry. `builtins` keeps a switched-off default in the list, flagged
-   * `enabled: false`, so Settings can still show that row and its switch.
+   * What `Task` would offer right now on the open project, merged across the
+   * shipped builtins, the global documents and the project's. `builtins` keeps
+   * a switched-off default in the list, flagged `enabled: false`, so Settings
+   * can still show that row and its switch.
    */
-  subagentCatalog: () =>
+  subagentCatalog: (projectPath?: string) =>
     invoke<{
       subagents: SubagentDefinition[];
       builtins: Array<SubagentDefinition & { enabled: boolean }>;
       diagnostics: string[];
       projectPath: string | null;
-    }>(IPC.invoke.subagentCatalog),
+    }>(IPC.invoke.subagentCatalog, projectPath ? { projectPath } : undefined),
   /** The stored avatar PNG for one subagent; `none` keeps the generated SVG. */
   subagentIcon: (name: string) =>
     invoke<{ kind: "png"; dataUrl: string } | { kind: "none" }>(
@@ -1272,14 +1274,25 @@ export const api = {
       ...subagent,
     }),
   /** The record plus the document body, for the editor. */
-  readUserSubagent: (id: string) =>
+  readUserSubagent: (id: string, query?: Partial<AgentCapabilityQuery>) =>
     invoke<{ subagent: UserSubagentRecord | null; body?: string }>(
       IPC.invoke.subagentRead,
-      id,
+      { id, ...query },
     ),
-  removeUserSubagent: (id: string) => invoke(IPC.invoke.subagentRemove, id),
-  setUserSubagentEnabled: (id: string, enabled: boolean) =>
-    invoke(IPC.invoke.subagentSetEnabled, { id, enabled }),
+  removeUserSubagent: (id: string, query?: Partial<AgentCapabilityQuery>) =>
+    invoke(IPC.invoke.subagentRemove, { id, ...query }),
+  setUserSubagentEnabled: (
+    id: string,
+    enabled: boolean,
+    query?: Partial<AgentCapabilityQuery>,
+  ) => invoke(IPC.invoke.subagentSetEnabled, { id, enabled, ...query }),
+  /**
+   * Move a subagent document to the other level. The returned record carries
+   * the handle it landed under, which differs when the destination already
+   * owned that handle.
+   */
+  transferUserSubagent: (move: AgentCapabilityMove) =>
+    invoke<{ subagent: UserSubagentRecord }>(IPC.invoke.subagentTransfer, move),
   /**
    * Turn one shipped default off, or back on. The id is the `Task` handle
    * (`explorer`), never a document id: a builtin has no file to switch.
@@ -1291,8 +1304,8 @@ export const api = {
     }),
   setUserSubagentScope: (id: string, scope: ActivationScope) =>
     invoke(IPC.invoke.subagentSetScope, { id, scope }),
-  /** Registry entries reveal by id; project documents pass their own path. */
-  revealSubagent: (target: { id?: string; path?: string }) =>
+  /** Reveal by id and level; the host resolves the path, never the renderer. */
+  revealSubagent: (target: { id?: string } & Partial<AgentCapabilityQuery>) =>
     invoke(IPC.invoke.subagentReveal, target),
   openPluginPanel: (id: string) => invoke(IPC.invoke.pluginOpenPanel, id),
   togglePluginLauncher: () => invoke(IPC.invoke.pluginLauncherToggle),

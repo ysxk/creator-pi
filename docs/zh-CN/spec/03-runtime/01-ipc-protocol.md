@@ -1310,17 +1310,20 @@ type McpOAuthLoginEvent = {
 
 ## 12c. 子代理 API (D202)
 
-用户拥有的子代理仅是全局 Markdown 文档：`~/.agents/subagents/<id>.md`。
-没有项目级子代理目录。启用状态写在
-`<data>/agent-capabilities/subagents.json`，绝不写入 Markdown 文件。
+子代理文档是两个层级上的 Markdown 文件（ADR 0326）：用户的全局
+`~/.agents/subagents/<id>.md`，以及项目的
+`<project>/.agents/subagents/<id>.md`。启用状态写在
+`<data>/agent-capabilities/subagents.json`（项目文档按所属项目存放），
+绝不写入 Markdown 文件。
 
-- `agents.list` → `{ subagents: UserSubagentRecord[] }`
-- `agents.active` → 已启用的全局文档
-- `agents.create(subagent)` — 重名返回 `SUBAGENT_INVALID`
+- `agents.list({ level?, projectPath? })` → `{ subagents: UserSubagentRecord[] }`
+- `agents.active({ projectPath? })` → `{ subagents, suppressedHandles }`
+- `agents.create(subagent)` — 同一层级内重名返回 `SUBAGENT_INVALID`
 - `agents.update(id, subagent)`
-- `agents.read(id)` → `{ subagent, body }`
-- `agents.remove(id)`
-- `agents.setEnabled(id, enabled)`
+- `agents.read(id, { level?, projectPath? })` → `{ subagent, body }`
+- `agents.remove(id, { level?, projectPath? })`
+- `agents.setEnabled(id, enabled, { level?, projectPath? })`
+- `agents.transfer({ id, from, to })` → `{ subagent }`
 - `agents.disabledBuiltins` → `{ disabled: string[] }`
 - `agents.setBuiltinEnabled(id, enabled)` → `{ id, enabled }`
 
@@ -1341,11 +1344,22 @@ type McpOAuthLoginEvent = {
 `SUBAGENT_INVALID` 拒绝；当前没有任何内置项使用的句柄也会惰性保存而不是拒绝，因为
 host-core 不携带内置清单。
 
-Electron 的 `subagent/list` IPC 通道向设置 > 智能体 > 子代理暴露同一份全局
-列表。`subagent/catalog` 返回当前 `Task` 目录（已启用的用户文档与五个内置定义
-合并后，再减去被用户关闭的内置项），并额外返回 `builtins`：每个仍然赢得自己句柄的
-内置定义，各自带 `enabled`，供设置页把关闭的默认项渲染成带自己开关的行。运行时
-目录使用同一套来源并应用同样的排除；不会扫描 `.pi/agents` 或任何项目能力目录。
+`level` 为 `global`（缺省值，未指明层级的调用读写全局目录）或 `project`；
+后者必须带 `projectPath`，否则返回 `CAPABILITY_INVALID`。`create` 与 `update`
+在载荷内携带同样两个字段。记录带有自己的 `level`，项目文档还带 `projectPath`。
+
+`agents.active` 为单个项目解析目录：项目文档按句柄遮蔽全局文档，且遮蔽先于启用
+过滤。`suppressedHandles` 列出被用户停用的项目文档的句柄；启动路径把它们交给
+运行时，使同名的内置定义同样不被提供。`agents.transfer` 以 `skills.transfer`
+（§12d）的语义在层级间移动文档，并额外去掉移出项目的文档中的 `permission` 键。
+
+Electron 的 `subagent/list` IPC 通道向设置 > 智能体 > 子代理暴露单个层级的
+列表，`subagent/transfer` 暴露移动。`subagent/catalog` 返回当前打开项目（或设置页
+项目选择器指定的 `projectPath`）的 `Task` 目录（已启用的项目文档和全局文档与五个
+内置定义合并后，再减去被用户关闭、或被停用的项目文档占用的内置项），并额外返回
+`builtins`：每个仍然赢得自己句柄的内置定义，各自带 `enabled`，供设置页把关闭的
+默认项渲染成带自己开关的行。运行时目录使用同一套来源并应用同样的排除；不会扫描
+`.pi/agents`，也从不自行读取项目目录。
 
 ## 12d. 能力级别与本地启用状态
 

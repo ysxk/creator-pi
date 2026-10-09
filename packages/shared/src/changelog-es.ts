@@ -13,6 +13,7 @@ export const esEntries: ChangelogEntry[] = [
       "Abre enlaces locales a archivos Markdown desde el chat en el Administrador de archivos integrado, incluidos enlaces relativos y referencias a líneas.",
       "La lista de modelos del Composer ahora muestra los límites de contexto configurados.",
       "Los plugins pueden inspeccionar o rechazar redirecciones de red; las llamadas fetch existentes siguen las redirecciones de forma predeterminada.",
+      "Guarda subagentes en la carpeta .agents/subagents de un proyecto: solo se aplican a ese proyecto y no pueden ampliar sus propios permisos.",
     ],
   },
   {
