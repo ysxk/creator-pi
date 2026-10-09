@@ -57,11 +57,26 @@ test("markdown video blocks stream local paths and fall back to a chip", () => {
   assert.match(markdown, /chat-image-chip/);
 });
 
-test("user video attachments render a chip with a hover player", () => {
+test("user video attachments render a chip with an operable hover player", () => {
   assert.match(transcriptShared, /export function MessageAttachmentVideo/);
   assert.match(transcriptShared, /VideoHoverCard src=\{mediaViewUrl\(attachment\.ref\)\}/);
   assert.match(hoverCard, /export function VideoHoverCard/);
   assert.match(hoverCard, /is-interactive/);
+  // The card is portal-rendered with a gap from the chip: the chip must not
+  // dismiss on pointer leave, or the pointer can never reach the controls.
+  // (The image chip keeps its own pointer-leave dismissal: its card is
+  // pointer-inert, so nothing needs crossing a gap.)
+  const videoComponent = transcriptShared.slice(
+    transcriptShared.indexOf("export function MessageAttachmentVideo"),
+    transcriptShared.indexOf("/** Plain user text"),
+  );
+  assert.doesNotMatch(videoComponent, /onPointerLeave=\{dismiss\}/);
+  // The card owns its exit: its own pointer leave, Escape, scroll/resize.
+  assert.match(hoverCard, /onPointerLeave=\{onDismiss\}/);
+  assert.match(hoverCard, /event\.key === "Escape"/);
+  // Keyboard focus still reveals, and blur dismisses.
+  assert.match(transcriptShared, /onFocus=\{reveal\}/);
+  assert.match(transcriptShared, /onBlur=\{dismiss\}/);
   // Both placements — inline between words and the trailing list — route video.
   assert.match(messageRow, /MessageAttachmentVideo/);
 });

@@ -5,31 +5,53 @@ import { api } from "../lib/api";
 /**
  * A subagent's identity mark: an AI-generated PNG when one was stored for the
  * name, otherwise the deterministic SVG generated from the name alone. PNG
- * lookups are cached per name for the session so a settings page full of rows
- * costs one IPC round trip each, once.
+ * lookups are cached per name and published through a subscription so every
+ * mounted avatar updates when a PNG is generated or reset — the editor
+ * preview, Settings rows, and the @ popup stay in sync without a remount.
  */
 
-const pngCache = new Map<string, string | null>();
+type PngCache = { url: Map<string, string | null>; listeners: Set<() => void> };
+
+const pngCache: PngCache = { url: new Map(), listeners: new Set() };
+
+function publishPng(name: string, dataUrl: string | null): void {
+  pngCache.url.set(name, dataUrl);
+  for (const listener of pngCache.listeners) listener();
+}
+
+function subscribePng(listener: () => void): () => void {
+  pngCache.listeners.add(listener);
+  return () => pngCache.listeners.delete(listener);
+}
 
 function useSubagentAvatarUrl(name: string): string {
-  const [png, setPng] = useState<string | null>(() => pngCache.get(name) ?? null);
+  const [png, setPng] = useState<string | null>(() => pngCache.url.get(name) ?? null);
   useEffect(() => {
     let current = true;
-    if (pngCache.has(name)) {
-      setPng(pngCache.get(name) ?? null);
-      return;
+    // A published change (generate/reset elsewhere) applies immediately,
+    // including when the cache already held a value.
+    const sync = () => {
+      setPng(pngCache.url.get(name) ?? null);
+    };
+    sync();
+    const unsubscribe = subscribePng(sync);
+    if (pngCache.url.has(name)) {
+      return () => {
+        unsubscribe();
+        current = false;
+      };
     }
     void api
       .subagentIcon(name)
       .then((result) => {
         const url = result.kind === "png" ? result.dataUrl : null;
-        pngCache.set(name, url);
-        if (current) setPng(url);
+        if (current) publishPng(name, url);
       })
       .catch(() => {
-        pngCache.set(name, null);
+        if (current) publishPng(name, null);
       });
     return () => {
+      unsubscribe();
       current = false;
     };
   }, [name]);
@@ -38,7 +60,7 @@ function useSubagentAvatarUrl(name: string): string {
 
 /** Replace a name's cached mark after generation or removal. */
 export function setSubagentAvatarPng(name: string, dataUrl: string | null): void {
-  pngCache.set(name, dataUrl);
+  publishPng(name, dataUrl);
 }
 
 export function SubagentAvatar({

@@ -4,6 +4,7 @@ import {
   inferEndpointProfile,
   normalizeApiStyle,
   type ModelBinding,
+  type ModelModality,
   type ProviderReorderInput,
   type OAuthRespondInput,
 } from "@pi-desktop/shared";
@@ -445,9 +446,14 @@ export function registerProviderIpc({
           models.dev entry stays the authority for a known id.
         */
         const discoveredOnly = !modelsDevModel && !operationMetadata;
-        const discoveredInput = new Set(["text"]);
+        const discoveredInput = new Set<ModelModality>(["text"]);
         for (const modality of model.input ?? []) {
-          if (modality === "image" || modality === "audio" || modality === "video" || modality === "pdf") {
+          if (
+            modality === "image" ||
+            modality === "audio" ||
+            modality === "video" ||
+            modality === "pdf"
+          ) {
             discoveredInput.add(modality);
           }
         }
@@ -577,7 +583,22 @@ export function registerProviderIpc({
           if (endpointStillCurrent) {
             await host!.call("providers.cacheModels", {
               providerId: provider.id,
-              models,
+              models: (models as Array<{ modelId: string }>).map((model) => {
+                const withMeta = model as {
+                  modelId: string;
+                  contextWindow?: number;
+                  input?: string[];
+                  capabilities?: string[];
+                  reasoningLevels?: string[];
+                };
+                return {
+                  modelId: withMeta.modelId,
+                  contextWindow: withMeta.contextWindow,
+                  inputModalities: withMeta.input,
+                  capabilities: withMeta.capabilities,
+                  reasoningLevels: withMeta.reasoningLevels,
+                };
+              }),
             });
           }
         } catch (e) {
@@ -627,6 +648,8 @@ export function registerProviderIpc({
             modelId: string;
             displayName: string;
             capabilities?: string[];
+            inputModalities?: string[];
+            reasoningLevels?: string[];
             contextWindow?: number;
             source?: "bundled" | "discovered" | "user";
           }>;
@@ -646,7 +669,14 @@ export function registerProviderIpc({
         }
         if (cachedById.size > 0) {
           return {
-            models: [...cachedById.values()].map((model) => decorate(model)),
+            models: [...cachedById.values()].map((model) =>
+              decorate({
+                ...model,
+                // The cached record spells input modalities in the shared
+                // vocabulary; decorate reads them as `input`.
+                input: model.inputModalities,
+              }),
+            ),
             source: "cache" as const,
           };
         }

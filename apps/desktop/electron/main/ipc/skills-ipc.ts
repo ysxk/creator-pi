@@ -1,6 +1,6 @@
 import { app, dialog, shell } from "electron";
 import { importSkillFolders, readLastSkillImportDirectory, writeLastSkillImportDirectory } from "../skill-folder-import";
-import { ErrorCodes, IPC, type ActivationScope, type AgentCapabilityMove, type AgentCapabilityQuery, type UserSkillRecord, type UserSubagentRecord } from "@pi-desktop/shared";
+import { ErrorCodes, IPC, type ActivationScope, type AgentCapabilityMove, type AgentCapabilityQuery, type ProviderPublic, type UserSkillRecord, type UserSubagentRecord } from "@pi-desktop/shared";
 import { loadSubagentDefinitions, type UserSubagentDocument } from "@pi-desktop/agent-runtime";
 import {
   deleteSubagentIcon,
@@ -25,6 +25,18 @@ export type SkillsIpcDependencies = {
   getHost: () => HostProcess | null;
   /** Application data root; subagent icon PNGs live under it. */
   dataDir: string;
+  /**
+   * OAuth and image-model resolution for avatar generation, identical to the
+   * GenerateImages tool: a signed-in vendor account is the only credential an
+   * OAuth image provider has, and a known image model may need the catalog's
+   * native binding. Without both, generation fails with IMAGE_AUTH_UNSUPPORTED
+   * on every OAuth provider.
+   */
+  resolveAuth: (providerId: string) => Promise<unknown> | unknown;
+  resolveImageModel: (
+    provider: ProviderPublic,
+    modelId: string,
+  ) => Promise<unknown> | unknown;
   optionalWorkspaceRoot: () => Promise<string | null>;
   activeUserSubagentDocuments: (projectPath: string | undefined) => Promise<UserSubagentDocument[]>;
   /** Handles whose shipped definition the user turned off (builtin activation). */
@@ -41,6 +53,8 @@ export function registerSkillsIpc({
   registrar,
   getHost,
   dataDir,
+  resolveAuth,
+  resolveImageModel,
   optionalWorkspaceRoot,
   activeUserSubagentDocuments,
   disabledBuiltinSubagents,
@@ -373,6 +387,8 @@ export function registerSkillsIpc({
         name,
         description,
         getHost,
+        resolveAuth: resolveAuth as never,
+        resolveImageModel: resolveImageModel as never,
       });
       if (!result.ok) {
         throw Object.assign(new Error(result.message), {

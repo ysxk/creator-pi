@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { generateImageBatch } from "@pi-desktop/agent-runtime";
+import type { ImageApi, ImageModel } from "@earendil-works/pi-ai";
+import type { ProviderPublic } from "@pi-desktop/shared";
+import type { VendorOAuth } from "../oauth";
 import type { HostProcess } from "../host-process";
 import { resolveImageGenerationEndpoint } from "./image-generation-service";
 
@@ -75,6 +78,10 @@ export async function generateSubagentIcon(options: {
   allowFakeIp?: () => boolean;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
+  /** OAuth account resolution; forwarded verbatim from the GenerateImages tool. */
+  resolveAuth?: VendorOAuth["resolveAuth"];
+  /** Native image-model resolution; forwarded verbatim from the GenerateImages tool. */
+  resolveImageModel?: (provider: ProviderPublic, modelId: string) => Promise<ImageModel<ImageApi> | undefined>;
 }): Promise<GenerateSubagentIconResult> {
   const target = iconPath(options.dataDir, options.name);
   if (!target) {
@@ -87,6 +94,8 @@ export async function generateSubagentIcon(options: {
   const endpoint = await resolveImageGenerationEndpoint({
     getHost: options.getHost,
     allowFakeIp: options.allowFakeIp,
+    resolveAuth: options.resolveAuth,
+    resolveImageModel: options.resolveImageModel,
   });
   if (!endpoint.ok) return endpoint;
 

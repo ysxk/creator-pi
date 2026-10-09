@@ -31,8 +31,14 @@ export type DiscoveredModel = {
    */
   contextWindow?: number;
   /**
-   * Input/output modality facts the endpoint published, in ModelInfo's
-   * capability vocabulary (`vision`, `audio`, `video`, `pdf`, `imagegen`).
+   * Input modalities the endpoint published (`input_modalities`), in
+   * ModelModality vocabulary; `text` is always implied. These feed
+   * `ModelInfo.modalities.input` for rows no catalog record covers.
+   */
+  input?: string[];
+  /**
+   * Input/output modality facts in ModelInfo's capability vocabulary
+   * (`vision`, `audio`, `video`, `pdf`, `imagegen`).
    */
   capabilities?: string[];
   /**
@@ -121,6 +127,7 @@ const INPUT_MODALITY_CAPABILITIES: Record<string, string> = {
  */
 function discoveredModelMetadata(item: Record<string, unknown>): {
   contextWindow?: number;
+  input?: string[];
   capabilities?: string[];
   reasoningLevels?: string[];
 } {
@@ -154,6 +161,7 @@ function discoveredModelMetadata(item: Record<string, unknown>): {
     : undefined;
   return {
     ...(contextWindow !== undefined ? { contextWindow } : {}),
+    ...(input?.length ? { input } : {}),
     ...(capabilities.size ? { capabilities: [...capabilities] } : {}),
     ...(reasoningLevels?.length ? { reasoningLevels } : {}),
   };

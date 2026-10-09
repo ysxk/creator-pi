@@ -610,7 +610,6 @@ export function MessageAttachmentVideo({
         className="message-attachment-image-chip"
         role={inline ? undefined : "listitem"}
         onPointerEnter={reveal}
-        onPointerLeave={dismiss}
         onFocus={reveal}
         onBlur={dismiss}
       >
@@ -622,6 +621,12 @@ export function MessageAttachmentVideo({
           onOpen={onOpenFile}
         />
       </span>
+      {/*
+        The player card is portal-rendered with a gap from the chip, so the
+        chip's own pointerleave must not close it — moving toward the controls
+        crosses that gap. The card dismisses on its own pointer leave and on
+        the chip's blur; scroll/resize dismissal matches the image card.
+      */}
       <VideoHoverCard src={mediaViewUrl(attachment.ref)} anchor={anchor} onDismiss={dismiss} />
     </>
   );

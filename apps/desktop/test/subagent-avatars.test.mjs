@@ -45,6 +45,13 @@ test("generated icons stay bounded, name-scoped, and overwrite in place", () => 
   // The default SVG needs no configuration; generation reuses the exact
   // endpoint resolution the GenerateImages tool uses.
   assert.match(iconService, /resolveImageGenerationEndpoint/);
+  // And it must forward the tool's OAuth + native image-model resolvers:
+  // a signed-in vendor account is the only credential an OAuth image
+  // provider has, and without them every generation fails auth.
+  assert.match(iconService, /resolveAuth: options\.resolveAuth/);
+  assert.match(iconService, /resolveImageModel: options\.resolveImageModel/);
+  assert.match(skillsIpc, /resolveAuth: resolveAuth as never/);
+  assert.match(skillsIpc, /resolveImageModel: resolveImageModel as never/);
 });
 
 test("the avatar component prefers the PNG and falls back to the deterministic SVG", () => {

@@ -202,6 +202,16 @@ pub struct ModelCatalogItem {
     pub source: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    /// Input modalities the endpoint itself published, in the shared
+    /// vocabulary (`text`/`image`/`video`/`audio`/`pdf`); `text` is implied
+    /// and never stored. Cached beside capabilities so a cache read paints
+    /// the same record a live discovery would.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub input_modalities: Vec<String>,
+    /// Thinking efforts the endpoint published, lowercased; consumed as
+    /// `reasoningLevels`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reasoning_levels: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_window: Option<u32>,
 }
@@ -213,6 +223,10 @@ pub struct DiscoveredModelInput {
     pub display_name: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub input_modalities: Vec<String>,
+    #[serde(default)]
+    pub reasoning_levels: Vec<String>,
     #[serde(default)]
     pub context_window: Option<u32>,
 }

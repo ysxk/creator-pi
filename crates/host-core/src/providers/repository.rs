@@ -693,16 +693,39 @@ pub fn set_plugin_endpoint(
             input.id
         ])?;
     if endpoint_changed {
-        // The discovered answer belongs to the endpoint that produced it; the
-        // configured bindings are the configuration this edit keeps.
-        let configured: Vec<String> = current
-            .models
-            .iter()
-            .map(|binding| binding.id.clone())
-            .collect();
-        forget_missing_discovered_models(db, &input.id, &configured)?;
+        // The discovered answer belongs to the endpoint that produced it. On a
+        // plugin row with an empty declaration, `current.models` was hydrated
+        // FROM that cache (hydrate_dynamic_plugin_models), so keeping those ids
+        // would keep the previous endpoint's whole answer; only what the user
+        // actually configured survives an endpoint move.
+        let keep = declared_or_user_binding_ids(db, &input.id, &raw_config)?;
+        forget_missing_discovered_models(db, &input.id, &keep)?;
     }
     get_provider(db, secrets, &input.id)
+}
+
+/// The binding ids an endpoint move must keep: what the user actually
+/// configured. A discovered row hydrated into `ProviderPublic.models` is the
+/// previous endpoint's answer, not a configuration, and must not survive.
+fn declared_or_user_binding_ids(
+    db: &Database,
+    provider_id: &str,
+    raw_config: &str,
+) -> Result<Vec<String>> {
+    let mut ids: Vec<String> = config_model_bindings(raw_config, None, provider_id)
+        .into_iter()
+        .map(|binding| binding.id)
+        .collect();
+    // Also keep any model row the user owns: a hand-typed id (`source =
+    // 'user'`) is the user's configuration regardless of where it is stored.
+    let mut stmt = db.conn().prepare_cached(
+        "SELECT model_id FROM models WHERE provider_id = ?1 AND source != 'discovered'",
+    )?;
+    let rows = stmt.query_map(params![provider_id], |row| row.get::<_, String>(0))?;
+    for row in rows {
+        ids.push(row?);
+    }
+    Ok(ids)
 }
 
 pub fn get_provider(

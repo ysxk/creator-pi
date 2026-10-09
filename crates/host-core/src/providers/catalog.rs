@@ -304,13 +304,61 @@ pub fn list_models(db: &Database, provider_id: Option<&str>) -> Result<Vec<Model
     let mut stmt = db.conn().prepare_cached(sql)?;
     let parse = |row: &rusqlite::Row<'_>| -> rusqlite::Result<ModelCatalogItem> {
         let raw_capabilities: String = row.get(4)?;
-        let capabilities = serde_json::from_str(&raw_capabilities).unwrap_or_default();
+        /*
+          Newer rows hold one JSON object with capabilities, endpoint-published
+          input modalities, and reasoning efforts; older rows hold a bare
+          capability array. Parse the object first, fall back to the array,
+          and never fail a cache read over a stale shape.
+        */
+        let (capabilities, input_modalities, reasoning_levels) =
+            match serde_json::from_str::<serde_json::Value>(&raw_capabilities) {
+                Ok(serde_json::Value::Object(object)) => {
+                    let capabilities = object
+                        .get("capabilities")
+                        .and_then(|value| value.as_array())
+                        .map(|items| {
+                            items
+                                .iter()
+                                .filter_map(|item| item.as_str().map(str::to_string))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    let modalities = object
+                        .get("inputModalities")
+                        .and_then(|value| value.as_array())
+                        .map(|items| {
+                            items
+                                .iter()
+                                .filter_map(|item| item.as_str().map(str::to_string))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    let levels = object
+                        .get("reasoningLevels")
+                        .and_then(|value| value.as_array())
+                        .map(|items| {
+                            items
+                                .iter()
+                                .filter_map(|item| item.as_str().map(str::to_string))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    (capabilities, modalities, levels)
+                }
+                _ => {
+                    let capabilities: Vec<String> =
+                        serde_json::from_str(&raw_capabilities).unwrap_or_default();
+                    (capabilities, Vec::new(), Vec::new())
+                }
+            };
         Ok(ModelCatalogItem {
             provider_id: row.get(0)?,
             model_id: row.get(1)?,
             display_name: row.get(2)?,
             source: row.get(3)?,
             capabilities,
+            input_modalities,
+            reasoning_levels,
             context_window: row
                 .get::<_, Option<i64>>(5)?
                 .and_then(|value| u32::try_from(value).ok()),
@@ -364,11 +412,24 @@ pub fn cache_discovered_models(
             } else {
                 display_name
             };
+            /*
+              The cache row carries the whole discovered record: capabilities,
+              endpoint-published input modalities, and reasoning efforts. They
+              travel together in one JSON object so a cache read paints the
+              same row a live discovery would; an older row holding a bare
+              capability array still parses (capabilities fall back to that
+              array, the rest to empty).
+            */
+            let record = serde_json::json!({
+                "capabilities": model.capabilities,
+                "inputModalities": model.input_modalities,
+                "reasoningLevels": model.reasoning_levels,
+            });
             changed += stmt.execute(params![
                 provider_id,
                 model_id,
                 display_name,
-                serde_json::to_string(&model.capabilities)?,
+                serde_json::to_string(&record)?,
                 model.context_window,
                 now,
             ])?;
