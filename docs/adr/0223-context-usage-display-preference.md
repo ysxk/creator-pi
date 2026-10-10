@@ -33,6 +33,8 @@ window, which provides little signal at a glance.
    capacity (remaining ≤ 25 % → warning, ≤ 10 % → critical) regardless
    of the display mode. A display reading "used 78 %" still turns warning
    colour because only 22 % remains.
+   D661 later replaced the two color steps with a continuous ramp; it is
+   still keyed to remaining capacity in both display modes.
 4. Settings → AI → Defaults gains a `ContextUsageDisplayRow` (segmented
    control: Remaining / Used) placed after the Link open destination row
    and before the Enter-to-send row.
