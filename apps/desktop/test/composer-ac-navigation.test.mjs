@@ -105,3 +105,26 @@ test("the composer hands arrow keys to the panel only when it takes them", async
   );
   assert.match(popup, /className="composer-ac-agent-strip"/);
 });
+
+test("the transcript fades out under the portraits instead of showing through", async () => {
+  const popup = await readFile(
+    new URL("../src/components/ComposerAutocomplete.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../src/styles/composer-autocomplete.css", import.meta.url),
+    "utf8",
+  );
+  // The label and the strip share the stage the wash is painted on; the
+  // explanation card stays outside it, so opening one never moves the wash.
+  assert.match(
+    popup,
+    /<AgentDetail [^>]*\/>[\s\S]*?className="composer-ac-agents-stage">\s*<div className="composer-ac-agents-head">[\s\S]*?className="composer-ac-agent-strip"/,
+  );
+  const wash = css.match(/\.composer-ac-agents-stage::before \{[\s\S]*?\n\}/)?.[0] ?? "";
+  // Clear at the top, the pane's own color behind the row.
+  assert.match(wash, /background: linear-gradient\(to bottom, transparent, var\(--ds-bg-primary\) \d+px\);/);
+  // Under everything in the panel, and the transcript stays clickable.
+  assert.match(wash, /z-index: -1;/);
+  assert.match(wash, /pointer-events: none;/);
+});

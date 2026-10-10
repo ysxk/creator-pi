@@ -301,10 +301,12 @@ export function ComposerAutocomplete({
           {focusedAgent ? (
             <AgentDetail t={t} agent={focusedAgent} position={focusedPosition} />
           ) : null}
-          <div className="composer-ac-agents-head">
-            <span className="composer-model-group-label">{t("chat.atGroupAgents")}</span>
+          <div className="composer-ac-agents-stage">
+            <div className="composer-ac-agents-head">
+              <span className="composer-model-group-label">{t("chat.atGroupAgents")}</span>
+            </div>
+            <div className="composer-ac-agent-strip">{strip}</div>
           </div>
-          <div className="composer-ac-agent-strip">{strip}</div>
         </div>
       ) : null}
       <div className="composer-ac-card">
