@@ -19,6 +19,8 @@ export const zhTWEntries: ChangelogEntry[] = [
       "Subagent portraits now each wear a colour on the ring and the hair or hat, so a row of them is easy to tell apart.",
       "CLIProxyAPI services now list models with their real context window and input types; /fast toggles priority processing, and each reply shows its generation speed.",
       "Removed the bundled CLIProxyAPI plugin: any self-hosted service now gets its models' details from the server's own catalogue automatically.",
+      "可從卡片或詳情停止執行中的子智能體，也可停止目前工作階段的全部子智能體，主智能體會繼續執行。",
+      "在上下文用量面板查看工作階段總耗時、模型回應累計耗時及其占比。",
     ],
   },
   {

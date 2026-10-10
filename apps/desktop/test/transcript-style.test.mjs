@@ -472,6 +472,10 @@ test("assistant context inspector keeps a compact summary and retry action wired
   assert.match(inspectorSource, /context-inspector-summary-row/);
   assert.match(inspectorSource, /chat\.usageToolsSummary/);
   assert.match(inspectorSource, /context-inspector-kpis/);
+  assert.match(inspectorSource, /useSessionTiming/);
+  assert.match(inspectorSource, /chat\.usageSessionTime/);
+  assert.match(inspectorSource, /chat\.usageModelResponse/);
+  assert.match(inspectorSource, /modelResponsePercent/);
   assert.match(inspectorSource, /context-inspector-window-percent/);
   // The heading names the thing and states both sides of it once; the bar and
   // its scale say the rest, so nobody subtracts one percentage from another.

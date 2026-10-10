@@ -19,6 +19,7 @@ export const trEntries: ChangelogEntry[] = [
       "Subagent portraits now each wear a colour on the ring and the hair or hat, so a row of them is easy to tell apart.",
       "CLIProxyAPI services now list models with their real context window and input types; /fast toggles priority processing, and each reply shows its generation speed.",
       "Removed the bundled CLIProxyAPI plugin: any self-hosted service now gets its models' details from the server's own catalogue automatically.",
+      "Bağlam kullanımı panelinde toplam oturum süresini, birikimli model yanıt süresini ve oturum içindeki payını görün.",
     ],
   },
   {

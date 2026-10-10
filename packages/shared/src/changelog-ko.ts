@@ -19,6 +19,8 @@ export const koEntries: ChangelogEntry[] = [
       "Subagent portraits now each wear a colour on the ring and the hair or hat, so a row of them is easy to tell apart.",
       "CLIProxyAPI services now list models with their real context window and input types; /fast toggles priority processing, and each reply shows its generation speed.",
       "Removed the bundled CLIProxyAPI plugin: any self-hosted service now gets its models' details from the server's own catalogue automatically.",
+      "카드나 상세 패널에서 실행 중인 하위 에이전트를 개별적으로 또는 현재 세션의 모든 하위 에이전트를 중지해도 주 에이전트는 계속 실행됩니다.",
+      "컨텍스트 사용량 패널에서 총 세션 시간, 누적 모델 응답 시간과 세션 내 비율을 확인하세요.",
     ],
   },
   {

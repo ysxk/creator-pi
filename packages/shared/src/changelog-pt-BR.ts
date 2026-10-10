@@ -19,6 +19,8 @@ export const ptBREntries: ChangelogEntry[] = [
       "Subagent portraits now each wear a colour on the ring and the hair or hat, so a row of them is easy to tell apart.",
       "CLIProxyAPI services now list models with their real context window and input types; /fast toggles priority processing, and each reply shows its generation speed.",
       "Removed the bundled CLIProxyAPI plugin: any self-hosted service now gets its models' details from the server's own catalogue automatically.",
+      "Pare um subagente em execução pelo cartão ou painel de detalhes, ou todos os subagentes da sessão atual, sem parar o coordenador.",
+      "Veja o tempo total da sessão, o tempo acumulado de resposta do modelo e sua proporção no painel de uso de contexto.",
     ],
   },
   {
