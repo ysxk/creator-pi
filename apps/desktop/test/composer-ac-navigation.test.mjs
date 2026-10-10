@@ -96,14 +96,32 @@ test("the composer hands arrow keys to the panel only when it takes them", async
   assert.match(input, /const next = moveHighlight\(composerAc\.items, composerAc\.highlight, event\.key, \{/);
   // A key the panel declines is never swallowed.
   assert.match(input, /if \(next !== null\) \{\s*event\.preventDefault\(\);\s*composerAc\.setHighlight\(next\);/);
-  // The explanation renders in the card's flow, under the strip.
   // The card rises above the portrait it describes, before the strip in the
-  // column, so opening it grows the panel upward and moves nothing below.
+  // source.
   assert.match(
     popup,
     /<AgentDetail t=\{t\} agent=\{focusedAgent\} position=\{focusedPosition\} \/>[\s\S]*?className="composer-ac-agent-strip"/,
   );
   assert.match(popup, /className="composer-ac-agent-strip"/);
+});
+
+test("showing a subagent's card never changes the panel's height", async () => {
+  const css = await readFile(
+    new URL("../src/styles/composer-autocomplete.css", import.meta.url),
+    "utf8",
+  );
+  // Out of the column: in flow it took rows from a full file list and pushed
+  // the portraits down from under the pointer.
+  const card = css.match(/\n\.composer-ac-agent-detail \{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(card, /position: absolute;/);
+  assert.match(card, /bottom: calc\(100% \+ \d+px\);/);
+  assert.doesNotMatch(card, /margin:/);
+  assert.match(css, /\n\.composer-ac-agents \{\s*position: relative;/);
+  // A panel with portraits keeps room above itself for that card.
+  assert.match(
+    css,
+    /\.composer-autocomplete:has\(\.composer-ac-agents\) \{\s*max-height: min\(380px, calc\(100vh - \d+px\)\);/,
+  );
 });
 
 test("the transcript fades out under the portraits instead of showing through", async () => {

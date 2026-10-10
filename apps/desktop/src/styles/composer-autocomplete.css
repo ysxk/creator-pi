@@ -32,6 +32,12 @@
   display: contents;
 }
 
+/* A subagent's card floats above the panel, so a panel that has portraits
+   leaves it the room in a short window. */
+.composer-autocomplete:has(.composer-ac-agents) {
+  max-height: min(380px, calc(100vh - 270px));
+}
+
 /* The panel itself is only a column: the transcript stays clickable around
    the portraits, and the card below is the one surface. */
 .composer-autocomplete.is-open {
@@ -59,6 +65,7 @@
   above the row, so the list does not jump.
 */
 .composer-ac-agents {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -182,18 +189,23 @@
   white-space: nowrap;
 }
 
-/* 90px is one portrait and its gap; the card stays inside the panel. */
+/* The card floats above the row, outside the panel's flow. Were it part of
+   the column, showing it would change the panel's height: a full file list
+   would give up rows to it and the portraits would slide down from under the
+   pointer that had just chosen one. 90px is one portrait and its gap, 2px the
+   row's own inset; the card stays inside the panel's width. */
 .composer-ac-agent-detail {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: clamp(
+    2px,
+    calc(2px + var(--agent-position, 0) * 90px),
+    calc(100% - 2px - min(100% - 4px, 340px))
+  );
   display: flex;
-  width: min(100%, 340px);
+  width: min(100% - 4px, 340px);
   flex-direction: column;
   gap: 5px;
-  margin: 0 0 4px
-    clamp(
-      0px,
-      calc(var(--agent-position, 0) * 90px),
-      calc(100% - min(100%, 340px))
-    );
   padding: 9px 12px;
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-md);

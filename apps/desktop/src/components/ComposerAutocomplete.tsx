@@ -68,9 +68,9 @@ const GROUP_KEYS: Record<ComposerCommand["kind"], string> = {
 /**
  * What one subagent is, in the terms its definition is written in: the handle
  * `Task` takes, whether it can change files, the model it runs on, what it is
- * for, and the tools it was granted. It rises above the portrait it describes;
- * the panel grows upward from the composer, so choosing a subagent never moves
- * the strip or the file list.
+ * for, and the tools it was granted. It floats above the portrait it describes,
+ * outside the panel's flow, so choosing a subagent never moves the strip or
+ * the file list.
  */
 function AgentDetail({
   t,
