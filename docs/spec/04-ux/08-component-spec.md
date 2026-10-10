@@ -1906,9 +1906,12 @@ Single message render — either user (plaintext) or assistant (markdown streami
   (ring arc, percentage, token label, popover heading, tooltip, and
   `aria-label`) follows `settings.contextUsageDisplay` — `"remaining"`
   (default) or `"used"` — so the ring fills by `remainingRatio` or
-  `usedRatio` accordingly. Low capacity changes the semantic color based
-  on remaining capacity (remaining ≤ 25 % warning, ≤ 10 % critical)
-  regardless of display mode, without making color the only signal.
+  `usedRatio` accordingly. The capacity color runs continuously with
+  remaining capacity (D661): the resting color down to 60 % remaining,
+  through amber at 35 % and the warning color at 20 %, to the error color
+  at 8 % and below, regardless of display mode and without making color
+  the only signal. The ring and percentage rest on the accent and the
+  panel's capacity bar on the success color; both follow the same ramp.
   Clicking the trigger (or activating it from the keyboard) toggles a
   non-modal panel whose heading follows the same display-mode figure,
   followed by used/window counts and two

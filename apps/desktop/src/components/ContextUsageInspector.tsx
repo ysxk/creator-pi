@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import { portalToBody } from "../lib/portal-visibility";
 import { useTranslation } from "react-i18next";
@@ -117,6 +118,9 @@ export function ContextUsageInspector({
       : context.remainingPercent <= 25
         ? "warning"
         : "comfortable";
+  // The colour itself is continuous: the stylesheet mixes it from what is
+  // left (D661). `level` stays as the named state beside it.
+  const capacityStyle = { "--context-remaining": context.remainingPercent } as CSSProperties;
   // One accessible sentence serves both display modes: the localized `state`
   // phrase carries "remaining"/"used", so the key stays literal for the
   // tooltip contract while `percent`/`count` stay numeric.
@@ -279,11 +283,12 @@ export function ContextUsageInspector({
       style={
         popoverPosition
           ? {
+              ...capacityStyle,
               top: `${popoverPosition.top}px`,
               left: `${popoverPosition.left}px`,
               maxWidth: `${popoverPosition.maxWidth}px`,
             }
-          : undefined
+          : capacityStyle
       }
     >
       <div className="context-inspector-heading">
@@ -450,6 +455,7 @@ export function ContextUsageInspector({
       className="context-inspector"
       data-level={level}
       data-open={open ? "true" : "false"}
+      style={capacityStyle}
       {...hover.anchorProps}
     >
       {/* No tooltip: the panel is what resting on the ring shows. */}

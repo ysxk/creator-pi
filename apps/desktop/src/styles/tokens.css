@@ -168,6 +168,8 @@
   --ds-placeholder-ink: color-mix(in oklab, var(--gray-0) 42%, transparent);
   --ds-success: #40c977;
   --ds-warning: #ff8549;
+  /* The amber the context ring passes on its way to the warning colour. */
+  --ds-context-caution: #ffc24d;
   --ds-error: #ff6764;
   --ds-info: var(--gray-300);
   --ds-purple: #c27aff;
@@ -390,6 +392,7 @@
   --ds-switch-knob-on: #ffffff;
   --ds-success: #10b981;
   --ds-warning: #e25507;
+  --ds-context-caution: #ce8b09;
   --ds-error: #ef4444;
   --ds-info: #0284c7;
   --ds-purple: #7c3aed;

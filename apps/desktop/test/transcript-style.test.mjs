@@ -665,3 +665,57 @@ test("regenerate history pager and stable revision family are wired", async () =
   assert.match(sharedSource, /revisionRootId\?: string/);
   assert.match(sharedSource, /MessageRevisionSummary/);
 });
+
+test("the context ring's colour runs with remaining capacity instead of stepping (D661)", async () => {
+  // No colour hangs off the named level any more; it is still set as state.
+  assert.doesNotMatch(stylesSource, /\.context-inspector(-popover)?\[data-level=/);
+  assert.match(inspectorSource, /data-level=\{level\}/);
+
+  const ramp = stylesSource.match(
+    /\.context-inspector,\s*\.context-inspector-popover\s*\{\s*--context-capacity-color:([^;]*);/,
+  )?.[1];
+  assert.ok(ramp, "one ramp shared by the ring and its panel");
+  // Outermost wins: error over warning over amber over the resting colour.
+  const stops = [...ramp.matchAll(
+    /var\((--[a-z-]+)\) clamp\(0%, \((\d+) - var\(--context-remaining, 100\)\) \/ (\d+) \* 100%, 100%\)/g,
+  )].map(([, token, from, span]) => ({ token, from: Number(from), span: Number(span) }));
+  assert.deepEqual(stops.map((stop) => stop.token), [
+    "--ds-error",
+    "--ds-warning",
+    "--ds-context-caution",
+  ]);
+  assert.match(ramp, /\/ 25 \* 100%, 100%\),\s*var\(--context-capacity-rest\)\s*\)/);
+  assert.equal(ramp.match(/color-mix\(\s*in hsl,/g)?.length, 3);
+
+  const share = (stop, remaining) =>
+    Math.min(100, Math.max(0, ((stop.from - remaining) / stop.span) * 100));
+  const [error, warning, caution] = stops;
+  // Untouched down to 60 %, amber at 35 %, warning at 20 %, error from 8 %.
+  for (const remaining of [100, 75, 60]) {
+    assert.deepEqual(stops.map((stop) => share(stop, remaining)), [0, 0, 0], `${remaining}%`);
+  }
+  assert.deepEqual([share(error, 35), share(warning, 35), share(caution, 35)], [0, 0, 100]);
+  assert.deepEqual([share(error, 20), share(warning, 20), share(caution, 20)], [0, 100, 100]);
+  assert.equal(share(error, 8), 100);
+  assert.equal(share(error, 0), 100);
+  // Each mix is done before the next begins, so the nesting is one ramp.
+  assert.equal(caution.from - caution.span, warning.from);
+  assert.equal(warning.from - warning.span, error.from);
+  // Between two stops it is a blend, not a jump.
+  assert.ok(share(caution, 48) > 0 && share(caution, 48) < 100);
+  assert.ok(share(error, 14) > 0 && share(error, 14) < 100);
+
+  // The ring rests on the accent and the panel's bar on success, as before.
+  assert.match(stylesSource, /\.context-inspector\s*\{\s*--context-capacity-rest:\s*var\(--ds-accent\);[^}]*color:\s*var\(--context-capacity-color\);/);
+  assert.match(stylesSource, /\.context-inspector-popover\s*\{\s*--context-capacity-rest:\s*var\(--ds-success\);/);
+  assert.match(stylesSource, /\.context-inspector-capacity\s*\{[^}]*color:\s*var\(--context-capacity-color\);/);
+
+  // Both carry what is left, whichever figure the trigger leads with.
+  assert.match(inspectorSource, /const capacityStyle = \{ "--context-remaining": context\.remainingPercent \} as CSSProperties;/);
+  assert.match(inspectorSource, /className="context-inspector"[\s\S]{0,120}style=\{capacityStyle\}/);
+  assert.match(inspectorSource, /\.\.\.capacityStyle,\s*top:/);
+  assert.match(inspectorSource, /:\s*capacityStyle\s*\}/);
+
+  const tokens = await readFile(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
+  assert.equal(tokens.match(/--ds-context-caution:\s*#[0-9a-f]{6};/g)?.length, 2);
+});

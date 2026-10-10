@@ -1256,19 +1256,33 @@
   text-overflow: ellipsis;
 }
 
+/* The capacity colour runs with what is left of the window instead of
+   stepping (D661): its resting colour down to 60 %, through amber at 35 % and
+   the warning orange at 20 %, to the error red at 8 % and below. Each mix
+   saturates before the next one starts, so the three nest into one ramp. */
+.context-inspector,
+.context-inspector-popover {
+  --context-capacity-color: color-mix(
+    in hsl,
+    var(--ds-error) clamp(0%, (20 - var(--context-remaining, 100)) / 12 * 100%, 100%),
+    color-mix(
+      in hsl,
+      var(--ds-warning) clamp(0%, (35 - var(--context-remaining, 100)) / 15 * 100%, 100%),
+      color-mix(
+        in hsl,
+        var(--ds-context-caution) clamp(0%, (60 - var(--context-remaining, 100)) / 25 * 100%, 100%),
+        var(--context-capacity-rest)
+      )
+    )
+  );
+}
+
 .context-inspector {
+  --context-capacity-rest: var(--ds-accent);
   position: relative;
   display: inline-flex;
   align-items: center;
-  color: var(--ds-accent);
-}
-
-.context-inspector[data-level="warning"] {
-  color: var(--ds-warning);
-}
-
-.context-inspector[data-level="critical"] {
-  color: var(--ds-error);
+  color: var(--context-capacity-color);
 }
 
 .context-inspector-trigger {
@@ -1335,6 +1349,7 @@
 }
 
 .context-inspector-popover {
+  --context-capacity-rest: var(--ds-success);
   position: fixed;
   z-index: 60;
   display: flex;
@@ -1402,7 +1417,7 @@
   margin-top: 12px;
   border-radius: var(--radius-full);
   background: var(--ds-tile-deep);
-  color: var(--ds-success);
+  color: var(--context-capacity-color);
 }
 
 /* Where the runtime compacts on its own: a pin across the bar, a little
@@ -1416,14 +1431,6 @@
   margin-inline-start: -1px;
   border-radius: var(--radius-full);
   background: var(--ds-error);
-}
-
-.context-inspector-popover[data-level="warning"] .context-inspector-capacity {
-  color: var(--ds-warning);
-}
-
-.context-inspector-popover[data-level="critical"] .context-inspector-capacity {
-  color: var(--ds-error);
 }
 
 .context-inspector-capacity-used {
