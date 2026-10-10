@@ -11,12 +11,19 @@ import { apiBindingForProviderModel, type RuntimeProviderConfig } from "./provid
  * model that takes video gets the clip itself inside the tool result, so it
  * watches instead of extracting frames with shell tools.
  *
- * pi-ai's tool result carries text and image blocks only. Its Gemini adapter
- * forwards a block as `inlineData` with the block's own mime type, nested in
- * the function response, which is the exact shape Gemini reads a clip from; so
- * the clip travels as a block of that kind with a `video/*` type. That is true
- * of the Gemini adapter alone, hence the API check: every other adapter would
- * present the same bytes as a picture.
+ * pi-ai's tool result carries text and image blocks only, so the clip travels
+ * as a block of that kind with a `video/*` type, and each adapter that can
+ * deliver it is accounted for here:
+ *
+ * - Gemini forwards the block as `inlineData` with the block's own mime type,
+ *   nested in the function response — the exact shape Gemini reads a clip from.
+ * - Chat Completions moves a tool result's media into a user message that
+ *   follows it, as `image_url` parts. `withToolResultVideoPayload` rewrites the
+ *   video ones into the `file` part a user-attached clip already uses, which
+ *   an OpenAI-compatible relay forwards to a multimodal upstream.
+ *
+ * Any other adapter would present the same bytes as a picture, so it is left
+ * out, and the model is told in words that nothing was attached.
  */
 export type HostVideoReference = {
   /** Absolute path host-core resolved and admitted. */
@@ -62,7 +69,74 @@ export function toolResultVideoSupported(
   provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
 ): boolean {
   if (!provider || !videoFromModelConfig(provider.modelConfig)) return false;
-  return apiBindingForProviderModel(provider as RuntimeProviderConfig).api === "google-generative-ai";
+  return TOOL_RESULT_VIDEO_APIS.has(
+    apiBindingForProviderModel(provider as RuntimeProviderConfig).api,
+  );
+}
+
+/** The wire APIs a watched clip can ride a tool result on; see the module note. */
+const TOOL_RESULT_VIDEO_APIS: ReadonlySet<string> = new Set([
+  "google-generative-ai",
+  "openai-completions",
+]);
+
+const CHAT_COMPLETIONS_IMAGE_LEAD = "Attached image(s) from tool result:";
+const CHAT_COMPLETIONS_VIDEO_LEAD = "Attached video from tool result:";
+
+/**
+ * Turn the video parts of a Chat Completions request into `file` parts.
+ *
+ * Returns the rewritten payload, or undefined when there was nothing to
+ * rewrite. Only the messages and parts that change are copied; the clip's
+ * base64 is shared, never duplicated.
+ */
+export function chatCompletionsVideoParts(payload: unknown): unknown {
+  if (!isRecord(payload) || !Array.isArray(payload.messages)) return undefined;
+  let changed = false;
+  const messages = payload.messages.map((message) => {
+    if (!isRecord(message) || message.role !== "user" || !Array.isArray(message.content)) {
+      return message;
+    }
+    const isVideoPart = (part: unknown): part is { image_url: { url: string } } =>
+      isRecord(part) &&
+      part.type === "image_url" &&
+      isRecord(part.image_url) &&
+      typeof part.image_url.url === "string" &&
+      part.image_url.url.startsWith("data:video/");
+    if (!message.content.some(isVideoPart)) return message;
+    changed = true;
+    const onlyVideo = message.content.every(
+      (part) => isVideoPart(part) || (isRecord(part) && part.type === "text"),
+    );
+    return {
+      ...message,
+      content: message.content.map((part) =>
+        isVideoPart(part)
+          ? { type: "file", file: { file_data: part.image_url.url } }
+          : onlyVideo && isRecord(part) && part.text === CHAT_COMPLETIONS_IMAGE_LEAD
+            ? { ...part, text: CHAT_COMPLETIONS_VIDEO_LEAD }
+            : part,
+      ),
+    };
+  });
+  return changed ? { ...payload, messages } : undefined;
+}
+
+/**
+ * Request options whose payload hook also delivers tool-result clips on Chat
+ * Completions. Other APIs get their options back untouched.
+ */
+export function withToolResultVideoPayload<
+  T extends { onPayload?: (payload: unknown, model: never) => unknown },
+>(options: T, api: string): T {
+  if (api !== "openai-completions") return options;
+  return {
+    ...options,
+    onPayload: async (payload: unknown, model: never) => {
+      const base = await options.onPayload?.(payload, model);
+      return chatCompletionsVideoParts(base ?? payload) ?? base;
+    },
+  };
 }
 
 /** Whether a content block is a clip placed by `loadToolResultVideo`. */

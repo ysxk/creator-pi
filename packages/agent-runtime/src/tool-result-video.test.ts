@@ -6,7 +6,9 @@ import { MAX_INLINE_VIDEO_BYTES } from "@pi-desktop/shared";
 import { readFile } from "node:fs/promises";
 import {
   READ_VIDEO_HINT,
+  chatCompletionsVideoParts,
   hostVideoReference,
+  withToolResultVideoPayload,
   isToolResultVideoBlock,
   loadToolResultVideo,
   toolResultVideoSupported,
@@ -16,6 +18,7 @@ import {
 const videoModel = { modalities: { input: ["text", "image", "video"], output: ["text"] }, input: ["text", "image"] };
 const gemini = { apiStyle: "google_generative_ai", modelConfig: videoModel } as never;
 const relay = { apiStyle: "chat_completions", modelConfig: videoModel } as never;
+const responses = { apiStyle: "responses", modelConfig: videoModel } as never;
 const textOnly = {
   apiStyle: "google_generative_ai",
   modelConfig: { modalities: { input: ["text"], output: ["text"] }, input: ["text"] },
@@ -42,9 +45,10 @@ describe("video in a tool result", () => {
     expect(hostVideoReference({ images: [] })).toBeNull();
   });
 
-  it("is carried only to a video model over the Gemini API", () => {
+  it("is carried to a video model over the APIs that can deliver a clip", () => {
     expect(toolResultVideoSupported(gemini)).toBe(true);
-    expect(toolResultVideoSupported(relay)).toBe(false);
+    expect(toolResultVideoSupported(relay)).toBe(true);
+    expect(toolResultVideoSupported(responses)).toBe(false);
     expect(toolResultVideoSupported(textOnly)).toBe(false);
     expect(toolResultVideoSupported(undefined)).toBe(false);
   });
@@ -64,7 +68,7 @@ describe("video in a tool result", () => {
     expect(noVideo.block).toBeUndefined();
     expect(noVideo.text).toContain("does not take video input");
 
-    const otherApi = await loadToolResultVideo(reference, "Video file clip.mp4.", relay);
+    const otherApi = await loadToolResultVideo(reference, "Video file clip.mp4.", responses);
     expect(otherApi.block).toBeUndefined();
     expect(otherApi.text).toContain("attach the file to their message");
 
@@ -116,5 +120,44 @@ describe("video in a tool result", () => {
     // A delegate never receives one, so the sentence is taken back out.
     expect(runtime).toContain("description: tool.description.replace(READ_VIDEO_HINT, \"\"),");
     expect(READ_VIDEO_HINT).toContain("attaches the video itself");
+  });
+
+  it("delivers the clip on Chat Completions as a file part, not a picture", async () => {
+    const clipUrl = "data:video/mp4;base64,AAAA";
+    const payload = {
+      model: "m",
+      messages: [
+        { role: "tool", tool_call_id: "c1", content: "Video file clip.mp4." },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Attached image(s) from tool result:" },
+            { type: "image_url", image_url: { url: clipUrl } },
+          ],
+        },
+        {
+          role: "user",
+          content: [{ type: "image_url", image_url: { url: "data:image/png;base64,BBBB" } }],
+        },
+      ],
+    };
+    const rewritten = chatCompletionsVideoParts(payload) as typeof payload;
+    expect(rewritten.messages[1].content).toEqual([
+      { type: "text", text: "Attached video from tool result:" },
+      { type: "file", file: { file_data: clipUrl } },
+    ]);
+    // A picture stays a picture, and the message that held it is not copied.
+    expect(rewritten.messages[2]).toBe(payload.messages[2]);
+    // Nothing to rewrite means no new payload at all.
+    expect(chatCompletionsVideoParts({ messages: [payload.messages[2]] })).toBeUndefined();
+
+    // The hook runs after the caller's own and only on this wire API.
+    const options = { onPayload: async (value: unknown, _model: never): Promise<unknown> => value };
+    expect(withToolResultVideoPayload(options, "google-generative-ai")).toBe(options);
+    const hooked = withToolResultVideoPayload(options, "openai-completions");
+    const sent = (await hooked.onPayload(payload, undefined as never)) as {
+      messages: Array<{ content: unknown[] }>;
+    };
+    expect(sent.messages[1].content[1]).toEqual({ type: "file", file: { file_data: clipUrl } });
   });
 });

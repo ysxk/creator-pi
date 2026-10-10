@@ -14,7 +14,7 @@ import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
-import { hostVideoReference, loadToolResultVideo, READ_VIDEO_HINT, toolResultVideoSupported } from "./tool-result-video.js";
+import { hostVideoReference, loadToolResultVideo, READ_VIDEO_HINT, toolResultVideoSupported, withToolResultVideoPayload } from "./tool-result-video.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
 import { withPiFileOpToolNames } from "./pi-file-ops.js";
@@ -2076,7 +2076,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           ),
           m.api,
         );
-        const hookedOptions = this.withExtensionProviderHooks(requestOptions, m);
+        // Last, so it sees the payload extensions settled on: a clip a tool
+        // result carries is put in the shape this wire API delivers it in.
+        const hookedOptions = withToolResultVideoPayload(
+          this.withExtensionProviderHooks(requestOptions, m),
+          m.api,
+        );
         // The watchdog must be able to *stop* what it abandons. It wraps the
         // retry adapter, so draining alone would let the adapter wake from its
         // backoff and open a second request for this turn while the runtime is
