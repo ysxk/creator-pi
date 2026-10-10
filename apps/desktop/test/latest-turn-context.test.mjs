@@ -216,3 +216,44 @@ test("latest turn inspector keeps last-request usage beside the turn sum", () =>
   assert.equal(inspector?.turnUsage.cacheReadTokens, 51_500);
   assert.equal(inspector?.turnUsage.inputTokens, 57_300);
 });
+
+test("an edited output cap moves the threshold even when no message changed", () => {
+  // The inspector reuses its last result while a session's messages are the
+  // same. A model's limits can change underneath that: the user edits the
+  // output cap in Settings, and the compaction line has to move with it.
+  const messages = [
+    message("u1", "user", "hi"),
+    message("a1", "assistant", "hello", {
+      providerId: "provider",
+      modelId: "catalog-model",
+      usage: { inputTokens: 1000, outputTokens: 50 },
+    }),
+  ];
+  const withCap = (maxTokens) => [
+    {
+      id: "provider",
+      models: [
+        {
+          id: "catalog-model",
+          contextWindow: 256_000,
+          contextWindowSource: "user",
+          maxTokens,
+          maxTokensSource: "user",
+          thinkingLevels: [],
+          defaultThinkingLevel: null,
+        },
+      ],
+    },
+  ];
+  const small = latestTurnContextInspector(messages, providerModels, withCap(8_192));
+  const large = latestTurnContextInspector(messages, providerModels, withCap(64_000));
+  assert.equal(small.contextWindow, 256_000);
+  assert.equal(large.contextWindow, 256_000);
+  // 256K window: headroom is the larger of the 16,384 floor, the output cap
+  // (at most a quarter of the window) and 5% of the window.
+  assert.equal(small.compactionThreshold, Math.floor((256_000 - 16_384) * 0.9));
+  assert.equal(large.compactionThreshold, Math.floor((256_000 - 64_000) * 0.9));
+  assert.notEqual(small, large);
+  // Unchanged limits still reuse the object, so the composer does not re-render.
+  assert.equal(latestTurnContextInspector(messages, providerModels, withCap(64_000)), large);
+});

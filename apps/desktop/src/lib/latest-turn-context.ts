@@ -89,6 +89,9 @@ export function latestTurnContextInspector(
   if (previous && previous.usage === result.usage &&
     sameUsage(previous.turnUsage, result.turnUsage) &&
     previous.contextWindow === result.contextWindow &&
+    // The model's limits can change with no new message: an edited output
+    // cap moves the threshold, and the reused object must not hide that.
+    previous.compactionThreshold === result.compactionThreshold &&
     previous.responseDurationMs === result.responseDurationMs &&
     previous.responseOutputTokens === result.responseOutputTokens &&
     previous.responseOutputEstimated === result.responseOutputEstimated &&
