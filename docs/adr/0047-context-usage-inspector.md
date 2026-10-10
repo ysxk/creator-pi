@@ -3,7 +3,8 @@
 - Status: Accepted
 - Date: 2026-08-02
 - Amended by: D225 (click-toggled panel), D244 (compact summary presentation),
-  D347 (composer toolbar placement), and D355 (last-request occupancy)
+  D347 (composer toolbar placement), D355 (last-request occupancy), and D659
+  (opens on hover, click pins; capacity meter with the compaction threshold)
 - Related: [D103](../spec/08-meta/decisions-log.md) ·
   [D183](../spec/08-meta/decisions-log.md) ·
   [D184](../spec/08-meta/decisions-log.md) ·
@@ -22,7 +23,9 @@ anchor, but providers do not expose exact per-tool allocation.
 
 1. Replace the standalone ring with a compact Codex-style context inspector
    trigger. *(Amended by D225: hover and focus no longer open the panel;
-   clicking or keyboard-activating the trigger toggles it.)* Activating the
+   clicking or keyboard-activating the trigger toggles it. Amended again by
+   D659: resting the pointer on the trigger opens the panel, and a click or
+   keyboard activation pins it; focus alone still does not open it.)* Activating the
    trigger reveals one scrollable, non-modal panel.
 2. Keep provider-reported input/output/cache/reasoning usage authoritative and
    show aggregate output throughput as `outputTokens / responseDurationMs` on

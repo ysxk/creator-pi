@@ -1981,9 +1981,10 @@ message its checkpoint covers.
   `aria-controls` relationship to the reasoning panel
 - Context inspector trigger (composer toolbar) is keyboard focusable, exposes a
   localized remaining percentage and token count, carries `aria-haspopup="dialog"`,
-  `aria-expanded`, and an `aria-controls` relationship to the panel, and opens
-  the same compact summary on click or keyboard activation; Escape or a click
-  outside closes it and returns focus to the trigger
+  `aria-expanded`, and an `aria-controls` relationship to the panel. Resting
+  the pointer on it opens the panel and leaving both closes it; a click or
+  keyboard activation pins the same panel open (D659). It has no tooltip.
+  Escape or a click outside closes it and returns focus to the trigger
 - The inspector panel is portaled to the document body and positioned in
   viewport coordinates, but its horizontal clamp is the conversation pane: the
   work panel's native browser and plugin surfaces composite above every

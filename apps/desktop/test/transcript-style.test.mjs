@@ -529,9 +529,11 @@ test("context inspector keeps generation speed completion-only", () => {
   assert.doesNotMatch(stylesSource, /message-meta-live-rate|live-rate-pulse/);
 });
 
-test("context inspector panel opens on click, not hover (D225)", () => {
-  // The trigger toggles; pointer enter/leave and focus/blur no longer open or
-  // close the panel, so no hover-grace timer is needed.
+test("context inspector panel opens on hover and a click pins it (D659, amending D225)", () => {
+  // Resting on the ring opens the panel through the shared hover menu, whose
+  // dwell and leave grace replace the ad-hoc timers D225 removed; a click
+  // pins it. Focus alone still does not open it.
+  assert.match(inspectorSource, /const hover = useHoverMenu\(\);/);
   assert.match(inspectorSource, /onClick=\{toggleInspector\}/);
   assert.match(inspectorSource, /aria-haspopup="dialog"/);
   assert.match(inspectorSource, /role="dialog"/);
