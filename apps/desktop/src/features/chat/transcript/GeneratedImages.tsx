@@ -7,7 +7,7 @@ import { useAppStore } from "../../../stores/app-store";
 import { Button, TooltipButton } from "../../../components/ui";
 import { IconDownload } from "../../../components/icons";
 import { GeneratedImageViewer } from "./GeneratedImageViewer";
-import { GeneratedImageThumbnail, type GeneratedImageRef } from "./GeneratedImageThumbnail";
+import type { GeneratedImageRef } from "./GeneratedImageThumbnail";
 import { generatedImageDownloadName } from "./generated-image-download";
 
 function ImageResult({
@@ -52,7 +52,6 @@ function ImageResult({
 export function GeneratedImages({ message }: { message: UiMessage }) {
   const { t } = useTranslation();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const focusReturnRef = useRef<HTMLElement | null>(null);
   if (message.toolName !== "GenerateImages") return null;
   const payload = toolResultPayload(message);
@@ -67,8 +66,6 @@ export function GeneratedImages({ message }: { message: UiMessage }) {
       ? [{ path: item.path, index, mimeType: typeof item.mimeType === "string" ? item.mimeType : undefined }]
       : [];
   });
-  const selectedPosition = Math.min(selectedImageIndex, Math.max(0, images.length - 1));
-  const selectedImage = images[selectedPosition];
   const needsSetup =
     record?.kind === "image-generation-error" &&
     [
@@ -95,30 +92,22 @@ export function GeneratedImages({ message }: { message: UiMessage }) {
           </Button>
         </div>
       ) : null}
-      {selectedImage ? (
-        <div className={`generated-image-set${images.length > 1 ? " is-multiple" : ""}`}>
-          <ImageResult
-            path={selectedImage.path}
-            index={selectedImage.index}
-            mimeType={selectedImage.mimeType}
-            onOpen={(trigger) => {
-              focusReturnRef.current = trigger;
-              setViewerIndex(selectedPosition);
-            }}
-          />
-          {images.length > 1 ? (
-            <nav className="generated-image-thumbnails" aria-label={t("chat.imagePreview.title")}>
-              {images.map((image, position) => (
-                <GeneratedImageThumbnail
-                  key={`${image.index}:${image.path}`}
-                  image={image}
-                  selected={position === selectedPosition}
-                  onSelect={() => setSelectedImageIndex(position)}
-                  className="generated-image-thumb"
-                />
-              ))}
-            </nav>
-          ) : null}
+      {/* Every picture of the set is on the page at reading size, one under
+          another; the viewer is where one of them is enlarged and compared. */}
+      {images.length > 0 ? (
+        <div className="generated-image-set">
+          {images.map((image, position) => (
+            <ImageResult
+              key={`${image.index}:${image.path}`}
+              path={image.path}
+              index={image.index}
+              mimeType={image.mimeType}
+              onOpen={(trigger) => {
+                focusReturnRef.current = trigger;
+                setViewerIndex(position);
+              }}
+            />
+          ))}
         </div>
       ) : null}
       {results.map((raw, index) => {
@@ -135,10 +124,7 @@ export function GeneratedImages({ message }: { message: UiMessage }) {
         <GeneratedImageViewer
           images={images}
           selectedIndex={viewerIndex}
-          onSelect={(index) => {
-            setViewerIndex(index);
-            setSelectedImageIndex(index);
-          }}
+          onSelect={setViewerIndex}
           onClose={() => setViewerIndex(null)}
           focusReturnRef={focusReturnRef}
         />

@@ -15,6 +15,7 @@ export const deEntries: ChangelogEntry[] = [
       "Plugins können Netzwerkweiterleitungen prüfen oder ablehnen; bestehende Fetch-Aufrufe folgen Weiterleitungen weiterhin standardmäßig.",
       "Subagenten können im Ordner .agents/subagents eines Projekts liegen: Sie gelten nur für dieses Projekt und können ihre eigenen Berechtigungen nicht erhöhen.",
       "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
+      "Clips and SVG drawings a reply names now show right under it; pictures in a reply open in the viewer, and a generated batch shows every picture at once.",
     ],
   },
   {

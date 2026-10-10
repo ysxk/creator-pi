@@ -251,10 +251,13 @@ try {
     await key("Enter",13);
   };
   await prompt("请生成两张橙色球体、蓝色背景的图片。");
-  await waitFor(() => evaluate(`document.querySelectorAll('.generated-image-preview img').length===1 && document.querySelector('.generated-image-preview img')?.naturalWidth===480 && [...document.querySelectorAll('.generated-image-thumbnails img')].length===2 && document.body.innerText.includes('已生成两张图片')`),60000,"batch images decoded in chat");
-  assert.ok(await evaluate(`document.querySelector('.generated-image-preview img')?.checkVisibility() && !document.querySelector('.generated-image-set')?.closest('[inert]')`), "selected image remains visible outside collapsed tool details");
-  assert.equal(await evaluate(`document.querySelectorAll('.generated-image-thumbnails button').length`),2);
-  assert.equal(await evaluate(`document.querySelectorAll('.generated-image-thumbnails button[aria-current="true"]').length`),1);
+  await waitFor(() => evaluate(`document.querySelectorAll('.generated-image-preview img').length===2 && [...document.querySelectorAll('.generated-image-preview img')].every(e=>e.naturalWidth===480) && document.body.innerText.includes('已生成两张图片')`),60000,"batch images decoded in chat");
+  assert.ok(await evaluate(`[...document.querySelectorAll('.generated-image-preview img')].every(e=>e.checkVisibility()) && !document.querySelector('.generated-image-set')?.closest('[inert]')`), "every image of the batch remains visible outside collapsed tool details");
+  // The batch is every picture at reading size, one under another (D663):
+  // no strip, and the second card starts below the first.
+  assert.equal(await evaluate(`document.querySelectorAll('.generated-image-set .generated-image-card').length`),2);
+  assert.equal(await evaluate(`document.querySelectorAll('.generated-image-thumbnails').length`),0);
+  assert.ok(await evaluate(`(() => {const [a,b]=[...document.querySelectorAll('.generated-image-set .generated-image-card')].map(e=>e.getBoundingClientRect());return b.top >= a.bottom && Math.abs(a.left-b.left) < 1})()`),"batch images are stacked");
   const downloadDir = join(root, "downloads");
   mkdirSync(downloadDir);
   await send("Page.setDownloadBehavior", { behavior: "allow", downloadPath: downloadDir });
@@ -269,18 +272,14 @@ try {
   await waitFor(() => evaluate(`innerWidth === 700`),5000,"narrow chat viewport");
   await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
   await screenshot("chat-batch-narrow.png");
-  assert.ok(await evaluate(`document.querySelector('.generated-image-thumbnails')?.getBoundingClientRect().right <= innerWidth`),"batch thumbnails stay inside narrow window");
+  assert.ok(await evaluate(`[...document.querySelectorAll('.generated-image-set .generated-image-card')].every(e=>e.getBoundingClientRect().right <= innerWidth)`),"batch images stay inside narrow window");
   await send("Emulation.setDeviceMetricsOverride", { ...desktopViewport, deviceScaleFactor: 1, mobile: false });
-  assert.ok(await watchImageContinuity('.generated-image-set', '.generated-image-preview img'));
-  await click("生成图片 2", ".generated-image-thumbnails button", true);
-  await waitFor(() => evaluate(`(() => {const selected=document.querySelectorAll('.generated-image-thumbnails button')[1];const featured=document.querySelector('.generated-image-preview img');return selected?.getAttribute('aria-current')==='true' && featured?.naturalWidth===480 && featured.src===selected.querySelector('img')?.src})()`),5000,"second image selected in chat");
-  const cardContinuity = await imageStayedVisible();
-  assert.ok(cardContinuity.every(Boolean), `batch image remains painted while switching selection: ${JSON.stringify(cardContinuity)}`);
+  // Each card downloads its own picture; there is no selection to switch.
   assert.ok(await evaluate(`document.querySelector('.generated-image-actions a[download="generated-image-2.png"]')?.href.startsWith('data:image/png;base64,')`));
-  await click("下载", ".generated-image-actions a", true);
+  await evaluate(`document.querySelector('.generated-image-actions a[download="generated-image-2.png"]').click()`);
   const secondDownload = join(downloadDir, "generated-image-2.png");
   const secondOriginal = model.results[0].value.results[1].path;
-  await waitFor(() => existsSync(secondDownload) && statSync(secondDownload).size === statSync(secondOriginal).size,10000,"selected image download");
+  await waitFor(() => existsSync(secondDownload) && statSync(secondDownload).size === statSync(secondOriginal).size,10000,"second image download");
   assert.deepEqual(readFileSync(secondDownload),readFileSync(secondOriginal));
   await screenshot("chat-batch-selected-2.png");
   await click("生成图片 2", ".generated-image-preview", true);
@@ -328,13 +327,13 @@ try {
   await key("Escape",27);
   await waitFor(() => evaluate(`!document.querySelector('.generated-image-viewer')`),5000,"image viewer closes");
   assert.ok(await evaluate(`document.activeElement?.classList.contains('generated-image-preview')`),"viewer restores card focus");
-  assert.ok(await evaluate(`document.querySelectorAll('.generated-image-thumbnails button')[1]?.getAttribute('aria-current') === 'true'`),"viewer selection stays selected in chat");
+  assert.equal(await evaluate(`document.querySelectorAll('.generated-image-set .generated-image-card').length`),2,"closing the viewer leaves the whole batch on the page");
   const source = model.results[0].value.results[0].path;
   const sourceBytes = readFileSync(source);
   assert.equal(model.imageRequests.length,2);
   model.setScenario("edit");
   await prompt("把第一张图片背景改成绿色，保留橙色球体和原图。");
-  await waitFor(() => evaluate(`document.querySelectorAll('.generated-image-preview img').length===2 && [...document.querySelectorAll('.generated-image-preview img')].every(e=>e.naturalWidth===480) && document.body.innerText.includes('已将第一张图的背景改为绿色')`),60000,"edited image decoded in chat");
+  await waitFor(() => evaluate(`document.querySelectorAll('.generated-image-preview img').length===3 && [...document.querySelectorAll('.generated-image-preview img')].every(e=>e.naturalWidth===480) && document.body.innerText.includes('已将第一张图的背景改为绿色')`),60000,"edited image decoded in chat");
   await waitFor(() => evaluate(`!document.querySelector('.assistant-turn.streaming')`),10000,"turn completed");
   await evaluate(`document.querySelectorAll('.turn-process > button[aria-expanded="true"]').forEach(e=>e.click())`);
   await evaluate(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);

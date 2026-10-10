@@ -1818,7 +1818,17 @@ Single message render — either user (plaintext) or assistant (markdown streami
   `pi.file-manager` view (the host `file:` tab without it), a `.html`/`.htm`
   page of the primary folder in the side browser, and nothing plus a report when
   the reference matches no file. Local markdown images render
-  inline via the same contained data-URL channel, with a chip fallback.
+  inline via the same contained data-URL channel, with a chip fallback;
+  clicking one opens the image viewer on it, with the other pictures of the
+  same reply to step through and the file tab one action away (D663). A local
+  clip (`mp4`, `mov`, `webm`) or vector drawing (`svg`) the reply only names
+  gets a preview under the block that names it — an inline player, or the
+  drawing as an image that opens in the same viewer — with the file's name
+  under it. A list keeps a preview inside its item; a table's previews follow
+  the table. A bare name is also looked for in the folders the reply names,
+  a name that matches no file draws nothing, and one file is previewed once
+  per reply. Fenced code, remote URLs and `path:line` references are not
+  mentions, and a raster image is shown only where the reply embeds it.
   Unprefixed relative paths
   resolve from the workspace root; `./` and `../` resolve from the workspace
   root in chat, and from the viewed file's directory when previewing a

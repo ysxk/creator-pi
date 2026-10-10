@@ -13155,7 +13155,8 @@ are withdrawn with ADR 0165.
   - Contained image refs display inline within the 5MB cap.
   - Outside-root paths and mime spoofing of non-image extensions stay closed.
   - Clicking a resolved image chip opens the host `file:` tab, not the OS
-    handler.
+    handler. Clicking the inline workspace image of step 3 opens the image
+    viewer on it (D663), from which the file tab can be opened.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `04-ux/08-component-spec.md` §8.3, ADR 0172, `08-meta/decisions-log.md` (D334)
 - **Acceptance**: C (conversation & stream), D (workspace), Security, Quality
@@ -16670,11 +16671,42 @@ the latest destination. These assertions measure work counts, not device FPS.
 | E2E-IMAGE-generation-and-editing | Image capability and recovery | 03-runtime/21-image-generation | Host and UI suites above |
 | E2E-IMAGES-result-download | Download and locate a generated result | 03-runtime/21-image-generation | `scripts/e2e-image-chat.mjs` |
 
+### E2E-CHAT-named-media-previews-under-its-mention
+
+- **Preconditions**: An Agent session on a project that contains
+  `out/final.mp4`, `design/panel.svg`, and an ignored folder
+  `tmp/reference_videos/` holding `01_a.mp4` and `02_b.mp4`.
+- **Steps**:
+  1. Receive a reply that says the cut is saved to `` `out/final.mp4` `` and the
+     mock-up to `` `design/panel.svg` ``, then names `` `out/missing.mp4` ``.
+  2. Receive a reply that says the clips are under
+     `` `tmp/reference_videos/` `` and lists `` `01_a.mp4` `` and
+     `` `02_b.mp4` `` in a table, and repeats `` `01_a.mp4` `` in a closing
+     sentence.
+  3. Play a clip and seek in it. Click the drawing.
+  4. Receive a reply whose only mention of `out/final.mp4` is inside a fenced
+     shell command.
+- **Expected**:
+  - Step 1: a player sits under the sentence naming the clip and the drawing
+    renders under the sentence naming it, each with its file name; nothing is
+    drawn for the missing file.
+  - Step 2: two players follow the table, in table order; the repeated name
+    adds no third player.
+  - Step 3: the clip plays and seeks in place; the drawing opens in the image
+    viewer, fitted to the window, with its file name as the title and a
+    download under that name.
+  - Step 4: no player.
+- **Specs linked**: `04-ux/08-component-spec.md` §8.3, D663, D656
+- **Acceptance**: C (conversation)
+- **Status**: Draft — the mention pass, folder completion and renderer wiring
+  are unit covered in `apps/desktop/test/chat-media-refs.test.mjs`; the live
+  journey needs the app window.
+
 ### E2E-IMAGES-result-download
 
 - **Preconditions:** Agent conversation with two successful generated PNGs and a local image fixture.
-- **Steps:** Verify one selected card and two adjacent thumbnails, download the first result, select and download the second, inspect the narrow chat layout, open the selected image in the full-window viewer, navigate both directions, zoom in, close with Escape, and inspect Show in folder.
-- **Expected:** The selected card and download target follow thumbnail selection. The selected thumbnail has a light gray ring, and switching loaded images keeps the card and viewer image present with stable fit dimensions throughout. Rapid reverse navigation cancels a pending decode. Both downloaded PNGs match their saved bytes and have safe filenames. Chat and viewer thumbnails remain reachable at narrow widths; viewer selection, zoom and focus restoration work, and the selected image remains selected in chat. The originals remain available. The folder action uses the contained file reveal path.
+- **Steps:** Verify both results are on the page as stacked cards with no thumbnail strip (D663), download the first result from its card and the second from its own, inspect the narrow chat layout, open the second image in the full-window viewer, navigate both directions, zoom in, close with Escape, and inspect Show in folder.
+- **Expected:** The second card starts below the first and each card downloads its own picture. In the viewer the selected thumbnail has a light gray ring, and switching loaded images keeps the viewer image present with stable fit dimensions throughout. Rapid reverse navigation cancels a pending decode. Both downloaded PNGs match their saved bytes and have safe filenames. The cards stay inside a narrow window and the viewer thumbnails remain reachable there; viewer selection, zoom and focus restoration work, and closing the viewer leaves the whole batch on the page. The originals remain available. The folder action uses the contained file reveal path.
 - **Specs:** 03-runtime/21-image-generation.
 - **Acceptance:** Result actions and image browsing work without changing image storage or preview access.
 - **Milestone:** Post-MVP.

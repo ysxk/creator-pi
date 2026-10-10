@@ -30,6 +30,16 @@ import {
 } from "../lib/markdown-blocks";
 import { mediaViewUrl } from "@pi-desktop/shared";
 import {
+  CHAT_GALLERY_ATTRIBUTE,
+  MarkdownChatMediaContext,
+  MentionedMedia,
+} from "./MarkdownChatMedia";
+import {
+  CHAT_MEDIA_TAG,
+  remarkChatMediaPreviews,
+  type ChatMediaKind,
+} from "../lib/chat-media-refs";
+import {
   MAX_STREAMING_MARKDOWN_TAIL_CODE_UNITS,
   MAX_SYNC_MARKDOWN_CODE_UNITS,
 } from "../lib/render-content-limits";
@@ -713,6 +723,7 @@ function MarkdownImage({
   const baseDir = useContext(MarkdownBaseDirContext);
   const openFileRef = useOpenChatFileRef();
   const openFileMenu = useContext(MarkdownFileMenuContext);
+  const chatMedia = useContext(MarkdownChatMediaContext);
   const fileTitle = usePreviewTitle("file");
   const urlTitle = usePreviewTitle("url");
   const source = typeof src === "string" ? src : "";
@@ -727,6 +738,9 @@ function MarkdownImage({
   // Always run the hook before any branch so hook order stays stable when a
   // streaming src flips between remote and local. Remote images pass null.
   const dataUrl = useReferencedImageDataUrl(isRemote ? null : localRef);
+  // In a conversation a picture is something to look at, so a click enlarges
+  // it and the viewer offers the file; elsewhere it opens as the file it is.
+  const gallery = chatMedia && localRef ? { [CHAT_GALLERY_ATTRIBUTE]: localRef } : null;
 
   /*
     A file the renderer can already show is still a file whose folder the user
@@ -757,7 +771,14 @@ function MarkdownImage({
         alt={alt ?? ""}
         className="chat-image-local"
         title={rel ? fileTitle : source}
-        onClick={localRef ? () => openFileRef(localRef, baseDir) : undefined}
+        {...gallery}
+        onClick={
+          localRef
+            ? chatMedia
+              ? (event) => chatMedia.openImage(event.currentTarget, localRef)
+              : () => openFileRef(localRef, baseDir)
+            : undefined
+        }
         onContextMenu={onLocalContextMenu}
       />
     );
@@ -889,6 +910,26 @@ function isAttachmentBlobRefText(value: string): boolean {
   return /^attachments\/[0-9a-f]{64}$/i.test(value.replace(/\\/g, "/"));
 }
 
+/** The preview `remarkChatMediaPreviews` placed under a block (chat only). */
+function ChatMediaNode({ path, kind }: { path?: unknown; kind?: unknown }) {
+  const baseDir = useContext(MarkdownBaseDirContext);
+  const openFileMenu = useContext(MarkdownFileMenuContext);
+  if (typeof path !== "string" || (kind !== "video" && kind !== "image")) return null;
+  return (
+    <MentionedMedia
+      path={path}
+      kind={kind as ChatMediaKind}
+      baseDir={baseDir}
+      onContextMenu={
+        openFileMenu ? (event, file) => openFileMenu(event, { path: file, baseDir }) : undefined
+      }
+    />
+  );
+}
+
+// Not an HTML element, so the element-keyed map cannot name it directly.
+const chatMediaComponents = { [CHAT_MEDIA_TAG]: ChatMediaNode } as Components;
+
 const markdownComponents: Components = {
   pre: PreBlock,
   code: InlineCode,
@@ -897,6 +938,7 @@ const markdownComponents: Components = {
   audio: AudioBlock,
   video: VideoBlock,
   table: Table,
+  ...chatMediaComponents,
 };
 
 // The grammar the block splitter parses with, plus the renderer-only rewrite
@@ -921,12 +963,14 @@ const sanitizeSchema = {
     audio: ["src", "controls", "preload", "className"],
     video: ["src", "controls", "preload", "className", "poster"],
     source: ["src", "type"],
+    [CHAT_MEDIA_TAG]: ["path", "kind"],
   },
   tagNames: [
     ...(defaultSchema.tagNames || []),
     "audio",
     "video",
     "source",
+    CHAT_MEDIA_TAG,
   ],
 };
 
@@ -957,6 +1001,7 @@ const Block = memo(function MarkdownBlock({
   renderDiagrams,
   workspaceRoot,
   baseDir,
+  mediaPreviews,
 }: {
   raw: string;
   originalRaw: string;
@@ -964,6 +1009,8 @@ const Block = memo(function MarkdownBlock({
   renderDiagrams: boolean;
   workspaceRoot?: string | null;
   baseDir?: string;
+  /** Show the clips and drawings this block names, under it. */
+  mediaPreviews: boolean;
 }) {
   const context = useMemo(
     () => ({
@@ -981,8 +1028,10 @@ const Block = memo(function MarkdownBlock({
       // remark-math parses the pre-normalized `$$ … $$` form.
       remarkLatexBracketDisplay(originalRaw),
       remarkChatFileLinks(workspaceRoot, baseDir),
+      // After the link pass: it reads the file links that pass made.
+      ...(mediaPreviews ? [remarkChatMediaPreviews] : []),
     ],
-    [originalRaw, workspaceRoot, baseDir],
+    [originalRaw, workspaceRoot, baseDir, mediaPreviews],
   );
   const positionedRehypePlugins = useMemo(
     () => [...rehypePlugins!, [rehypeSourcePositions, { offset: sourceOffset }]] as Options["rehypePlugins"],
@@ -1029,6 +1078,8 @@ export const Markdown = memo(function Markdown({
   baseDir?: string;
 }) {
   const workspaceRoot = useAppStore((s) => s.workspace?.path);
+  // Lent by the transcript; absent for any other Markdown tree.
+  const mediaPreviews = useContext(MarkdownChatMediaContext) !== null;
 
   /*
     One menu for every file reference in this tree. Its blocks are memoized and
@@ -1113,6 +1164,7 @@ export const Markdown = memo(function Markdown({
               renderDiagrams={renderDiagrams}
               workspaceRoot={workspaceRoot}
               baseDir={baseDir}
+              mediaPreviews={mediaPreviews}
             />
           );
         })}

@@ -15,6 +15,7 @@ export const frEntries: ChangelogEntry[] = [
       "Les plugins peuvent inspecter ou refuser les redirections réseau ; les appels fetch existants continuent de les suivre par défaut.",
       "Conservez des sous-agents dans le dossier .agents/subagents d’un projet : ils ne s’appliquent qu’à ce projet et ne peuvent pas élever leurs propres permissions.",
       "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
+      "Clips and SVG drawings a reply names now show right under it; pictures in a reply open in the viewer, and a generated batch shows every picture at once.",
     ],
   },
   {

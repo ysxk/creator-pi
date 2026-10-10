@@ -121,6 +121,7 @@ const { MessageRow } = load(new URL("../src/features/chat/transcript/MessageRow.
   "../../../plugins/renderer-slots/slot-message": { slotMessage: () => undefined },
   "./menu-items": { userMessageMenuItems: () => [] },
   "./ActionBarSlots": { ActionSlotSide: () => null },
+  "./ChatMarkdown": { ChatMarkdown: ({ source }) => source },
   "./SessionMessageOrigin": { SessionMessageOrigin: () => null },
   "./extra-attachments": { getExtraMessageAttachments },
   "./TranscriptMenu": {

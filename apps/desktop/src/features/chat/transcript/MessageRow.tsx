@@ -12,7 +12,7 @@ import type { UiMessage } from "@pi-desktop/shared";
 import { splitInlineContent } from "@pi-desktop/shared";
 import { useOpenChatFileRef } from "../../../hooks/use-preview-target";
 import { useAppStore } from "../../../stores/app-store";
-import { Markdown } from "../../../components/Markdown";
+import { ChatMarkdown } from "./ChatMarkdown";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -350,7 +350,7 @@ export const MessageRow = memo(function MessageRow({
               </>
             ) : (
               <div className="prose-chat">
-                <Markdown source={displayed} />
+                <ChatMarkdown source={displayed} />
               </div>
             )}
           </div>

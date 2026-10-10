@@ -78,20 +78,21 @@ attachment store after realpath containment. Each edit input set is capped at
 
 ## Results and recovery
 
-Successful results appear in one rounded image card. A batch with multiple
-successful images has a thumbnail strip beside the selected image; selecting a
-thumbnail updates the card and its download target without hiding failed-result
-messages. The strip remains reachable in narrow windows. Opening the card shows a
-full-window viewer with batch thumbnails, keyboard previous/next navigation,
-zoom and fit controls, and a way back to the existing file panel. Switching
-images never displays the previous image under the newly selected thumbnail.
-Switching between loaded images keeps the card and viewer image visible without a
-blank placeholder frame. The viewer keeps fitted dimensions stable while the
-next image decodes, and the latest navigation wins during rapid input. The selected
-thumbnail uses a light gray ring. Viewer selection remains selected in chat after closing.
+Each successful result appears in its own rounded image card. A batch shows
+every successful picture at reading size, one under another (D663), without
+hiding failed-result messages; there is no selection and no thumbnail strip in
+the conversation, and the cards stay inside a narrow window. Opening a card
+shows a full-window viewer on that picture with batch thumbnails, keyboard
+previous/next navigation, zoom and fit controls, and a way back to the existing
+file panel. Switching images never displays the previous image under the newly
+selected thumbnail. Switching between loaded images keeps the viewer image
+visible without a blank placeholder frame. The viewer keeps fitted dimensions
+stable while the next image decodes, and the latest navigation wins during
+rapid input. The selected thumbnail uses a light gray ring. Closing the viewer
+leaves the whole batch on the page.
 A bounded
-preview can be downloaded from the card or viewer using a safe MIME-derived
-filename. The viewer's Show in folder action uses the contained `fs/reveal`
+preview can be downloaded from its own card or from the viewer using a safe
+MIME-derived filename. The viewer's Show in folder action uses the contained `fs/reveal`
 path. A missing or unreadable preview has no download action; revealing a
 missing file reports an error. These actions do not move or overwrite the
 original scratch file.

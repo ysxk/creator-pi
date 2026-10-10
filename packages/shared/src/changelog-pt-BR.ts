@@ -15,6 +15,7 @@ export const ptBREntries: ChangelogEntry[] = [
       "Plugins podem inspecionar ou recusar redirecionamentos de rede; chamadas fetch existentes continuam seguindo redirecionamentos por padrão.",
       "Mantenha subagentes na pasta .agents/subagents de um projeto: eles valem apenas para esse projeto e não podem elevar as próprias permissões.",
       "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
+      "Clips and SVG drawings a reply names now show right under it; pictures in a reply open in the viewer, and a generated batch shows every picture at once.",
     ],
   },
   {

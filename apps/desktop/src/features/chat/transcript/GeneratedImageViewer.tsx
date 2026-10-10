@@ -33,11 +33,18 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
   const size = selected && src && failedSrc !== src
     ? knownNaturalSizesRef.current.get(selected.path) ?? (natural?.src === src ? natural : null)
     : null;
+  // A raster picture is never blown up past its own pixels; a vector one has
+  // none to run out of, so it fills the space it is given.
+  const vector = src?.startsWith("data:image/svg+xml") === true;
   const fit = size && viewport.width > 0 && viewport.height > 0
-    ? Math.min(1, viewport.width / size.width, viewport.height / size.height)
+    ? Math.min(vector ? Number.POSITIVE_INFINITY : 1, viewport.width / size.width, viewport.height / size.height)
     : 1;
+  const maxZoom = Math.max(4, fit);
   const zoom = manualZoom?.src === src ? manualZoom.value : fit;
-  const downloadName = generatedImageDownloadName(src, selected?.index ?? 0);
+  const downloadName = generatedImageDownloadName(src, selected?.index ?? 0, selected?.name);
+  const label = selected
+    ? selected.name ?? t("settings.generatedImage", { index: selected.index + 1 })
+    : "";
   const openFile = useOpenChatFileRef();
   useBlockingOverlay();
 
@@ -100,7 +107,7 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
     onClose();
   };
   const changeZoom = (value: number) => {
-    if (src) setManualZoom({ src, value: Math.min(4, Math.max(Math.min(0.1, fit), value)) });
+    if (src) setManualZoom({ src, value: Math.min(maxZoom, Math.max(Math.min(0.1, fit), value)) });
   };
   const reveal = async () => {
     if (!selected) return;
@@ -116,7 +123,7 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
     <dialog
       ref={dialogRef}
       className="generated-image-viewer"
-      aria-label={t("settings.generatedImage", { index: selected.index + 1 })}
+      aria-label={label}
       onCancel={(event) => { event.preventDefault(); closeViewer(); }}
       onKeyDown={(event) => {
         event.stopPropagation();
@@ -128,7 +135,7 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
     >
       <header className="generated-image-viewer-header">
         <TooltipButton type="button" autoFocus onClick={closeViewer} tooltip={t("common.close")}><IconClose size={18} /></TooltipButton>
-        <strong>{t("settings.generatedImage", { index: selected.index + 1 })}</strong>
+        <strong>{label}</strong>
         <div className="generated-image-viewer-header-actions">
           <TooltipButton type="button" onClick={() => { closeViewer(); void openFile(selected.path); }} tooltip={t("chat.previewFile")}><IconExternal size={18} /></TooltipButton>
           <TooltipButton type="button" onClick={() => void reveal()} tooltip={t("settings.revealGeneratedImage")}><IconFolder size={18} /></TooltipButton>
@@ -150,7 +157,7 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
         >
           {src && failedSrc !== src ? <img
             src={src}
-            alt={t("settings.generatedImage", { index: selected.index + 1 })}
+            alt={label}
             draggable={false}
             data-sized={size ? "true" : undefined}
             style={size ? { width: size.width * zoom, height: size.height * zoom } : undefined}
@@ -174,7 +181,7 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
         <div className="generated-image-viewer-zoom">
           <TooltipButton type="button" disabled={!size || zoom <= Math.min(0.1, fit)} onClick={() => changeZoom(zoom / 1.25)} tooltip={t("menu.zoomOut")}><IconMinus size={18} /></TooltipButton>
           <output>{Math.round(zoom * 100)}%</output>
-          <TooltipButton type="button" disabled={!size || zoom >= 4} onClick={() => changeZoom(zoom * 1.25)} tooltip={t("menu.zoomIn")}><IconPlus size={18} /></TooltipButton>
+          <TooltipButton type="button" disabled={!size || zoom >= maxZoom} onClick={() => changeZoom(zoom * 1.25)} tooltip={t("menu.zoomIn")}><IconPlus size={18} /></TooltipButton>
           <Button type="button" variant="ghost" disabled={!size} onClick={() => setManualZoom(null)}>{t("chat.imagePreview.fit")}</Button>
         </div>
       </footer>

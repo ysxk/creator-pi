@@ -105,6 +105,44 @@
   border-radius: var(--radius-md);
 }
 
+/* A picture in a reply opens the viewer rather than a file tab. */
+.chat-image-local[data-chat-gallery-path] {
+  cursor: zoom-in;
+}
+
+/* A clip or drawing the reply names, shown under the block that names it,
+   with the file's name so several in a row can be told apart. */
+.chat-media-mention {
+  margin: 0.65em 0;
+  max-width: min(100%, 560px);
+}
+
+.prose-chat .chat-media-mention > img {
+  display: block;
+  margin: 0;
+}
+
+.chat-media-mention > figcaption {
+  overflow: hidden;
+  padding: 6px 2px 0;
+  color: var(--ds-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The player's own tile ends at the clip; its caption sits on the page. */
+.chat-video.chat-media-mention {
+  overflow: visible;
+  background: transparent;
+}
+
+.chat-video.chat-media-mention > video {
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-tile);
+}
+
 /* Audio player in chat messages */
 .chat-audio {
   margin: 0.65em 0;

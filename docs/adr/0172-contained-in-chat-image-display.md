@@ -32,6 +32,8 @@ exfiltrate arbitrary disk contents.
    allowlist. Arbitrary `image/*` values are ignored.
 4. Chat thumbnails and local Markdown images load through that channel.
    Clicking a resolved image opens the host files viewer on the same ref.
+   *(Amended by D663 for an assistant reply: the click opens the image
+   viewer, which offers the files viewer as an action.)*
 
 ## Consequences
 
