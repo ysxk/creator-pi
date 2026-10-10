@@ -948,10 +948,13 @@ type Block =
   image block never enters the transcript, database, or renderer message.
   Non-vision and oversized-image turns retain a safe scratch/project `@path`
   fallback for the model. Video follows the same contract with its own inline
-  bound (20 MB raw, 60 MB aggregate on history replay) and its own capability
+  bound (100 MB raw, and 100 MB aggregate on history replay so a clip the
+  first turn sent is still there on the next; D660) and its own capability
   gate (published `video` input modality or the binding's `supportsVideos`
   override): the block's `kind` is `video`, bytes are content-addressed the
-  same way, and a non-video or oversized turn keeps the `@path` fallback. Replayed content-store images use
+  same way, and a non-video or oversized turn keeps the `@path` fallback. A clip
+  the model watched by reading a file is not stored at all: the tool row keeps
+  the host's reference and a note in place of the bytes (D660). Replayed content-store images use
   `scratch/<sessionId>/replayed/` when a path fallback is required. Images
   above the inline bound are hashed and copied with streaming file operations;
   startup and history hydration must not load the whole image into memory.

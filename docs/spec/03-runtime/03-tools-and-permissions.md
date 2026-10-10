@@ -27,7 +27,7 @@ Let the agent get things done, but stay under control by default.
 
 | Tool | Risk | Description |
 |---|---|---|
-| `Read` | low | Read files within the workspace; returns line-numbered content and a `[path#TAG]` header |
+| `Read` | low | Read files within the workspace; returns line-numbered content and a `[path#TAG]` header. An image is returned as an image block; a video is answered with a reference (path, mime type, size) and no bytes, which the runtime turns into the clip itself for a model that takes video (D660) |
 | `new_context` | low | Start a new context window at the next turn boundary; takes no parameters and changes no environment state |
 | `Glob` | low | List files by pattern |
 | `Grep` | low | Content search; uses system `rg` when installed, else in-process; mints a per-file `tag` |
