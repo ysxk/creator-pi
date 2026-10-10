@@ -484,6 +484,10 @@
 }
 
 .code-block-lang {
+  display: inline-flex;
+  align-items: center;
+  /* The language's logo leads its name. */
+  gap: 6px;
   color: color-mix(in oklab, #abb2bf 72%, transparent);
   font-size: var(--text-xs-plus);
   font-weight: var(--font-weight-medium);

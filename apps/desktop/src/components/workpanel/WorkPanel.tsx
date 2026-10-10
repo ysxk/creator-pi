@@ -39,6 +39,7 @@ import {
   IconPlug,
   IconPlus,
 } from "../icons";
+import { FileTypeBadge } from "../FileTypeBadge";
 import { ReviewTab } from "./ReviewTab";
 import { FilesTab } from "./FilesTab";
 import { PluginViewTab } from "./PluginViewTab";
@@ -857,7 +858,11 @@ export function WorkPanel({
                         }}
                         onKeyDown={(event) => onTabKeyDown(event, tab.id)}
                       >
-                        <Icon size={14} />
+                        {tab.kind === "file" && tab.resource ? (
+                          <FileTypeBadge path={tab.resource} fallback={<Icon size={14} />} />
+                        ) : (
+                          <Icon size={14} />
+                        )}
                         <span className="work-panel-tab-label">{label}</span>
                       </button>
                       <button

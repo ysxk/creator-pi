@@ -11,6 +11,7 @@ import type { FsEntry, FsReadResult } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import { Markdown } from "../Markdown";
+import { FileTypeBadge } from "../FileTypeBadge";
 import { fileDirOf } from "../../lib/chat-links";
 import { Button, cx } from "../ui";
 import { TooltipButton } from "../ui";
@@ -339,7 +340,7 @@ export function FilesTab() {
           onClick={() => void openFile(childRel)}
           title={childRel}
         >
-          <IconFileText size={14} />
+          <FileTypeBadge path={entry.name} fallback={<IconFileText size={14} />} />
           <span className="file-tree-name">{entry.name}</span>
         </button>
       );

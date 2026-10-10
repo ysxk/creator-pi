@@ -17,7 +17,7 @@ import {
   type RefObject,
   type ReactNode,
 } from "react";
-import { FileTypeBadge } from "./FileTypeBadge";
+import { FileTypeBadge, LanguageBadge } from "./FileTypeBadge";
 import { fileTypeOf } from "../lib/file-type";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -241,7 +241,10 @@ function CodeBlock({ code, lang, ...position }: { code: string; lang: string } &
   return (
     <div className="code-block" {...position}>
       <div className="code-block-head">
-        <span className="code-block-lang">{lang || "text"}</span>
+        <span className="code-block-lang">
+          <LanguageBadge lang={lang} />
+          {lang || "text"}
+        </span>
         <TooltipButton
           className={`code-copy-btn ${copied ? "copied" : ""}`}
           tooltip={copied ? t("chat.copied") : t("chat.copy")}

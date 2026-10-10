@@ -8,7 +8,7 @@ import { loadStyles } from "./helpers/styles.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 register(pathToFileURL(join(here, "helpers/ts-import-hooks.mjs")));
-const { fileTypeOf } = await import("../src/lib/file-type.ts");
+const { fileTypeOf, fileTypeOfLanguage } = await import("../src/lib/file-type.ts");
 
 test("a path is typed by its extension, whatever directory it is in", () => {
   assert.deepEqual(fileTypeOf("apps/desktop/src/hooks/use-thing.ts"), { id: "ts", label: "TS" });
@@ -108,4 +108,94 @@ test("every mark sits on a plate of its type's colour, except inside a chip", as
   const details = await readFile(new URL("../src/components/ToolDetails.tsx", import.meta.url), "utf8");
   assert.equal(details.match(/<FileTypeBadge path=\{path\} \/>/g)?.length, 2);
   assert.equal(details.match(/<FileTypeBadge path=\{group\.path\} \/>/g)?.length, 2);
+});
+
+test("the wider set of languages each carries its own logo", async () => {
+  const { FILE_TYPE_LOGOS } = await import("../src/lib/file-type-logos.ts");
+  const expected = {
+    "Program.cs": "csharp",
+    "lib/main.dart": "dart",
+    "init.lua": "lua",
+    "analysis.R": "r",
+    "Main.scala": "scala",
+    "mix.exs": "elixir",
+    "Main.hs": "haskell",
+    "build.zig": "zig",
+    "AppDelegate.m": "objc",
+    "deploy.ps1": "powershell",
+    "schema.graphql": "graphql",
+    "main.tf": "terraform",
+    "CMakeLists.txt": "cmake",
+    "pom.xml": "xml",
+    "go.mod": "go",
+  };
+  for (const [path, id] of Object.entries(expected)) {
+    const type = fileTypeOf(path);
+    assert.equal(type?.id, id, path);
+    assert.ok(FILE_TYPE_LOGOS[type.logo ?? type.id], `logo for ${path}`);
+  }
+  // A tool's own files keep their format's tint and take the tool's logo.
+  assert.deepEqual(fileTypeOf(".gitignore"), { id: "config", label: "GIT", logo: "git" });
+  assert.equal(fileTypeOf("apps/desktop/package.json")?.logo, "npm");
+  assert.equal(fileTypeOf("analysis.ipynb")?.logo, "jupyter");
+  assert.equal(fileTypeOf("cache.sqlite")?.logo, "sqlite");
+});
+
+test("a code fence's language tag resolves to the same type as its files", () => {
+  const same = {
+    ts: "a.ts",
+    tsx: "a.tsx",
+    typescript: "a.ts",
+    JavaScript: "a.js",
+    python: "a.py",
+    rust: "a.rs",
+    "c++": "a.cpp",
+    "c#": "a.cs",
+    shell: "a.sh",
+    bash: "a.sh",
+    dockerfile: "Dockerfile",
+    docker: "Dockerfile",
+    yaml: "a.yml",
+    json: "a.json",
+    sql: "a.sql",
+    "objective-c": "a.m",
+  };
+  for (const [tag, path] of Object.entries(same)) {
+    assert.deepEqual(fileTypeOfLanguage(tag), fileTypeOf(path), tag);
+  }
+  for (const tag of ["", "text", "plaintext", "mermaid", "unknownlang"]) {
+    assert.equal(fileTypeOfLanguage(tag), null, tag);
+  }
+});
+
+test("a name that spells an Object member is not a type", () => {
+  for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+    assert.equal(fileTypeOfLanguage(name), null, name);
+    assert.equal(fileTypeOf(`notes.${name}`), null, name);
+    assert.equal(fileTypeOf(name), null, name);
+  }
+});
+
+test("lists, tabs and code heads show the mark where a generic icon stood", async () => {
+  const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+  const [tree, panel, completions, markdown, badge, styles] = await Promise.all([
+    read("../src/components/workpanel/FilesTab.tsx"),
+    read("../src/components/workpanel/WorkPanel.tsx"),
+    read("../src/components/ComposerAutocomplete.tsx"),
+    read("../src/components/Markdown.tsx"),
+    read("../src/components/FileTypeBadge.tsx"),
+    loadStyles(),
+  ]);
+  // An unmarked type keeps the document icon it had.
+  assert.match(tree, /<FileTypeBadge path=\{entry\.name\} fallback=\{<IconFileText size=\{14\} \/>\} \/>/);
+  assert.match(panel, /tab\.kind === "file" && tab\.resource \? \(\s*<FileTypeBadge path=\{tab\.resource\} fallback=\{<Icon size=\{14\} \/>\} \/>/);
+  assert.match(completions, /<FileTypeBadge path=\{name\} fallback=\{<IconFileText size=\{14\} \/>\} \/>/);
+  assert.match(markdown, /<span className="code-block-lang">\s*<LanguageBadge lang=\{lang\} \/>\s*\{lang \|\| "text"\}/);
+  assert.match(badge, /return type \? <FileTypeMark type=\{type\} \/> : <>\{fallback\}<\/>;/);
+  // None of them is a second box inside the row.
+  const bare = styles.match(/[^{}]*\.chat-code-link \.file-type-badge\s*\{[^}]*\}/)?.[0] ?? "";
+  for (const host of [".file-tree-row", ".work-panel-tab", ".composer-ac-icon", ".code-block-lang"]) {
+    assert.ok(bare.includes(`${host} .file-type-badge`), host);
+  }
+  assert.match(bare, /background:\s*none;[^}]*box-shadow:\s*none;/);
 });

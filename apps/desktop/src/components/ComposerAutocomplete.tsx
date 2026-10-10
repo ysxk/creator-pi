@@ -23,6 +23,7 @@ import {
   IconSlash,
   IconSparkles,
 } from "./icons";
+import { FileTypeBadge } from "./FileTypeBadge";
 import { SubagentAvatar } from "./SubagentAvatar";
 import { AnchoredMenu } from "./settings/AnchoredMenu";
 
@@ -220,7 +221,11 @@ export function ComposerAutocomplete({
         title={item.entry.path}
       >
         <span className="composer-ac-icon">
-          {isDir ? <IconFolder size={14} /> : <IconFileText size={14} />}
+          {isDir ? (
+            <IconFolder size={14} />
+          ) : (
+            <FileTypeBadge path={name} fallback={<IconFileText size={14} />} />
+          )}
         </span>
         <span className="composer-ac-name">{displayName}</span>
       </button>

@@ -164,7 +164,13 @@
   user-select: none;
 }
 
-/* Inside a chip the chip is the plate; a second one would be a box in a box. */
+/* Inside a chip the chip is the plate; a second one would be a box in a box.
+   A list row, a tab and a code block's head are the same: the mark stands
+   where a bare 14px icon stood. */
+.file-tree-row .file-type-badge,
+.work-panel-tab .file-type-badge,
+.composer-ac-icon .file-type-badge,
+.code-block-lang .file-type-badge,
 .chat-file-chip .file-type-badge,
 .chat-code-link .file-type-badge {
   width: 14px;
@@ -186,6 +192,10 @@
   object-fit: contain;
 }
 
+.file-tree-row .file-type-logo,
+.work-panel-tab .file-type-logo,
+.composer-ac-icon .file-type-logo,
+.code-block-lang .file-type-logo,
 .chat-file-chip .file-type-logo,
 .chat-code-link .file-type-logo {
   width: 13px;
@@ -229,6 +239,36 @@
 [data-file-type="config"] { --file-type: var(--ds-filetype-config); }
 [data-file-type="md"] { --file-type: var(--ds-filetype-md); }
 [data-file-type="docker"] { --file-type: var(--ds-filetype-docker); }
+[data-file-type="csharp"] { --file-type: var(--ds-filetype-csharp); }
+[data-file-type="fsharp"] { --file-type: var(--ds-filetype-fsharp); }
+[data-file-type="objc"] { --file-type: var(--ds-filetype-objc); }
+[data-file-type="dart"] { --file-type: var(--ds-filetype-dart); }
+[data-file-type="scala"] { --file-type: var(--ds-filetype-scala); }
+[data-file-type="gradle"] { --file-type: var(--ds-filetype-gradle); }
+[data-file-type="clojure"] { --file-type: var(--ds-filetype-clojure); }
+[data-file-type="perl"] { --file-type: var(--ds-filetype-perl); }
+[data-file-type="lua"] { --file-type: var(--ds-filetype-lua); }
+[data-file-type="r"] { --file-type: var(--ds-filetype-r); }
+[data-file-type="julia"] { --file-type: var(--ds-filetype-julia); }
+[data-file-type="elixir"] { --file-type: var(--ds-filetype-elixir); }
+[data-file-type="erlang"] { --file-type: var(--ds-filetype-erlang); }
+[data-file-type="haskell"] { --file-type: var(--ds-filetype-haskell); }
+[data-file-type="ocaml"] { --file-type: var(--ds-filetype-ocaml); }
+[data-file-type="elm"] { --file-type: var(--ds-filetype-elm); }
+[data-file-type="zig"] { --file-type: var(--ds-filetype-zig); }
+[data-file-type="nim"] { --file-type: var(--ds-filetype-nim); }
+[data-file-type="crystal"] { --file-type: var(--ds-filetype-crystal); }
+[data-file-type="solidity"] { --file-type: var(--ds-filetype-solidity); }
+[data-file-type="wasm"] { --file-type: var(--ds-filetype-wasm); }
+[data-file-type="astro"] { --file-type: var(--ds-filetype-astro); }
+[data-file-type="graphql"] { --file-type: var(--ds-filetype-graphql); }
+[data-file-type="xml"] { --file-type: var(--ds-filetype-xml); }
+[data-file-type="powershell"] { --file-type: var(--ds-filetype-powershell); }
+[data-file-type="vim"] { --file-type: var(--ds-filetype-vim); }
+[data-file-type="terraform"] { --file-type: var(--ds-filetype-terraform); }
+[data-file-type="nix"] { --file-type: var(--ds-filetype-nix); }
+[data-file-type="cmake"] { --file-type: var(--ds-filetype-cmake); }
+[data-file-type="latex"] { --file-type: var(--ds-filetype-latex); }
 [data-file-type="text"] { --file-type: var(--ds-filetype-text); }
 [data-file-type="pdf"] { --file-type: var(--ds-filetype-pdf); }
 [data-file-type="sheet"] { --file-type: var(--ds-filetype-sheet); }
