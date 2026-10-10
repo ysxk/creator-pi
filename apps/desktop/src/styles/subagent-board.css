@@ -1,11 +1,11 @@
 /*
-  The session subagent board: a popover under the topbar button that lays the
-  current turn's delegates out as lanes on one trunk.
+  The session subagent board: a popover under the topbar button that shows the
+  current turn's delegates as a roster of cards.
 
-  One level of delegation is all the runtime has, so the shape is a tree with a
-  single trunk and an elbow per delegate. Each lane is a thin bar placed on the
-  turn's own timeline; a running lane breathes with the shared work-in-flight
-  rhythm (motion.css) and every other lane is still.
+  A card is one delegate: its portrait, its name, its state, and the one thing
+  it is doing. There is no trunk and no lane; a running delegate is marked by a
+  ring round its portrait that breathes with the shared work-in-flight rhythm
+  (motion.css), and every other card is still.
 */
 .subagent-board-anchor {
   display: inline-flex;
@@ -38,7 +38,7 @@
   top: 0;
   left: 0;
   z-index: 40;
-  width: min(408px, calc(100vw - 24px));
+  width: min(480px, calc(100vw - 24px));
   max-height: min(520px, calc(100vh - 72px));
   overflow-y: auto;
   border: 1px solid var(--ds-border-default);
@@ -68,8 +68,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 12px 10px 16px;
-  border-bottom: 1px solid var(--ds-border-subtle);
+  padding: 14px 16px 0;
 }
 
 .subagent-board-title {
@@ -101,28 +100,6 @@
   background: var(--ds-status-running);
 }
 
-.subagent-board-close {
-  display: inline-flex;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ds-text-muted);
-  cursor: pointer;
-  transition:
-    background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
-}
-
-.subagent-board-close:hover {
-  background: var(--ds-bg-hover);
-  color: var(--ds-text-primary);
-}
-
 .subagent-board-empty {
   margin: 0;
   padding: 28px 16px;
@@ -132,131 +109,119 @@
   text-align: center;
 }
 
-/* The trunk starts under the root mark and every row hangs an elbow off it. */
-.subagent-board-root {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px 6px;
-}
-
-.subagent-board-root-mark {
-  position: relative;
-  width: 10px;
-  height: 10px;
-  flex: 0 0 auto;
-  margin-inline: 6px;
-  border: 2px solid var(--ds-accent);
-  border-radius: var(--radius-full);
-  background: var(--ds-bg-elevated-opaque);
-}
-
-.subagent-board-root-name {
-  flex: 1 1 auto;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-compact);
-}
-
-.subagent-board-rows {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+.subagent-board-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
-  padding: 0 8px 6px 0;
+  padding: 12px;
   list-style: none;
 }
 
-.subagent-board-row {
-  position: relative;
-  padding-inline-start: 38px;
+.subagent-board-cards[data-single="true"] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-/* Trunk segment and elbow, drawn per row so the last one can stop short. */
-.subagent-board-row::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 26px;
-  width: 1px;
-  background: var(--ds-border-strong);
-  content: "";
+.subagent-board-card {
+  min-width: 0;
 }
 
-.subagent-board-row:last-child::before {
-  bottom: calc(100% - 21px);
-}
-
-.subagent-board-row::after {
-  position: absolute;
-  top: 21px;
-  left: 26px;
-  width: 12px;
-  height: 1px;
-  background: var(--ds-border-strong);
-  content: "";
-}
-
-.subagent-board-row-hit {
+.subagent-board-card-hit {
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
   gap: 10px;
-  padding: 7px 8px;
+  padding: 10px 12px;
   border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  border-radius: var(--radius-md);
+  background: var(--ds-tile);
   color: inherit;
+  font: inherit;
   text-align: start;
   cursor: pointer;
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
-.subagent-board-row-hit:hover,
-.subagent-board-row-hit:focus-visible {
-  background: var(--ds-bg-hover);
+.subagent-board-card-hit:hover,
+.subagent-board-card-hit:focus-visible {
+  background: var(--ds-tile-hover);
 }
 
-.subagent-board-row-hit:active {
-  transform: scale(0.995);
+.subagent-board-card-hit:active {
+  background: var(--ds-tile-deep);
 }
 
+/* The portrait carries the state: a breathing ring while the delegate runs. */
 .subagent-board-avatar {
+  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   border-radius: var(--radius-full);
 }
 
-.subagent-board-row-copy {
+.subagent-board-card[data-outcome="running"] .subagent-board-avatar::after {
+  position: absolute;
+  inset: -4px;
+  border: 1.5px solid var(--ds-status-running);
+  border-radius: var(--radius-full);
+  animation: ds-breathe var(--motion-breath-duration) var(--motion-ease-breath) infinite;
+  animation-play-state: var(--motion-play);
+  content: "";
+}
+
+.subagent-board-card:not([data-outcome="running"]):not([data-outcome="completed"])
+  .subagent-board-avatar {
+  opacity: 0.5;
+}
+
+.subagent-board-card-copy {
   display: flex;
   min-width: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
-.subagent-board-row-head {
+.subagent-board-card-head {
   display: flex;
   min-width: 0;
   align-items: baseline;
   gap: 8px;
 }
 
-.subagent-board-row-name {
-  flex: 0 0 auto;
-  max-width: 40%;
+.subagent-board-card-name {
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   line-height: var(--leading-compact);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.subagent-board-row-status {
-  min-width: 0;
-  flex: 1 1 auto;
+.subagent-board-card-state {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-compact);
+  white-space: nowrap;
+}
+
+.subagent-board-card[data-outcome="running"] .subagent-board-card-state {
+  color: var(--ds-status-running);
+  font-weight: var(--font-weight-medium);
+}
+
+.subagent-board-card[data-outcome="failed"] .subagent-board-card-state,
+.subagent-board-card[data-outcome="denied"] .subagent-board-card-state,
+.subagent-board-card[data-outcome="timed_out"] .subagent-board-card-state {
+  color: var(--ds-error);
+}
+
+.subagent-board-card-detail {
   overflow: hidden;
   color: var(--ds-text-muted);
   font-size: var(--text-xs);
@@ -265,97 +230,28 @@
   white-space: nowrap;
 }
 
-/* What a running delegate is doing is a command, so it reads as one. */
-.subagent-board-row[data-outcome="running"] .subagent-board-row-status {
+.subagent-board-card-detail.is-command {
   color: var(--ds-text-secondary);
   font-family: var(--font-mono);
+  font-size: var(--text-2xs);
 }
 
-.subagent-board-row-time {
-  flex: 0 0 auto;
-  color: var(--ds-text-faint);
-  font-family: var(--font-mono);
+/* The board's totals: how many delegates, and how long the fan-out took. */
+.subagent-board-footer {
+  padding: 0 16px 12px;
+  color: var(--ds-text-muted);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   line-height: var(--leading-compact);
 }
 
-.subagent-board-lane {
-  display: block;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--ds-tile-hover);
-}
-
-.subagent-board-lane-fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-full);
-  background: var(--ds-text-faint);
-  transition: width var(--motion-duration-slow) var(--motion-ease-out);
-}
-
-.subagent-board-row[data-outcome="completed"] .subagent-board-lane-fill {
-  background: color-mix(in oklab, var(--ds-status-running) 55%, transparent);
-}
-
-.subagent-board-row[data-outcome="running"] .subagent-board-lane-fill {
-  background: var(--ds-status-running);
-  animation: ds-breathe var(--motion-breath-duration) var(--motion-ease-breath) infinite;
-  animation-play-state: var(--motion-play);
-}
-
-.subagent-board-row[data-outcome="failed"] .subagent-board-lane-fill,
-.subagent-board-row[data-outcome="denied"] .subagent-board-lane-fill {
-  background: var(--ds-error);
-}
-
-.subagent-board-row[data-outcome="timed_out"] .subagent-board-lane-fill,
-.subagent-board-row[data-outcome="aborted"] .subagent-board-lane-fill,
-.subagent-board-row[data-outcome="stopped"] .subagent-board-lane-fill {
-  background: var(--ds-warning);
-}
-
-/* One slot: the board's totals at rest, the pointed-at delegate's command on
-   hover or focus. It never moves, so nothing covers the rows. */
-.subagent-board-footer {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-top: 1px solid var(--ds-border-subtle);
-  color: var(--ds-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-compact);
-}
-
-.subagent-board-detail-name {
-  flex: 0 0 auto;
-  color: var(--ds-accent-ink);
-  font-weight: var(--font-weight-semibold);
-}
-
-.subagent-board-detail-text {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ds-text-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .subagent-board-button-dot,
-  .subagent-board-row[data-outcome="running"] .subagent-board-lane-fill {
+  .subagent-board-card[data-outcome="running"] .subagent-board-avatar::after {
     animation: none;
   }
 
   .subagent-board-popover.is-open {
     animation: none;
-  }
-
-  .subagent-board-lane-fill {
-    transition: none;
   }
 }

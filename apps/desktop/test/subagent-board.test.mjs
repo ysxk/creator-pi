@@ -160,7 +160,13 @@ test("the topbar button costs one boolean and the board mounts only while open",
     "utf8",
   );
   assert.match(source, /hasRunningDelegation\(state\.messages\)/);
-  assert.match(source, /\{open \? \(\s*<BoardPanel/);
+  assert.match(source, /\{open \? \(\s*<div className="subagent-board-hover" \{\.\.\.hover\.menuProps\}>\s*<BoardPanel/);
+  // Resting on the button opens the board; a click pins it for the keyboard.
+  assert.match(source, /const open = hover\.open \|\| pinned;/);
+  assert.match(source, /className="subagent-board-anchor" \{\.\.\.hover\.anchorProps\}/);
+  // A roster of cards: no trunk, no lanes.
+  assert.match(source, /className="subagent-board-cards"/);
+  assert.doesNotMatch(source, /subagent-board-(root|lane|row)\b/);
   // The clock ticks only while something is still running.
   assert.match(source, /if \(!live\) return;\s*setNow\(Date\.now\(\)\);\s*const timer = window\.setInterval/);
   // The topbar itself gains no subscription to the transcript.
