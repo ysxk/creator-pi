@@ -27,7 +27,6 @@ function assertLocalizedIconTooltip(relativePath, key) {
 test("icon-only actions expose localized hover tooltips", () => {
   for (const [relativePath, key] of [
     ["components/ChatSurface.tsx", "errors.action.dismiss"],
-    ["components/ContextUsageInspector.tsx", "chat.usageContextAria"],
     ["components/Toast.tsx", "toast.dismiss"],
     ["components/UpdateBanner.tsx", "updates.dismiss"],
     ["components/ProjectInstructionsDialog.tsx", "settings.cancel"],
@@ -98,4 +97,16 @@ test("the shared tooltip hook always has an exit path", () => {
   assert.match(uiSource, /function releaseTooltipSlot\(slotId: symbol\) \{[\s\S]*?visibleTooltip = null/);
   assert.match(uiSource, /if \(next\) \{[\s\S]*?claimTooltipSlot\(\{[\s\S]*?\}\)[\s\S]*?else \{[\s\S]*?releaseTooltipSlot\(slotId\)/);
   assert.match(uiSource, /const slotIdRef = useRef<symbol \| null>\(null\)/);
+});
+
+test("a control whose hover opens its own panel carries a label, not a tooltip", async () => {
+  // The context ring and the subagent board button show their panel on hover;
+  // a tooltip would only sit on top of it. They stay named for assistive tech.
+  const { readFile } = await import("node:fs/promises");
+  const inspector = await readFile(
+    new URL("../src/components/ContextUsageInspector.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(inspector, /aria-label=\{t\("chat\.usageContextAria", ariaArguments\)\}/);
+  assert.doesNotMatch(inspector, /<TooltipButton/);
 });

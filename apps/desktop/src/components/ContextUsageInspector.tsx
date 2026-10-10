@@ -14,7 +14,7 @@ import {
   type UiMessage,
 } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
-import { TooltipButton } from "./ui";
+import { useHoverMenu } from "../hooks/use-hover-menu";
 import {
   aggregateToolTokenUsage,
   calculateCacheRate,
@@ -36,6 +36,7 @@ export function ContextUsageInspector({
   usage,
   turnUsage,
   contextWindow,
+  compactionThreshold,
   tools,
   responseDurationMs,
   responseOutputTokens,
@@ -44,6 +45,8 @@ export function ContextUsageInspector({
   usage: MessageUsage;
   turnUsage: MessageUsage;
   contextWindow: number;
+  /** Context size at which the runtime compacts on its own; none to draw if absent. */
+  compactionThreshold?: number;
   tools: UiMessage[];
   responseDurationMs?: number;
   responseOutputTokens?: number;
@@ -60,7 +63,11 @@ export function ContextUsageInspector({
   );
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
+  // Resting on the ring shows the panel; a click pins it, for a reader who
+  // wants it to stay while the pointer goes elsewhere, or has no pointer.
+  const hover = useHoverMenu();
+  const [pinned, setPinned] = useState(false);
+  const open = hover.open || pinned;
   const [popoverPosition, setPopoverPosition] =
     useState<ContextInspectorPlacement | null>(null);
   const context = calculateContextUsage(usage, contextWindow);
@@ -93,6 +100,17 @@ export function ContextUsageInspector({
   const toolShare = share(toolTotal, context.usedTokens);
   const inputShare = share(usage.inputTokens, usage.inputTokens + usage.outputTokens);
   const compactionShare = compaction ? share(compaction.summaryTokens, contextWindow) : 0;
+  // Where on the window the runtime compacts, and how far the context is
+  // from it. A threshold at or past the window has nothing to mark.
+  const threshold =
+    compactionThreshold !== undefined &&
+    compactionThreshold > 0 &&
+    compactionThreshold < contextWindow
+      ? compactionThreshold
+      : undefined;
+  const thresholdPercent =
+    threshold !== undefined ? Math.round((threshold / contextWindow) * 1000) / 10 : 0;
+  const untilCompaction = threshold !== undefined ? threshold - context.usedTokens : 0;
   const level =
     context.remainingPercent <= 10
       ? "critical"
@@ -112,19 +130,25 @@ export function ContextUsageInspector({
   };
 
   const closeInspector = useCallback(() => {
-    setOpen(false);
+    setPinned(false);
+    hover.close();
     setPopoverPosition(null);
-  }, []);
+  }, [hover.close]);
 
-  // The panel is click-toggled rather than hover-opened: reading the token
-  // breakdown takes long enough that a pointer leaving the trigger should not
-  // dismiss it.
   const toggleInspector = useCallback(() => {
-    setOpen((previous) => {
-      if (previous) setPopoverPosition(null);
+    setPinned((previous) => {
+      if (previous) {
+        hover.close();
+        setPopoverPosition(null);
+      }
       return !previous;
     });
-  }, []);
+  }, [hover.close]);
+
+  // A panel that closed on its own must not reopen at its old position.
+  useEffect(() => {
+    if (!open) setPopoverPosition(null);
+  }, [open]);
 
   const updatePopoverPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -135,8 +159,7 @@ export function ContextUsageInspector({
     const triggerVisible =
       triggerRect.bottom > 0 && triggerRect.top < window.innerHeight;
     if (!triggerVisible) {
-      setOpen(false);
-      setPopoverPosition(null);
+      closeInspector();
       return;
     }
     const popoverRect = popover.getBoundingClientRect();
@@ -156,8 +179,7 @@ export function ContextUsageInspector({
       viewport: { width: window.innerWidth, height: window.innerHeight },
     });
     if (!placement) {
-      setOpen(false);
-      setPopoverPosition(null);
+      closeInspector();
       return;
     }
 
@@ -168,7 +190,7 @@ export function ContextUsageInspector({
         ? previous
         : placement,
     );
-  }, []);
+  }, [closeInspector]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -289,6 +311,12 @@ export function ContextUsageInspector({
             />
           ) : null}
         </span>
+        {threshold !== undefined ? (
+          <span
+            className="context-inspector-capacity-threshold"
+            style={{ insetInlineStart: `${thresholdPercent}%` }}
+          />
+        ) : null}
       </div>
       <div className="context-inspector-window">
         <span>
@@ -373,6 +401,32 @@ export function ContextUsageInspector({
               : t("chat.usageNoTools")}
           </span>
         </div>
+        {threshold !== undefined ? (
+          <div className="context-inspector-summary-row">
+            <strong>{t("chat.usageAutoCompaction")}</strong>
+            <span className="context-inspector-bar" data-bar="threshold" aria-hidden="true">
+              <span style={{ width: `${Math.min(100, context.usedPercent)}%` }} />
+              <i style={{ insetInlineStart: `${thresholdPercent}%` }} />
+            </span>
+            <span
+              className="context-inspector-summary-values"
+              data-over={untilCompaction <= 0 ? "true" : undefined}
+            >
+              <span>
+                {t("chat.usageCompactionThreshold", {
+                  count: formatCompactTokenCount(threshold),
+                })}
+              </span>
+              <span>
+                {untilCompaction > 0
+                  ? t("chat.usageUntilCompaction", {
+                      count: formatCompactTokenCount(untilCompaction),
+                    })
+                  : t("chat.usageCompactionDue")}
+              </span>
+            </span>
+          </div>
+        ) : null}
         {compaction ? (
           <div className="context-inspector-summary-row">
             <strong>{t("chat.usageCompaction", { times: compaction.generation })}</strong>
@@ -396,13 +450,14 @@ export function ContextUsageInspector({
       className="context-inspector"
       data-level={level}
       data-open={open ? "true" : "false"}
+      {...hover.anchorProps}
     >
-      <TooltipButton
+      {/* No tooltip: the panel is what resting on the ring shows. */}
+      <button
         ref={triggerRef}
         type="button"
         className="context-inspector-trigger"
-        tooltip={t("chat.usageContextAria", ariaArguments)}
-        ariaLabel={t("chat.usageContextAria", ariaArguments)}
+        aria-label={t("chat.usageContextAria", ariaArguments)}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
@@ -433,7 +488,7 @@ export function ContextUsageInspector({
         <span className="context-inspector-ring-value">
           {display.percent}%
         </span>
-      </TooltipButton>
+      </button>
       {popover && typeof document !== "undefined"
         ? portalToBody(popover)
         : null}

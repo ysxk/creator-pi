@@ -479,6 +479,14 @@ test("assistant context inspector keeps a compact summary and retry action wired
   assert.match(inspectorSource, /chat\.usageContextUsedRemaining/);
   assert.match(inspectorSource, /context-inspector-capacity-used/);
   assert.match(inspectorSource, /chat\.usageContextRemainingOfWindow/);
+  // The compaction line is the runtime's own threshold, drawn as a pin on the
+  // capacity bar and spelled out as how far the context still is from it.
+  assert.match(inspectorSource, /context-inspector-capacity-threshold/);
+  assert.match(inspectorSource, /data-bar="threshold"/);
+  assert.match(inspectorSource, /chat\.usageUntilCompaction/);
+  // Resting on the ring opens the panel; a click pins it.
+  assert.match(inspectorSource, /const open = hover\.open \|\| pinned;/);
+  assert.match(inspectorSource, /\{\.\.\.hover\.anchorProps\}/);
   assert.match(inspectorSource, /data-bar="model"/);
   assert.match(inspectorSource, /data-bar="tools"/);
   assert.match(inspectorSource, /chat\.usageThroughput/);

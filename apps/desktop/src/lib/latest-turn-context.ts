@@ -5,7 +5,7 @@ import type {
   ProviderPublic,
   UiMessage,
 } from "@pi-desktop/shared";
-import { resolveContextWindow } from "./context-usage";
+import { resolveCompactionThreshold, resolveContextWindow } from "./context-usage";
 import { getSessionMessageSnapshot } from "./session-transcript-updates";
 import { getTranscriptProjection } from "./transcript-projection";
 import { getAssistantTurnSummary } from "./transcript-summary";
@@ -14,6 +14,8 @@ export type LatestTurnContextInspector = {
   usage: MessageUsage;
   turnUsage: MessageUsage;
   contextWindow: number;
+  /** Context size at which the runtime compacts on its own. */
+  compactionThreshold: number;
   tools: UiMessage[];
   responseDurationMs?: number;
   responseOutputTokens?: number;
@@ -66,6 +68,12 @@ export function latestTurnContextInspector(
     usage: latestUsage,
     turnUsage: latestTurn?.usage ?? latestUsage,
     contextWindow: resolveContextWindow(
+      latestUsageMessage?.providerId,
+      latestUsageMessage?.modelId,
+      providerModels,
+      providers,
+    ),
+    compactionThreshold: resolveCompactionThreshold(
       latestUsageMessage?.providerId,
       latestUsageMessage?.modelId,
       providerModels,

@@ -1397,12 +1397,25 @@
 /* The window as one bar: track is the whole window, fill is what is used.
    It takes the capacity colour, so a tight window reads before the figures. */
 .context-inspector-capacity {
+  position: relative;
   height: 10px;
   margin-top: 12px;
-  overflow: hidden;
   border-radius: var(--radius-full);
   background: var(--ds-tile-deep);
   color: var(--ds-success);
+}
+
+/* Where the runtime compacts on its own: a pin across the bar, a little
+   taller than it, so it reads as a mark on the scale and not as fill. */
+.context-inspector-capacity-threshold,
+.context-inspector-bar[data-bar="threshold"] > i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-inline-start: -1px;
+  border-radius: var(--radius-full);
+  background: var(--ds-error);
 }
 
 .context-inspector-popover[data-level="warning"] .context-inspector-capacity {
@@ -1538,6 +1551,15 @@
 
 .context-inspector-bar[data-bar="compaction"] > span {
   background: var(--ds-text-muted);
+}
+
+.context-inspector-bar[data-bar="threshold"] {
+  position: relative;
+  overflow: visible;
+}
+
+.context-inspector-summary-values[data-over="true"] {
+  color: var(--ds-error);
 }
 
 .context-inspector-summary-values {

@@ -1,5 +1,8 @@
 import {
+  automaticCompactionThresholdFor,
+  contextBudgetLimitsFor,
   effectiveContextWindow,
+  effectiveMaxTokens,
   modelWireIdsEqual,
   type ContextUsageDisplay,
   type MessageUsage,
@@ -107,6 +110,45 @@ export function resolveContextWindow(
     ? providerContextWindow(provider)
     : undefined;
   return providerWindow ?? DEFAULT_CONTEXT_WINDOW;
+}
+
+/**
+ * The context size at which the runtime compacts on its own, for a model.
+ *
+ * This is the runtime's own formula (`@pi-desktop/shared`), fed the same two
+ * facts it reads — the window and the model's output cap — so the line the
+ * inspector draws is where compaction actually starts, not an estimate of it.
+ */
+export function resolveCompactionThreshold(
+  providerId: string | undefined,
+  modelId: string | undefined,
+  providerModels: Record<string, ModelInfo[]>,
+  providers: ProviderPublic[],
+): number {
+  const provider = providers.find((candidate) => candidate.id === providerId);
+  const catalogModel = modelId
+    ? providerId
+      ? providerModels[providerId]?.find((model) => modelWireIdsEqual(model.modelId, modelId))
+      : Object.values(providerModels)
+          .flat()
+          .find((model) => modelWireIdsEqual(model.modelId, modelId))
+    : undefined;
+  const binding = modelId
+    ? provider?.models?.find(
+        (candidate) => candidate.id.trim().toLowerCase() === modelId.trim().toLowerCase(),
+      )
+    : undefined;
+  const maxTokens = effectiveMaxTokens(
+    catalogModel?.maxTokens,
+    binding?.maxTokens,
+    binding?.maxTokensSource,
+  );
+  return automaticCompactionThresholdFor(
+    contextBudgetLimitsFor({
+      contextWindow: resolveContextWindow(providerId, modelId, providerModels, providers),
+      ...(maxTokens !== undefined ? { maxTokens } : {}),
+    }),
+  );
 }
 
 export type ContextUsage = {
