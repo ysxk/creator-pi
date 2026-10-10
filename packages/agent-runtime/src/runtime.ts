@@ -14,7 +14,7 @@ import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
-import { hostVideoReference, loadToolResultVideo, toolResultVideoSupported } from "./tool-result-video.js";
+import { hostVideoReference, loadToolResultVideo, READ_VIDEO_HINT, toolResultVideoSupported } from "./tool-result-video.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
 import { withPiFileOpToolNames } from "./pi-file-ops.js";
@@ -3114,9 +3114,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       " An explicit path outside the workspace and session scratch roots requires permission unless the effective mode is Auto.";
     // Said only to a model that will actually receive the clip: told this, it
     // reads the file instead of reaching for ffmpeg to extract frames.
-    const videoHint = toolResultVideoSupported(this.provider)
-      ? " Reading a video file (mp4, mov, webm, …) attaches the video itself to the result, so you watch and hear it natively: Read it instead of extracting frames or audio."
-      : "";
+    const videoHint = toolResultVideoSupported(this.provider) ? READ_VIDEO_HINT : "";
     const describe = (toolName: string): string => {
       if (toolName === "GenerateImages") return imageGenerationDescription;
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
@@ -4867,6 +4865,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     const scope = definition.permission ?? DEFAULT_SUBAGENT_PERMISSION;
     return tools.map((tool) => ({
       ...tool,
+      // A delegate's Read never carries a clip (its model is not this one), so
+      // its description must not say it does.
+      description: tool.description.replace(READ_VIDEO_HINT, ""),
       execute: async (toolCallId, args, signal, onUpdate) => {
         this.mutationOwners.set(toolCallId, mutationOwner);
         if (scope !== DEFAULT_SUBAGENT_PERMISSION) {

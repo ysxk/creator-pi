@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MAX_INLINE_VIDEO_BYTES } from "@pi-desktop/shared";
+import { readFile } from "node:fs/promises";
 import {
+  READ_VIDEO_HINT,
   hostVideoReference,
   isToolResultVideoBlock,
   loadToolResultVideo,
@@ -103,5 +105,16 @@ describe("video in a tool result", () => {
     // Nothing to strip: the same object goes through untouched.
     const plain = { content: [{ type: "text", text: "ok" }] };
     expect(toolResultWithoutVideoBytes(plain)).toBe(plain);
+  });
+
+  it("tells only a model that will receive the clip that Read attaches it", async () => {
+    const runtime = await readFile(new URL("./runtime.ts", import.meta.url), "utf8");
+    // The main agent hears it only when its own provider can take the clip.
+    expect(runtime).toContain(
+      "const videoHint = toolResultVideoSupported(this.provider) ? READ_VIDEO_HINT : \"\";",
+    );
+    // A delegate never receives one, so the sentence is taken back out.
+    expect(runtime).toContain("description: tool.description.replace(READ_VIDEO_HINT, \"\"),");
+    expect(READ_VIDEO_HINT).toContain("attaches the video itself");
   });
 });

@@ -49,6 +49,14 @@ export function hostVideoReference(content: unknown): HostVideoReference | null 
   return { path, mimeType, size };
 }
 
+/**
+ * The sentence added to `Read`'s description for a model that will receive the
+ * clip. Said to no one else: a model told this and then handed a path would
+ * have been promised something the result does not deliver.
+ */
+export const READ_VIDEO_HINT =
+  " Reading a video file (mp4, mov, webm, …) attaches the video itself to the result, so you watch and hear it natively: Read it instead of extracting frames or audio.";
+
 /** Whether a tool result can carry a clip to this provider's model. */
 export function toolResultVideoSupported(
   provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
