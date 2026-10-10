@@ -31,7 +31,7 @@ import {
   placeContextInspector,
   type ContextInspectorPlacement,
 } from "../lib/context-inspector-position";
-import { useSessionTiming } from "../features/chat/composer/useSessionTiming";
+import { useSessionTiming } from "../features/chat/context-usage/useSessionTiming";
 
 const CONTEXT_RING_RADIUS = 9;
 const CONTEXT_RING_CIRCUMFERENCE = 2 * Math.PI * CONTEXT_RING_RADIUS;
