@@ -30,7 +30,7 @@ test("well-known file names are typed even without a telling extension", () => {
 });
 
 test("anything not worth telling apart keeps its generic icon", () => {
-  for (const path of ["README", ".gitignore", "data.bin", "", "dir/"]) {
+  for (const path of ["README", "LICENSE", "data.bin", "", "dir/"]) {
     assert.equal(fileTypeOf(path), null, path);
   }
 });
@@ -66,4 +66,46 @@ test("a language shows its own logo and a plain format a line glyph", async () =
   assert.equal(fileTypeOf("notes.txt")?.glyph, "text");
   assert.equal(fileTypeOf("clip.mp4")?.glyph, "video");
   assert.equal(fileTypeOf("main.cpp")?.logo, "cpp");
+});
+
+test("the formats the design names are all marked", () => {
+  const expected = {
+    "favicon.ico": "image",
+    "voice.aac": "audio",
+    "clip.avi": "video",
+    "app.db": "sql",
+    "cache.sqlite": "sql",
+    ".env": "config",
+    ".env.local": "config",
+    "config/.env.production": "config",
+    ".gitignore": "config",
+    "analysis.ipynb": "py",
+    "Main.class": "java",
+    "lib/app.jar": "java",
+    "notes.mdx": "md",
+    "settings.jsonc": "json",
+    "docker-compose.yml": "docker",
+    "build.gradle.kts": "kotlin",
+    "bundle.tgz": "archive",
+  };
+  for (const [path, id] of Object.entries(expected)) {
+    assert.equal(fileTypeOf(path)?.id, id, path);
+  }
+  // A name that merely starts like one is not that dotfile.
+  assert.equal(fileTypeOf(".environment"), null);
+});
+
+test("every mark sits on a plate of its type's colour, except inside a chip", async () => {
+  const styles = await loadStyles();
+  const badge = styles.match(/\.file-type-badge\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.match(badge, /background:\s*color-mix\(in oklab, var\(--file-type, var\(--ds-filetype-default\)\) 8%, transparent\)/);
+  assert.match(badge, /color-mix\(in oklab, var\(--file-type, var\(--ds-filetype-default\)\) 16%, transparent\)/);
+  assert.match(
+    styles,
+    /\.chat-file-chip \.file-type-badge,\s*\.chat-code-link \.file-type-badge\s*\{[^}]*background:\s*none;[^}]*box-shadow:\s*none;/,
+  );
+  // File lists and search results lead each path with its mark.
+  const details = await readFile(new URL("../src/components/ToolDetails.tsx", import.meta.url), "utf8");
+  assert.equal(details.match(/<FileTypeBadge path=\{path\} \/>/g)?.length, 2);
+  assert.equal(details.match(/<FileTypeBadge path=\{group\.path\} \/>/g)?.length, 2);
 });

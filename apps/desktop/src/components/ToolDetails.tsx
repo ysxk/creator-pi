@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { FileTypeBadge } from "./FileTypeBadge";
 import { HighlightedCode, useCopy } from "./Markdown";
 import { LargeTextPreview } from "./LargeTextPreview";
 import { IconCheck, IconCircleAlert, IconCopy, IconInfo } from "./icons";
@@ -95,6 +96,7 @@ function FileList({ paths }: { paths: string[] }) {
         if (!rel) {
           return (
             <span className="tool-file-item" key={`${path}-${index}`}>
+              <FileTypeBadge path={path} />
               {path}
             </span>
           );
@@ -108,6 +110,7 @@ function FileList({ paths }: { paths: string[] }) {
             onClick={() => openTarget({ kind: "file", path: rel })}
             onContextMenu={(event) => openFileMenu(event, { path: rel })}
           >
+            <FileTypeBadge path={path} />
             {path}
           </TooltipButton>
         );
@@ -139,10 +142,14 @@ function MatchList({ block }: { block: Extract<ToolBlock, { kind: "matches" }> }
                   openFileMenu(event, { path: rel })
                 }
               >
+                <FileTypeBadge path={group.path} />
                 {group.path}
               </TooltipButton>
             ) : (
-              <span className="tool-match-path">{group.path}</span>
+              <span className="tool-match-path">
+                <FileTypeBadge path={group.path} />
+                {group.path}
+              </span>
             )}
             {group.lines.map((line, lineIndex) => (
               <div className="tool-match-line" key={`${line.line}-${lineIndex}`}>
