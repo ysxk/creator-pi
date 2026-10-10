@@ -193,11 +193,16 @@ test("every checkpoint is durable, not just the newest one", () => {
   );
 });
 
+const sharedContextBudget = await read("../../../packages/shared/src/context-budget.ts");
+
 test("a checkpoint carries only the active user message past the boundary", () => {
   // The summary covers the whole boundary range. An in-progress turn carries
   // only its latest user message, while a completed turn carries no naked
   // historical user messages into the next task.
-  assert.match(contextBudget, /COMPACTION_RETAINED_USER_MESSAGE_MAX_TOKENS = 20_000/);
+  // The budget constants live in the shared package, where the renderer reads
+  // the same thresholds; the runtime module re-exports them.
+  assert.match(sharedContextBudget, /COMPACTION_RETAINED_USER_MESSAGE_MAX_TOKENS = 20_000/);
+  assert.match(contextBudget, /COMPACTION_RETAINED_USER_MESSAGE_MAX_TOKENS,/);
   assert.match(runtime, /type CompactionRetentionMode = "active_turn" \| "completed_turn"/);
   assert.match(runtime, /retainedTailMode: retentionMode/);
   assert.match(runtime, /private codexShapedPreparation\(/);
