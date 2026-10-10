@@ -16,6 +16,7 @@ export const zhTWEntries: ChangelogEntry[] = [
       "專案可在 .agents/subagents 中攜帶自己的子智慧體：僅在該專案生效，且無法自行提升權限。",
       "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
       "Clips and SVG drawings a reply names now show right under it; pictures in a reply open in the viewer, and a generated batch shows every picture at once.",
+      "Subagent portraits now each wear a colour on the ring and the hair or hat, so a row of them is easy to tell apart.",
     ],
   },
   {

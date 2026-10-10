@@ -16,6 +16,7 @@ export const trEntries: ChangelogEntry[] = [
       "Alt ajanları bir projenin .agents/subagents klasöründe tutun: yalnızca o projede geçerlidirler ve kendi izinlerini yükseltemezler.",
       "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
       "Clips and SVG drawings a reply names now show right under it; pictures in a reply open in the viewer, and a generated batch shows every picture at once.",
+      "Subagent portraits now each wear a colour on the ring and the hair or hat, so a row of them is easy to tell apart.",
     ],
   },
   {
