@@ -14,6 +14,7 @@ export const zhTWEntries: ChangelogEntry[] = [
       "Composer 的模型清單現在會顯示已設定的上下文視窗上限。",
       "外掛可查詢支援的重新導向模式，並選擇檢查或拒絕網路重新導向；現有請求預設仍會跟隨重新導向。",
       "專案可在 .agents/subagents 中攜帶自己的子智慧體：僅在該專案生效，且無法自行提升權限。",
+      "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
     ],
   },
   {

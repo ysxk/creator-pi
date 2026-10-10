@@ -14,6 +14,7 @@ export const zhCNEntries: ChangelogEntry[] = [
       "Composer 的模型列表现在会显示已配置的上下文窗口上限。",
       "插件可查询支持的重定向模式，并选择检查或拒绝网络重定向；现有请求默认仍会跟随重定向。",
       "项目可在 .agents/subagents 中携带自己的子智能体：仅在该项目生效，且无法自行提升权限。",
+      "省略 tools 的子智能体文件现在沿用主 Agent 的工具，与 Claude Code 一致；写明 tools 即可限定范围。",
     ],
   },
   {

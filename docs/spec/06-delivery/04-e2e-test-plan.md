@@ -7542,7 +7542,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 #### E2E-119: Parallel subagents report back without entering the parent's context
 
 - **Preconditions**: A project-bound Agent session with the user home containing
-  `~/.agents/subagents/scout.md` (read-only, no `tools` key), `~/.agents/subagents/fixer.md`
+  `~/.agents/subagents/scout.md` (read-only, `tools: Read, Glob, Grep`), `~/.agents/subagents/fixer.md`
   (`tools: Read, Edit`), `~/.agents/subagents/pinned.md` (`model:` naming a second
   configured provider) and `~/.agents/subagents/broken.md` (missing `name`); a provider
   whose stream can be driven to emit two `Task` calls in one assistant message;
@@ -7693,6 +7693,34 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Acceptance**: E (tools & permissions), Security
 - **Milestone**: M6+
 - **Status**: Automated by `test:e2e:subagents` (host-core create/read/on-disk/active/loader inherit round-trip) and `test:e2e:subagent-models` (real sidecar/local transport Task spawn, inherited Skill/plugin catalog minus the deny list, and builtin explorer isolation). Unit coverage remains in `packages/shared`, `packages/agent-runtime`, and host-core `user_subagents`; the UI inherit-checkbox journey remains Draft. Required suites: `test:e2e`, `test:e2e:subagents`, `test:e2e:subagent-models`.
+
+#### E2E-SUBAGENT-omitted-tools-inherit-parent-tools
+
+- **Preconditions**: Agent mode. Three hand-written user documents under
+  `~/.agents/subagents`: `bare.md` with only `description` in its frontmatter,
+  `reader.md` with `tools:` followed by `- Read` and `- Grep` lines, and
+  `empty.md` with `tools: []`. At least one plugin or MCP tool in the parent
+  catalog.
+- **Steps**:
+  1. Open Settings → Agent → Subagents and open each of the three in the editor.
+  2. Save `bare` without changing anything and reopen the file on disk.
+  3. Delegate `Task` to `bare`, then to `reader`, then to `empty`.
+- **Expected**:
+  - `bare` shows Inherit parent tools on; `reader` shows `Read` and `Grep`
+    only; `empty` shows `Read`, `Glob`, `Grep`.
+  - Step 2 writes `tools: inherit` into `bare.md`; it does not narrow the
+    document to `Read, Glob, Grep`.
+  - `bare` receives the parent's tools minus the deny list, including the
+    plugin or MCP tool, and its Task catalog line reads `(tools: inherit)`.
+    `reader` and `empty` receive only the tools listed above and cannot edit.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md` §10.2,
+  `03-runtime/02-agent-runtime.md` §5f, `03-runtime/01-ipc-protocol.md`, D662
+- **Acceptance**: E (tools & permissions), Security
+- **Milestone**: M6+
+- **Status**: Automated by `test:e2e:subagents` for `bare` (host-core read and
+  the runtime loader agree on inherit). The block-list and empty-list readings
+  are unit covered in `packages/shared` and host-core `user_subagents`; the
+  Settings journey and the live `Task` spawn remain Draft.
 
 #### E2E-SUBAGENT-project-definition-shadows-global
 

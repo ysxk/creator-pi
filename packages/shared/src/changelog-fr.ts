@@ -14,6 +14,7 @@ export const frEntries: ChangelogEntry[] = [
       "La liste des modèles du Composer affiche maintenant les limites de contexte configurées.",
       "Les plugins peuvent inspecter ou refuser les redirections réseau ; les appels fetch existants continuent de les suivre par défaut.",
       "Conservez des sous-agents dans le dossier .agents/subagents d’un projet : ils ne s’appliquent qu’à ce projet et ne peuvent pas élever leurs propres permissions.",
+      "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
     ],
   },
   {

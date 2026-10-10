@@ -5,7 +5,8 @@
   timeout policy amended by ADR 0119; delegation presentation amended by D265;
   opt-in parent-tool inherit amended by ADR 0246; resumable delegations amended
   by ADR 0279; report spillover amended by RFC #1196; project-level
-  definitions added by ADR 0326)
+  definitions added by ADR 0326; §2's read-only default for a definition
+  without `tools` replaced by D662, which makes it inherit)
 - Date: 2026-08-06
 - Deciders: PI-Desktop core
 - Related: D201, ADR 0041 (persistence outbox), ADR 0048 (lazy per-turn tool

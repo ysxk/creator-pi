@@ -645,6 +645,9 @@ Electron main 每次启动加载全局目录，并在 sidecar 参数中传递
 为 `MAX_SUBAGENT_DEFINITIONS`（16）；格式错误或不可读文档只产生启动诊断，
 不会让启动失败。
 
+省略 `tools` 的文档按 `tools: inherit` 读取，得到父会话的实时工具目录减去
+拒绝列表（D662）；内置定义都写明了工具，仍在各自的白名单上。
+
 Frontmatter 新增 `permission: inherit | ask | accept-edits | auto`（默认
 `inherit`）。使用默认的 `inherit`（包括所有内置定义）时，sidecar 不附加覆盖，
 委托使用会话的有效权限模式；因此父会话为 `auto` 时，明确的外部路径也不会再次

@@ -385,6 +385,19 @@ try {
     readdirSync(agentsDir).join(", "),
   );
 
+  // A hand-written document that leaves `tools` out works with the parent's
+  // tools (D662); host-core and the runtime loader have to read it the same way.
+  writeFileSync(
+    join(agentsDir, "bare.md"),
+    "---\ndescription: Says nothing about tools.\n---\n\nYou are bare.\n",
+  );
+  const bareRead = await call("agents.read", { id: "bare" });
+  check(
+    "a document without a tools key is listed as inheriting",
+    JSON.stringify(bareRead.result?.subagent?.tools) === JSON.stringify(["inherit"]),
+    JSON.stringify(bareRead.result?.subagent ?? bareRead.error),
+  );
+
   const { loadSubagentDefinitions } = await import(
     join(root, "packages", "agent-runtime", "dist", "index.js")
   );
@@ -438,6 +451,13 @@ try {
     loadedWorker?.source === "user" && loadedWorker.inheritTools === true &&
       JSON.stringify(loadedWorker.tools) === JSON.stringify([]),
     JSON.stringify({ source: loadedWorker?.source, inheritTools: loadedWorker?.inheritTools, tools: loadedWorker?.tools }),
+  );
+  const loadedBare = byName.get("bare");
+  check(
+    "the loader gives a document without a tools key the parent's tools",
+    loadedBare?.source === "user" && loadedBare.inheritTools === true &&
+      JSON.stringify(loadedBare.tools) === JSON.stringify([]),
+    JSON.stringify({ source: loadedBare?.source, inheritTools: loadedBare?.inheritTools, tools: loadedBare?.tools }),
   );
   const builtinExplorer = byName.get("explorer");
   check(

@@ -1730,7 +1730,10 @@ is valid.
 
 The `tools` array may include the token `inherit` (ADR 0246). `inherit` alone
 is a valid grant; host-core must not drop the document. Settings round-trips
-the token as `tools: inherit` or `tools: [inherit, Bash]`.
+the token as `tools: inherit` or `tools: [inherit, Bash]`. A scanned document
+that leaves `tools` out is reported with `tools: ["inherit"]` (D662), matching
+what the runtime gives it. An `agents.create` request without a `tools` array is
+a different thing and still writes `tools: [Read, Glob, Grep]`.
 
 `agents.disabledBuiltins` and `agents.setBuiltinEnabled` carry activation for the
 shipped builtins, which have no document to switch (ADR 0270). Handles are stored

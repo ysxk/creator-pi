@@ -14,6 +14,7 @@ export const koEntries: ChangelogEntry[] = [
       "Composer의 모델 목록에 설정된 컨텍스트 창 한도가 표시됩니다.",
       "플러그인은 네트워크 리디렉션을 검사하거나 거부할 수 있으며, 기존 fetch 호출은 기본적으로 계속 리디렉션을 따릅니다.",
       "프로젝트의 .agents/subagents 폴더에 서브에이전트를 둘 수 있습니다. 해당 프로젝트에서만 적용되며 스스로 권한을 높일 수 없습니다.",
+      "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
     ],
   },
   {

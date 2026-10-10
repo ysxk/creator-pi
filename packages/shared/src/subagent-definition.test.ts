@@ -79,7 +79,7 @@ Leave the provider's thinking default unchanged.`);
     expect(result.warnings).toEqual([]);
   });
 
-  it("is read-only when the document says nothing about tools", () => {
+  it("inherits the parent's tools when the document says nothing about tools", () => {
     const result = parse(`---
 description: Explains a subsystem.
 ---
@@ -87,8 +87,12 @@ Explain it.`);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.definition.tools).toEqual([...DEFAULT_SUBAGENT_TOOLS]);
-    expect(subagentCanMutate(result.definition)).toBe(false);
+    expect(result.definition.tools).toEqual([]);
+    expect(result.definition.inheritTools).toBe(true);
+    expect(subagentToolsLabel(result.definition)).toBe("inherit");
+    expect(
+      resolveSubagentToolNames(result.definition, ["Read", "Edit", "Task"]),
+    ).toEqual(["Read", "Edit"]);
     expect(result.definition.name).toBe("reviewer");
     expect(result.definition.idleTimeoutSeconds).toBe(
       DEFAULT_SUBAGENT_IDLE_TIMEOUT_SECONDS,
@@ -214,6 +218,49 @@ Rename it.`);
     if (!result.ok) return;
     expect(result.definition.tools).toEqual(["Read", "Edit", "Write"]);
     expect(subagentCanMutate(result.definition)).toBe(true);
+  });
+
+  it("treats a `tools:` line with no value and no items as saying nothing", () => {
+    const result = parse(`---
+description: Explains a subsystem.
+tools:
+model: openai/gpt-5
+---
+Explain it.`);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.definition.tools).toEqual([]);
+    expect(result.definition.inheritTools).toBe(true);
+  });
+
+  it("stays read-only when the document writes an empty list", () => {
+    const result = parse(`---
+description: Explains a subsystem.
+tools: []
+---
+Explain it.`);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.definition.tools).toEqual([...DEFAULT_SUBAGENT_TOOLS]);
+    expect(result.definition.inheritTools).toBeUndefined();
+    expect(subagentCanMutate(result.definition)).toBe(false);
+  });
+
+  it("gives a document that names tools exactly those, not the parent's", () => {
+    const result = parse(`---
+description: Reads code.
+tools:
+  - Read
+  - Grep
+---
+Read it.`);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.definition.tools).toEqual(["Read", "Grep"]);
+    expect(result.definition.inheritTools).toBeUndefined();
   });
 
   it("expands `*` to every assignable tool", () => {

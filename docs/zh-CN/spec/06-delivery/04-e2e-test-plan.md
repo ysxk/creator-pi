@@ -4527,7 +4527,7 @@ eleven-tool-round desktop paths are verified by
 #### E2E-119：并行子代理在不进入父级上下文的情况下报告
 
 - **先决条件**：项目绑定的 Agent 会话，其用户主目录包含
-  `~/.agents/subagents/scout.md`（只读，无 `tools` 键）、`~/.agents/subagents/fixer.md`
+  `~/.agents/subagents/scout.md`（只读，`tools: Read, Glob, Grep`）、`~/.agents/subagents/fixer.md`
   (`tools: Read, Edit`)、`~/.agents/subagents/pinned.md` (`model:` 命名第二个
   配置的提供程序）和 `~/.agents/subagents/broken.md`（缺少 `name`）；提供商
   可以驱动其流在一条辅助消息中发出两个 `Task` 调用；

@@ -9,10 +9,11 @@
  * the safety defaults so the renderer, main and the sidecar agree on what a
  * definition means.
  *
- * Two defaults matter for safety:
- * - a delegate that does not declare `tools` is read-only, and
- * - a delegate never inherits mutation rights unless it opts in with
- *   `tools: inherit` (nested Task / mode-switch tools stay denied).
+ * Two rules decide what a delegate can reach:
+ * - a document that says nothing about `tools` works with the parent
+ *   session's tools, the same as `tools: inherit` (D662), and
+ * - a document that names tools gets exactly those; nested Task / mode-switch
+ *   tools stay denied either way.
  */
 
 import {
@@ -40,12 +41,13 @@ export type SubagentDefinition = {
   name: string;
   /** One line telling the parent model when to delegate to this agent. */
   description: string;
-  /** Tools the delegate may call; read-only by default. */
+  /** Tools the definition names; empty when it only inherits. */
   tools: string[];
   /**
    * When true, the delegate also receives the parent session's live tool
    * catalog minus {@link SUBAGENT_INHERIT_DENY_TOOLS}. Set by `tools: inherit`
-   * (alone or alongside assignable extras). The session runtime resolves the
+   * (alone or alongside assignable extras) and by a document that leaves
+   * `tools` out (D662). The session runtime resolves the
    * inherited set at spawn time from `toolCatalog`, including deferred plugin
    * and MCP tools the parent is allowed to call.
    */
@@ -152,7 +154,9 @@ export function resolveSubagentToolNames(
  * write-capable, which drives the write lock and permission attribution. */
 export const SUBAGENT_MUTATING_TOOLS = ["Bash", "Edit", "Write"] as const;
 
-/** What a definition gets when it stays silent about tools. */
+/** The read-only grant: what the editor starts a new definition with, and
+ * what a document that writes an empty list (`tools: []`) falls back to. A
+ * document that leaves `tools` out inherits instead (D662). */
 export const DEFAULT_SUBAGENT_TOOLS: readonly SubagentAssignableTool[] = [
   "Read",
   "Glob",
@@ -395,10 +399,19 @@ export function parseSubagentDefinition(
   const description = asScalar(frontmatter.get("description"))?.trim() ?? "";
   if (!description) errors.push("missing `description`");
 
-  const declaredTools = asList(frontmatter.get("tools"));
+  const rawTools = frontmatter.get("tools");
+  const declaredTools = asList(rawTools);
+  // Absent, or a `tools:` line with neither a value nor `- item` lines.
+  const toolsOmitted =
+    rawTools === undefined || (Array.isArray(rawTools) && rawTools.length === 0);
   let tools: string[];
   let inheritTools = false;
-  if (declaredTools.length === 0) {
+  if (toolsOmitted) {
+    // Saying nothing about tools means working with the parent's (D662). The
+    // runtime fills the set at spawn, exactly as for `tools: inherit`.
+    tools = [];
+    inheritTools = true;
+  } else if (declaredTools.length === 0) {
     tools = [...DEFAULT_SUBAGENT_TOOLS];
   } else if (declaredTools.length === 1 && declaredTools[0] === "*") {
     tools = [...SUBAGENT_ASSIGNABLE_TOOLS];

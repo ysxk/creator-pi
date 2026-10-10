@@ -1,6 +1,7 @@
 # ADR 0246: Opt-in subagent inheritance of the parent tool catalog
 
-- Status: Accepted
+- Status: Accepted (§5's read-only default for a document without `tools` is
+  replaced by D662: such a document now inherits)
 - Date: 2026-09-14
 - Deciders: PI-Desktop core
 - Related: ADR 0062, ADR 0089, ADR 0100, D201, D415, issue #215, PR #319
@@ -64,7 +65,9 @@ tools as a second catalog.
    through Settings. The editor exposes an inherit checkbox; saving must not
    strip the token.
 
-5. Default documents that omit `tools` stay read-only (`Read, Glob, Grep`).
+5. *(Replaced by D662: a document that omits `tools` now inherits, as if it
+   had written `tools: inherit`. `tools: []` keeps the read-only three.)*
+   Default documents that omit `tools` stay read-only (`Read, Glob, Grep`).
    `tools: "*"` still means the seven assignable tools, not the session
    catalog. A session cannot lend mutation to a read-only delegate unless that
    definition opted into inherit.

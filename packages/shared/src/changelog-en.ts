@@ -14,6 +14,7 @@ export const enEntries: ChangelogEntry[] = [
       "Show configured context-window limits in the Composer's model list.",
       "Plugins can inspect or refuse network redirects; existing fetch calls still follow redirects by default.",
       "Keep subagents in a project's .agents/subagents folder: they apply only to that project and cannot raise their own permissions.",
+      "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
     ],
   },
   {

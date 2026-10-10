@@ -54,6 +54,81 @@ fn inherit_only_documents_round_trip() {
     assert!(!rendered.contains("tools: [inherit]"));
 }
 
+/// The record `parse_record` reads from a document with this frontmatter.
+fn scanned(front: &str) -> Option<UserSubagentRecord> {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("worker.md");
+    fs::write(&path, format!("{front}\n---\n\nDo the job.\n")).unwrap();
+    let state = CapabilityState::new(dir.path(), SUBAGENT_KIND);
+    parse_record(&path, &state, CapabilityLevel::Global, None)
+}
+
+fn scanned_tools(front: &str) -> Option<Vec<String>> {
+    scanned(front).map(|record| record.tools)
+}
+
+#[test]
+fn a_document_that_says_nothing_about_tools_inherits() {
+    for front in [
+        "---\ndescription: Says nothing.",
+        "---\ndescription: Opens a list and leaves it empty.\ntools:\nmodel: openai/gpt-5",
+        // A nested map's key is not the document's `tools` field.
+        "---\ndescription: Nested.\nhooks:\n  tools: [Read]",
+    ] {
+        assert_eq!(
+            scanned_tools(front),
+            Some(vec!["inherit".to_string()]),
+            "{front}"
+        );
+    }
+    let record = scanned("---\ndescription: Says nothing.").unwrap();
+    // Saving from Settings writes the grant down instead of changing it.
+    assert!(render_document(&record, "Do the job.").contains("tools: inherit\n"));
+}
+
+#[test]
+fn a_document_that_names_tools_gets_exactly_those() {
+    for (front, expected) in [
+        (
+            "---\ndescription: Inline.\ntools: Read, Grep",
+            vec!["Read", "Grep"],
+        ),
+        (
+            "---\ndescription: Bracketed.\ntools: [Read, Bash]",
+            vec!["Read", "Bash"],
+        ),
+        (
+            "---\ndescription: Quoted.\ntools: \"Read, Edit\"",
+            vec!["Read", "Edit"],
+        ),
+        // A block list used to be read as no declaration at all.
+        (
+            "---\ndescription: Block.\ntools:\n  - Read\n  - 'Glob'",
+            vec!["Read", "Glob"],
+        ),
+        (
+            "\u{feff}---\r\ndescription: CRLF.\r\ntools:\r\n  - Read",
+            vec!["Read"],
+        ),
+        // An explicitly empty list is not an omission: it stays read-only.
+        (
+            "---\ndescription: Empty.\ntools: []",
+            vec!["Read", "Glob", "Grep"],
+        ),
+    ] {
+        assert_eq!(
+            scanned_tools(front),
+            Some(expected.into_iter().map(String::from).collect()),
+            "{front}"
+        );
+    }
+    // Naming only tools nobody knows is still a malformed grant.
+    assert_eq!(
+        scanned_tools("---\ndescription: Unknown.\ntools: [Nope]"),
+        None
+    );
+}
+
 #[test]
 fn fallback_pins_survive_record_document_round_trips() {
     let dir = tempdir().unwrap();

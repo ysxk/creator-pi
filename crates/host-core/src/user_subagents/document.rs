@@ -26,6 +26,7 @@ const ASSIGNABLE_TOOLS: [&str; 7] = [
     "Edit",
     "Write",
 ];
+const INHERIT_TOKEN: &str = "inherit";
 const THINKING_LEVELS: [&str; 8] = [
     "off", "minimal", "low", "medium", "high", "xhigh", "max", "omit",
 ];
@@ -56,7 +57,7 @@ pub(super) fn normalize_tools(requested: Option<&Vec<String>>) -> Vec<String> {
     let mut result = Vec::new();
     for tool in &requested {
         let trimmed = tool.trim();
-        if trimmed.eq_ignore_ascii_case("inherit") {
+        if trimmed.eq_ignore_ascii_case(INHERIT_TOKEN) {
             inherit = true;
             continue;
         }
@@ -70,7 +71,7 @@ pub(super) fn normalize_tools(requested: Option<&Vec<String>>) -> Vec<String> {
         }
     }
     if inherit {
-        let mut tools = vec!["inherit".to_string()];
+        let mut tools = vec![INHERIT_TOKEN.to_string()];
         tools.extend(result);
         tools
     } else {
@@ -132,14 +133,13 @@ pub(super) fn parse_record(
     if name.is_empty() || description.is_empty() {
         return None;
     }
-    let tools = front.get("tools").map(|value| {
-        value
-            .trim_matches(['[', ']'])
-            .split(',')
-            .map(|tool| tool.trim().to_string())
-            .collect::<Vec<_>>()
-    });
-    let tools = normalize_tools(tools.as_ref());
+    // A document that says nothing about tools inherits the parent session's
+    // (D662), as the shared definition parser reads it. One that names tools
+    // gets the known ones it names, and an empty list stays read-only.
+    let tools = match front_matter_list(&raw, "tools") {
+        None => vec![INHERIT_TOKEN.to_string()],
+        Some(declared) => normalize_tools(Some(&declared)),
+    };
     if tools.is_empty() {
         return None;
     }
@@ -218,6 +218,64 @@ fn loose_key(key: &str) -> String {
         .chars()
         .filter(|ch| !matches!(ch, '-' | '_' | ' '))
         .collect()
+}
+
+/// Read a list field the way the shared definition parser does: inline
+/// (`[a, b]` / `a, b`) or as `- item` lines under the key.
+///
+/// `None` means the document says nothing for the key: it is absent, or it
+/// opens a block list that has no items. An inline empty list is `Some(vec![])`.
+pub(super) fn front_matter_list(raw: &str, key: &str) -> Option<Vec<String>> {
+    let mut lines = raw.trim_start_matches('\u{feff}').lines();
+    if lines.next().map(str::trim) != Some("---") {
+        return None;
+    }
+    let mut values: Option<Vec<String>> = None;
+    let mut collecting = false;
+    for raw_line in lines {
+        let line = raw_line.trim();
+        if line == "---" {
+            break;
+        }
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if collecting {
+            if let Some(item) = line.strip_prefix("- ") {
+                let item = unquote(item);
+                if !item.is_empty() {
+                    values.get_or_insert_with(Vec::new).push(item);
+                }
+                continue;
+            }
+        }
+        collecting = false;
+        // An indented `key:` belongs to a nested map, which is not a field.
+        if raw_line.starts_with([' ', '\t']) {
+            continue;
+        }
+        let Some((candidate, value)) = line.split_once(':') else {
+            continue;
+        };
+        if loose_key(candidate) != key {
+            continue;
+        }
+        let value = value.trim();
+        collecting = value.is_empty();
+        values = (!collecting).then(|| {
+            unquote(value)
+                .trim_matches(['[', ']'])
+                .split(',')
+                .map(unquote)
+                .filter(|entry| !entry.is_empty())
+                .collect()
+        });
+    }
+    values
+}
+
+fn unquote(value: &str) -> String {
+    value.trim().trim_matches(['\'', '"']).trim().to_string()
 }
 
 /// Rewrite the frontmatter of a document that is changing level.

@@ -589,10 +589,12 @@ is guidance, not the security boundary.
 one subagent definition. Plan and Goal are read-only contract negotiations, so a
 delegate with `Bash`, `Edit` or `Write` would drive straight through them.
 
-A definition declares the tools its delegate may call. By default those names
+A definition declares the tools its delegate may call. The names it may list
 are drawn only from the seven working tools `Read`, `Glob`, `Grep`,
-`BrowserPreview`, `Bash`, `Edit` and `Write`. A definition that declares none
-gets `Read`, `Glob`, `Grep`; `tools: "*"` means all seven working tools. An
+`BrowserPreview`, `Bash`, `Edit` and `Write`. A definition that leaves `tools`
+out inherits the parent session's tools, as below (D662); an explicitly empty
+list (`tools: []`) gets `Read`, `Glob`, `Grep`; `tools: "*"` means all seven
+working tools. An
 unrecognized name — including the withdrawn `A2A` and `Peer` tools (D326 /
 ADR 0165) — is dropped with a parse warning.
 
@@ -601,15 +603,19 @@ A document may opt into the parent session's live tool catalog with
 the runtime unions `toolCatalog` keys (including deferred plugin/MCP tools)
 with any assignable extras, then drops `Task` / `TaskWait` / `TaskList` /
 `TaskStop`, `EnterPlanMode` / `EnterGoalMode`, `asktool`, `new_context`, and
-`ToolSearch`. Builtins do not opt in. `inherit` is visible in the Markdown and
-in Settings; host-core keeps the token so an inherit-only document still
-loads. Plugin tools, `Skill`, and MCP tools are therefore available to a
-delegate only through this opt-in, never by putting those names on the
-assignable whitelist.
+`ToolSearch`. A document that says nothing about `tools` — the key is absent,
+or its line has neither a value nor `- item` lines — is read as `tools: inherit`
+(D662), so a definition written for another agent tool that treats an omitted
+list as "everything the session has" behaves the same here. The builtins name
+their tools and do not inherit. `inherit` is visible in the Markdown and in
+Settings; host-core keeps the token, reports a document without the key as
+`["inherit"]`, and writes `tools: inherit` when such a document is saved.
+Plugin tools, `Skill`, and MCP tools are therefore available to a delegate only
+by inheriting, never by putting those names on the assignable whitelist.
 
-Without `tools: inherit`, a delegate's available tools are its definition's,
-never its session's: it cannot gain a tool because the parent has it, and a
-session cannot lend mutation rights to a read-only delegate. Delegate calls
+A definition that names its tools gets those and never its session's: it cannot
+gain a tool because the parent has it, and a session cannot lend mutation
+rights to a delegate whose definition lists only read tools. Delegate calls
 are built by the session runtime and go through the same `tools.execute` path,
 so path rules (§4), Bash rules (§5), permission modes (§6), the operating-mode
 matrix (§10) and auditing (§9) apply unchanged — evaluated against the owning

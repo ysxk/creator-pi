@@ -23,49 +23,7 @@ pub(super) fn normalize(values: &[String]) -> Result<Vec<String>> {
 
 /// Read the same inline or block list accepted by the shared definition parser.
 pub(super) fn parse(raw: &str) -> Result<Vec<String>> {
-    let mut lines = raw.lines();
-    if lines.next().map(str::trim) != Some("---") {
-        return Ok(Vec::new());
-    }
-    let mut values = Vec::new();
-    let mut collecting = false;
-    for line in lines {
-        let line = line.trim();
-        if line == "---" {
-            break;
-        }
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if collecting {
-            if let Some(value) = line.strip_prefix("- ") {
-                values.push(unquote(value));
-                continue;
-            }
-        }
-        collecting = false;
-        if let Some((key, value)) = line.split_once(':') {
-            if key.to_lowercase().replace(['-', '_', ' '], "") == "fallbackmodels" {
-                values.clear();
-                let value = value.trim();
-                collecting = value.is_empty();
-                if !collecting {
-                    values.extend(
-                        value
-                            .trim_matches(['[', ']'])
-                            .split(',')
-                            .map(unquote)
-                            .filter(|pin| !pin.is_empty()),
-                    );
-                }
-            }
-        }
-    }
-    normalize(&values)
-}
-
-fn unquote(value: &str) -> String {
-    value.trim().trim_matches(['\'', '"']).trim().to_string()
+    normalize(&super::document::front_matter_list(raw, "fallbackmodels").unwrap_or_default())
 }
 
 #[cfg(test)]

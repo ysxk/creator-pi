@@ -14,6 +14,7 @@ export const deEntries: ChangelogEntry[] = [
       "Die Modellliste im Composer zeigt jetzt konfigurierte Kontextfensterlimits.",
       "Plugins können Netzwerkweiterleitungen prüfen oder ablehnen; bestehende Fetch-Aufrufe folgen Weiterleitungen weiterhin standardmäßig.",
       "Subagenten können im Ordner .agents/subagents eines Projekts liegen: Sie gelten nur für dieses Projekt und können ihre eigenen Berechtigungen nicht erhöhen.",
+      "A subagent file that leaves out tools now works with the main agent's tools, as it does in Claude Code; list the tools to limit it.",
     ],
   },
   {
