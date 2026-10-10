@@ -1,5 +1,5 @@
 import { PlanHistoryCard } from "./PlanHistoryCard";
-import { FileTypeBadge } from "../../../components/FileTypeBadge";
+import { CommandBadge, FileTypeBadge } from "../../../components/FileTypeBadge";
 import { planSubmission } from "../../../lib/plan-history";
 import { GeneratedImages } from "./GeneratedImages";
 import "../../../styles/generated-images.css";
@@ -496,6 +496,8 @@ function HostToolRow({
             {summary && previewTarget?.kind === "file" ? (
               <FileTypeBadge path={previewTarget.path} />
             ) : null}
+            {/* A command leads with its language the way a path does. */}
+            {summary && action === "run" ? <CommandBadge command={summary} /> : null}
             {summary ? (
               <span
                 className={`tool-row-summary${previewTarget ? " linked" : ""}`}

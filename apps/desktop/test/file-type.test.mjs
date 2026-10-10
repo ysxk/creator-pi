@@ -199,3 +199,53 @@ test("lists, tabs and code heads show the mark where a generic icon stood", asyn
   }
   assert.match(bare, /background:\s*none;[^}]*box-shadow:\s*none;/);
 });
+
+test("a command wears the mark of the language its program belongs to", async () => {
+  const { fileTypeOfCommand } = await import("../src/lib/file-type.ts");
+  const { FILE_TYPE_LOGOS } = await import("../src/lib/file-type-logos.ts");
+  const logoOf = (command) => {
+    const type = fileTypeOfCommand(command);
+    return type ? (type.logo ?? type.id) : null;
+  };
+  // The program is the first word that is not a variable, a wrapper or a flag.
+  assert.equal(logoOf("node - << 'EOF'\nconst git = require('python');\nEOF"), "js");
+  assert.equal(logoOf("NODE_ENV=test FORCE_COLOR=0 pnpm --filter app test"), "js");
+  assert.equal(logoOf("sudo env PATH=/x ./node_modules/.bin/tsc -p ."), "ts");
+  assert.equal(logoOf("/usr/bin/python3.12 -m pytest"), "py");
+  assert.equal(logoOf("pip3 install requests"), "py");
+  assert.equal(logoOf("npx vitest run"), "npm");
+  assert.equal(logoOf("cargo test -p host-core --locked"), "rs");
+  assert.equal(logoOf("git status --short"), "git");
+  // A `cd` in front, or a pipe feeding it, does not hide the program.
+  assert.equal(logoOf("cd apps/desktop && pnpm test"), "js");
+  assert.equal(logoOf("cat build.log | python3 -"), "py");
+  // A general tool has no language, whatever it is pointed at.
+  assert.equal(logoOf("file worker/material/chat-code.png"), null);
+  assert.equal(logoOf("ls -la src/*.py"), null);
+  assert.equal(logoOf("grep -rn node ."), null);
+  assert.equal(logoOf("echo \"run; python later\""), null);
+  // Only the command line is read: a here-document's body is input.
+  assert.equal(logoOf("cat << 'EOF' > x.txt\nnode index.js\nEOF"), null);
+  assert.equal(logoOf(""), null);
+
+  // Every program the table lists resolves to a type whose logo is bundled.
+  const source = await readFile(new URL("../src/lib/file-type.ts", import.meta.url), "utf8");
+  const table = source.match(/const COMMAND_LANGUAGES: Record<string, string> = \{([\s\S]*?)\n\};/)?.[1] ?? "";
+  const programs = [...table.matchAll(/(?:"([^"]+)"|([A-Za-z0-9_]+)): "/g)].map((m) => m[1] ?? m[2]);
+  assert.ok(programs.length > 60, `parsed ${programs.length} programs`);
+  for (const program of programs) {
+    const logo = logoOf(`${program} --version`);
+    assert.ok(logo && FILE_TYPE_LOGOS[logo], `${program} has no bundled logo (${logo})`);
+  }
+});
+
+test("a run row puts its command's mark where a file row puts the file's", async () => {
+  const row = await readFile(
+    new URL("../src/features/chat/transcript/ToolRow.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    row,
+    /<FileTypeBadge path=\{previewTarget\.path\} \/>[\s\S]{0,160}\{summary && action === "run" \? <CommandBadge command=\{summary\} \/> : null\}/,
+  );
+});

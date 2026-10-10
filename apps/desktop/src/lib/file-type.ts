@@ -275,6 +275,75 @@ export function fileTypeOf(pathOrName: string): FileType | null {
   return lookup(BY_EXTENSION, leaf.slice(dot + 1));
 }
 
+/**
+ * Programs a shell command runs, mapped to the language tag, extension or file
+ * name whose mark they wear. Runtimes, compilers and a language's own package
+ * manager only: a general tool (`ls`, `curl`, `make`) has no language and
+ * keeps the terminal icon.
+ */
+const COMMAND_LANGUAGES: Record<string, string> = {
+  node: "js", nodejs: "js", bun: "js", bunx: "js", deno: "js", pnpm: "js", pnpx: "js", yarn: "js",
+  npm: "package.json", npx: "package.json",
+  tsc: "ts", tsx: "ts", "ts-node": "ts",
+  python: "py", pip: "py", pipx: "py", uv: "py", uvx: "py", poetry: "py", pytest: "py",
+  ipython: "py", conda: "py", jupyter: "ipynb",
+  cargo: "rs", rustc: "rs", rustup: "rs",
+  go: "go", gofmt: "go",
+  git: ".gitignore", gh: ".gitignore",
+  docker: "dockerfile", "docker-compose": "dockerfile",
+  ruby: "rb", gem: "rb", bundle: "rb", bundler: "rb", rake: "rb", rails: "rb",
+  php: "php", composer: "php",
+  java: "java", javac: "java", mvn: "java", gradle: "gradle", gradlew: "gradle",
+  kotlin: "kt", kotlinc: "kt", swift: "swift", swiftc: "swift", dotnet: "cs",
+  lua: "lua", perl: "pl", julia: "jl", zig: "zig", dart: "dart", flutter: "dart",
+  elixir: "ex", mix: "ex", iex: "ex", rscript: "r", ghc: "hs", cabal: "hs", stack: "hs",
+  ocaml: "ml", dune: "ml", opam: "ml", scala: "scala", sbt: "scala",
+  nix: "nix", "nix-shell": "nix", "nix-build": "nix", terraform: "tf", cmake: "cmakelists.txt",
+  sqlite3: "sqlite", vim: "vim", nvim: "vim", pdflatex: "tex", xelatex: "tex", latex: "tex",
+  pwsh: "ps1", powershell: "ps1", bash: "sh", sh: "sh", zsh: "sh", fish: "sh",
+};
+
+/** Words that run the command after them rather than being it. */
+const COMMAND_PREFIXES = new Set([
+  "sudo", "env", "time", "nohup", "exec", "command", "nice", "caffeinate", "arch",
+]);
+const MAX_COMMAND_SEGMENTS = 6;
+
+function programOfSegment(segment: string): string | null {
+  for (const word of segment.trim().split(/\s+/)) {
+    // `FOO=bar cmd` sets a variable for the command; the command comes after.
+    if (!word || /^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || COMMAND_PREFIXES.has(word)) continue;
+    if (word.startsWith("-")) continue;
+    const leaf = (word.split(/[\\/]/).pop() ?? "").toLowerCase();
+    // `python3.12`, `pip3`, `node22`: the version is not the program.
+    return leaf.replace(/^(python|pip|ruby|php|node|lua|perl)\d+(?:\.\d+)*$/, "$1") || null;
+  }
+  return null;
+}
+
+/**
+ * The language of the program a shell command runs, or null.
+ *
+ * `cd app && pnpm test` is a JavaScript command and `cat log | python3 -` a
+ * Python one: the first step of the line that is a language's program names
+ * it, so a `cd` in front or a pipe feeding it does not hide it. Only the
+ * command line is read: a here-document's body and a quoted argument are the
+ * program's input, not the command.
+ */
+export function fileTypeOfCommand(command: string): FileType | null {
+  const line = (command.split("\n", 1)[0] ?? "").split("<<", 1)[0] ?? "";
+  // A quoted argument is one word, whatever separators it holds.
+  const unquoted = line.replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, '""');
+  const segments = unquoted.split(/&&|\|\||[;|]/, MAX_COMMAND_SEGMENTS);
+  for (const segment of segments) {
+    const program = programOfSegment(segment);
+    if (!program || !Object.hasOwn(COMMAND_LANGUAGES, program)) continue;
+    const type = fileTypeOfLanguage(COMMAND_LANGUAGES[program] ?? "");
+    if (type) return type;
+  }
+  return null;
+}
+
 /** The type a code fence's language tag names (`ts`, `python`, `c++`), or null. */
 export function fileTypeOfLanguage(tag: string): FileType | null {
   const key = tag.trim().toLowerCase();

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   fileTypeOf,
+  fileTypeOfCommand,
   fileTypeOfLanguage,
   type FileType,
   type FileTypeGlyph,
@@ -52,6 +53,12 @@ function FileTypeMark({ type }: { type: FileType }) {
 export function FileTypeBadge({ path, fallback = null }: { path: string; fallback?: ReactNode }) {
   const type = fileTypeOf(path);
   return type ? <FileTypeMark type={type} /> : <>{fallback}</>;
+}
+
+/** The same mark for the language of the program a shell command runs, or nothing. */
+export function CommandBadge({ command }: { command: string }) {
+  const type = fileTypeOfCommand(command);
+  return type ? <FileTypeMark type={type} /> : null;
 }
 
 /** The same mark for the language a code fence names, or nothing. */
