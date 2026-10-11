@@ -12,6 +12,7 @@ import type { TFunction } from "i18next";
 import {
   rewriteIdeographicCommaTrigger,
 } from "@pi-desktop/shared";
+import { useOpenChatFileRef } from "../../../../hooks/use-preview-target";
 import { useAppStore } from "../../../../stores/app-store";
 import { api } from "../../../../lib/api";
 import type { ComposerDraftSnapshot } from "../../../../lib/composer-smart-stop";
@@ -243,10 +244,20 @@ export function useComposerDraft({
   const imagePreview = useComposerImagePreview({ references: fileReferences, value, sessionId: referenceSessionId, editorRef: ref });
   const removeChipByTokenRef = useRef<(token: string) => void>(() => {});
   const expandTextReferenceRef = useRef<(token: string) => void>(() => {});
+  const openFileRef = useOpenChatFileRef();
+  const openFileRefRef = useRef(openFileRef);
+  openFileRefRef.current = openFileRef;
   const openImageReferenceRef = useRef<(token: string) => void>(() => {});
   openImageReferenceRef.current = (token) => {
     const reference = referenceByTokenRef.current.get(token);
-    if (reference) imagePreview.open(reference);
+    if (!reference) return;
+    // A recording previews in the file view, where its player is (D667); a
+    // picture opens the modal preview.
+    if (reference.kind === "audio") {
+      openFileRefRef.current(reference.path, undefined, reference.mimeType);
+      return;
+    }
+    imagePreview.open(reference);
   };
   const openSessionReferenceRef = useRef<(token: string) => void>(() => {});
   openSessionReferenceRef.current = (token) => {

@@ -1346,13 +1346,15 @@ Project drag/drop follows these patterns:
   outside the project has no relative path to copy and says so. The OS default
   application is no longer what this click does, though that action stays
   reachable from the file view's own context menu.
-- In the host `file:` tab, a conversation MP4 or audio file that cannot be
-  previewed because it is binary or exceeds the text preview limit offers
-  **Open with default application**. This applies to named `.mp4` files and
-  audio files (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.aac`, `.aiff`), and
-  to extensionless attachment blobs carrying `video/mp4` or `audio/*` metadata
-  (D667). A failed OS handoff shows an error; the user can still reveal the
-  contained file in the file manager.
+- In the host `file:` tab, a conversation clip or recording plays inline — a
+  video or audio element streaming over `pi-media:` — with **Open with default
+  application** beneath it; a container the renderer cannot decode keeps the
+  binary notice with that button. This applies to files named by a media
+  extension (`.mp4`, `.mov`, `.webm`, `.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`,
+  `.aac`, `.aiff`, …) and to extensionless attachment blobs carrying a
+  `video/*` or `audio/*` type (D667). A failed OS handoff shows an error; the
+  user can still reveal the contained file in the file manager. An audio chip
+  in the Composer draft opens this view when clicked.
 - The same destination rule governs every other surface of the transcript that
   names a file, because one opener serves them all: clicking the file path in a
   tool row's summary (Read, Write, Edit, fetch) and clicking a path in a tool

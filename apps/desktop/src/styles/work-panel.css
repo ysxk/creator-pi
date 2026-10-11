@@ -879,3 +879,31 @@
   max-height: 100%;
   border-radius: var(--radius-sm);
 }
+
+/* A clip or a recording plays where its text would have been; the OS player
+   stays one button away beneath it. */
+.file-viewer-media {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  min-height: 0;
+}
+
+.file-viewer-media audio {
+  width: min(100%, 480px);
+  height: 40px;
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.file-viewer-media video {
+  max-width: 100%;
+  max-height: min(60vh, 480px);
+  border-radius: var(--radius-sm);
+  background: #000;
+  outline: none;
+}

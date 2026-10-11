@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-const [composer, composerInput, editor, hover, hoverHook, card, cardStyles, storeHelpers, completions] =
+const [composer, composerInput, editor, hover, hoverHook, card, cardStyles, storeHelpers, completions, draftHook] =
   await Promise.all([
     read("../src/components/Composer.tsx"),
     read("../src/features/chat/composer/ComposerInput.tsx"),
@@ -15,6 +15,7 @@ const [composer, composerInput, editor, hover, hoverHook, card, cardStyles, stor
     read("../src/styles/image-hover-card.css"),
     read("../src/stores/helpers/store-helpers.ts"),
     read("../src/features/chat/composer/hooks/useComposerCompletions.ts"),
+    read("../src/features/chat/composer/hooks/useComposerDraft.ts"),
   ]);
 
 test("a recording in the draft is an audio chip", () => {
@@ -24,7 +25,17 @@ test("a recording in the draft is an audio chip", () => {
   // The chip wears the audio glyph whatever the file is called.
   assert.match(editor, /if \(reference\.kind === "audio" \|\| AUDIO_FILE_PATTERN\.test\(name\) \|\| mime\.startsWith\("audio\/"\)\)/);
   // And carries the marker the hover tracker looks for.
-  assert.match(editor, /if \(reference\.kind === "audio"\) chip\.dataset\.audio = "";/);
+  assert.match(editor, /const audio = reference\.kind === "audio";/);
+  assert.match(editor, /if \(audio\) chip\.dataset\.audio = "";/);
+});
+
+test("activating an audio chip opens the recording in the file view", () => {
+  // The chip is a button whose action names the media preview; it shares the
+  // picture's preview callback, and the owner picks the view by kind.
+  assert.match(editor, /audio\s*\?\s*\(\) => onOpenImage\(token\)/);
+  assert.match(editor, /audio\s*\?\s*"open-media-preview"/);
+  assert.match(draftHook, /if \(reference\.kind === "audio"\) \{\s*openFileRefRef\.current\(reference\.path, undefined, reference\.mimeType\);/);
+  assert.match(draftHook, /imagePreview\.open\(reference\);/);
 });
 
 test("hovering an audio chip reveals a player that stays reachable", () => {

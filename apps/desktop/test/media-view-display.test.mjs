@@ -13,6 +13,8 @@ const [
   transcriptShared,
   messageRow,
   hoverCard,
+  filesTab,
+  workPanelStyles,
 ] = await Promise.all([
   read("../electron/main/plugin-schemes.ts"),
   read("../electron/main/media-protocol.ts"),
@@ -22,7 +24,27 @@ const [
   read("../src/features/chat/transcript/shared.tsx"),
   read("../src/features/chat/transcript/MessageRow.tsx"),
   read("../src/components/ImageHoverCard.tsx"),
+  read("../src/components/workpanel/FilesTab.tsx"),
+  read("../src/styles/work-panel.css"),
 ]);
+
+test("the host file tab plays a clip or a recording inline, with the OS player one button away", () => {
+  // Media is recognized by extension or by the attachment's declared type,
+  // through the shared tables, so a hash-named blob plays too.
+  assert.match(filesTab, /function mediaPreviewKind\(path: string, mimeType\?: string\): "audio" \| "video" \| null/);
+  assert.match(filesTab, /if \(isAudioAttachment\(mimeType, path\)\) return "audio";/);
+  assert.match(filesTab, /if \(isVideoAttachment\(mimeType, path\)\) return "video";/);
+  // It streams over the host-owned scheme by the selected ref, never a raw path.
+  assert.match(filesTab, /<audio\s[^>]*src=\{mediaViewUrl\(selected\)\}/);
+  assert.match(filesTab, /<video\s[^>]*src=\{mediaViewUrl\(selected\)\}/);
+  // A container the renderer cannot decode falls back to the binary notice.
+  assert.match(filesTab, /onError=\{\(\) => setMediaFailed\(true\)\}/);
+  assert.match(filesTab, /media && !mediaFailed \? \(/);
+  // The system-open button stays, under the player and on the notice.
+  assert.equal((filesTab.match(/void openWithSystem\(\)/g) ?? []).length, 2);
+  assert.match(workPanelStyles, /\.file-viewer-media \{/);
+  assert.match(workPanelStyles, /\.file-viewer-media audio \{/);
+});
 
 test("the pi-media scheme is reserved privileged before app ready", () => {
   assert.match(schemes, /PI_MEDIA_SCHEME_PRIVILEGES/);

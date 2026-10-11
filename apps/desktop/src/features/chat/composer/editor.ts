@@ -320,8 +320,11 @@ function buildChipElement(
   const image = chipIconKey(reference) === "image";
   if (image) chip.dataset.image = "";
   // A recording's chip gets a hover player; the marker is what the hover
-  // tracker looks for.
-  if (reference.kind === "audio") chip.dataset.audio = "";
+  // tracker looks for. Activating it opens the recording in the file view,
+  // through the same preview callback a picture uses: the owner knows which
+  // preview the reference has.
+  const audio = reference.kind === "audio";
+  if (audio) chip.dataset.audio = "";
   const session = reference.kind === "session";
   if (session) chip.dataset.sessionId = reference.path;
   const editableText = !image && !session && isEditableTextReference(reference);
@@ -329,9 +332,11 @@ function buildChipElement(
     ? () => onExpandText(token)
     : image
       ? () => onOpenImage(token)
-      : session
-        ? () => onOpenSession(token)
-        : undefined;
+      : audio
+        ? () => onOpenImage(token)
+        : session
+          ? () => onOpenSession(token)
+          : undefined;
   chip.setAttribute("role", activate ? "button" : "listitem");
   chip.setAttribute("aria-label", `${reference.name} — ${origin}`);
   if (activate) {
@@ -342,7 +347,9 @@ function buildChipElement(
       ? "expand-text-reference"
       : image
         ? "open-image-preview"
-        : "open-session-reference";
+        : audio
+          ? "open-media-preview"
+          : "open-session-reference";
     chip.addEventListener("click", activate);
     chip.addEventListener("keydown", (event) => {
       if (event.target !== chip) return;

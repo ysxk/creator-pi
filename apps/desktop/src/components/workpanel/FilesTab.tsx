@@ -7,7 +7,13 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { FsEntry, FsReadResult } from "@pi-desktop/shared";
+import {
+  isAudioAttachment,
+  isVideoAttachment,
+  mediaViewUrl,
+  type FsEntry,
+  type FsReadResult,
+} from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import { Markdown } from "../Markdown";
@@ -76,17 +82,16 @@ function isMarkdownPath(path: string): boolean {
 }
 
 /**
- * A conversation clip or recording the host `file:` tab cannot preview as text
- * and hands to the OS player instead: a named media file, or a stored blob
- * whose attachment metadata declares a media type.
+ * What the host `file:` tab plays inline instead of previewing as text: a
+ * clip or a recording named by its extension, or a stored attachment blob
+ * whose metadata declares a media type. It streams over the host-owned
+ * `pi-media:` scheme; a container the renderer cannot decode falls back to
+ * the binary notice, and the OS player stays one button away either way.
  */
-function isSystemOpenableMedia(path: string, mimeType?: string): boolean {
-  if (/\.(?:mp4|mp3|wav|m4a|flac|ogg|oga|aac|aiff?)$/i.test(path)) return true;
-  const mime = mimeType?.toLowerCase() ?? "";
-  return (
-    /(?:^|[\\/])attachments[\\/][0-9a-f]{64}$/i.test(path) &&
-    (mime === "video/mp4" || mime.startsWith("audio/"))
-  );
+function mediaPreviewKind(path: string, mimeType?: string): "audio" | "video" | null {
+  if (isAudioAttachment(mimeType, path)) return "audio";
+  if (isVideoAttachment(mimeType, path)) return "video";
+  return null;
 }
 
 function formatSize(size: number): string {
@@ -174,6 +179,8 @@ export function FilesTab() {
   const [selectedLine, setSelectedLine] = useState<number | undefined>();
   const [file, setFile] = useState<FsReadResult | null>(null);
   const [fileError, setFileError] = useState(false);
+  /** The inline player could not decode the selected media; show the notice instead. */
+  const [mediaFailed, setMediaFailed] = useState(false);
   const viewerBodyRef = useRef<HTMLDivElement>(null);
 
   // Workspace switches reset all browsing state. Guarded so it only fires on
@@ -191,6 +198,7 @@ export function FilesTab() {
     setSelectedLine(undefined);
     setFile(null);
     setFileError(false);
+    setMediaFailed(false);
   }, [root]);
 
   const loadDir = useCallback(
@@ -233,6 +241,7 @@ export function FilesTab() {
       setSelectedLine(position?.line);
       setFile(null);
       setFileError(false);
+      setMediaFailed(false);
       try {
         setFile(await api.fsRead(rel, mimeType));
       } catch {
@@ -355,6 +364,7 @@ export function FilesTab() {
   };
 
   if (selected !== null) {
+    const media = mediaPreviewKind(selected, selectedMimeType);
     return (
       <div className="file-viewer">
         <div className="file-viewer-header">
@@ -391,6 +401,29 @@ export function FilesTab() {
             <WorkTabEmpty icon={IconFileText} title={t("panel.files.error")} />
           ) : !file ? (
             <div className="file-tree-note">{t("panel.files.loading")}</div>
+          ) : media && !mediaFailed ? (
+            <div className="file-viewer-media" data-media={media}>
+              {media === "video" ? (
+                <video
+                  controls
+                  preload="metadata"
+                  src={mediaViewUrl(selected)}
+                  title={selected}
+                  onError={() => setMediaFailed(true)}
+                />
+              ) : (
+                <audio
+                  controls
+                  preload="metadata"
+                  src={mediaViewUrl(selected)}
+                  title={selected}
+                  onError={() => setMediaFailed(true)}
+                />
+              )}
+              <Button type="button" onClick={() => void openWithSystem()}>
+                {t("chat.openFile")}
+              </Button>
+            </div>
           ) :
           file.kind === "text" &&
           isMarkdownPath(selected) &&
@@ -413,7 +446,7 @@ export function FilesTab() {
                   : t("panel.files.binary")
               }
             >
-              {isSystemOpenableMedia(selected, selectedMimeType) && (
+              {media && (
                 <Button type="button" onClick={() => void openWithSystem()}>
                   {t("chat.openFile")}
                 </Button>
