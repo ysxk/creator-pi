@@ -79,6 +79,7 @@ This log freezes previously open questions into concrete decisions.
 | D684 | A table shows the pictures it names as thumbnails in their cells | **Amend D663 (1). A local picture (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`, `svg`) that an assistant reply names as a file reference inside a table cell gets a fixed-size thumbnail (120 × 90, cropped from the top) right after the name, in that cell, instead of a preview after the table (`svg`) or nothing at all (raster). It loads through the same bounded `fs/readImageDataUrl` channel as an embedded image, opens the reply's image viewer on click, carries the file menu, and draws nothing for a name the host cannot resolve, so the chip stays alone. One picture gets one thumbnail per table and per reply. Clips and recordings in a table still follow it, because a cell has no room for a player, and a picture named in prose or a list still stays a chip. The preview element gains a `variant` attribute (`block` / `thumb`).** | A table is how an agent reports a batch of outputs; their pictures were either missing or stacked after the table, away from the row that describes them. |
 | D685 | A model watches and listens through tools of their own | **Amend D660 and D667. `Read` no longer answers a video or an audio file with a reference: it refuses both as `TOOL_BINARY_CONTENT` (`… is a video file (.mp4) and has no text to read`). Two read-only host tools take them instead: `ViewVideo` and `ViewAudio` (`path`), under `Read`'s path policy, risk, budget class and contract-mode allowance, answering with the same reference after the same container check. The runtime declares each one only for a session model that can receive that medium in a tool result (the media modality, a Gemini or Chat Completions wire API, and image input on); a declared tool is core in every mode, `Read`'s description points the medium at it, and the system prompt gains a short *Watching and listening* block that says to use it instead of extracting frames or transcribing with shell tools. A model without the medium gets neither tool and no word about them. A delegate never inherits or declares either tool. The transcript shows the calls as *Watched* / *Listened to* rows.** | With the media folded into `Read`, a model that could watch still treated a clip as a file to take apart, extracting frames with ffmpeg before it ever read the sentence in `Read`'s description. A tool named for the job, plus a prompt line, is what such a model reaches for. |
 | D686 | A reply's pictures are looked at, not opened as files | **Amend D663 and D684. A local picture (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`) an assistant reply names outside a table cell now gets the D684 thumbnail too: the thumbnails follow the block that names them as one wrapping row (inside the item for a list), after any clip, recording or drawing preview of that block; a drawing (`svg`) outside a table keeps its full preview. One picture still gets one thumbnail per reply, at its first mention. Clicking a picture's name in a reply (its chip or a Markdown link) opens the reply's image viewer on the file `fs/resolveRef` completes it to, with the reply's other pictures to step through, instead of the bundled file view; a name the host cannot resolve opens as a file as before, and outside a reply nothing changes. A chip inside the link the file-link pass made no longer opens its file twice.** | A picture a reply only named opened in the file view, which did not always show it; the viewer is where a reply's pictures are already looked at, and a picture named in a sentence was as worth seeing as one in a table. |
+| UD656 | Quarantine appends the host keeps refusing instead of stalling the outbox | **Amend ADR 0041 / D318 / D444 / D597: an append whose `session.appendMessage` or `session.recordUsage` call fails with an error the outbox cannot classify as a duplicate message id, a `PERMISSION_DENIED:` poison row, or a foreign-key orphan is retried on a bounded backoff (5s, doubling to a 60s cap) instead of ending the flush. The fifth consecutive failure on that head moves it into an application-owned dead-letter file, `session-message-outbox.dead-letter.json`, with its payload, session id, quarantine timestamp, and host error; only the newest 256 quarantined appends are kept, and the oldest is discarded with a warn. The flush then continues with the next entry, so one refused append can no longer hold the FIFO head, fill the 1024-entry cap, or fail every session's writes. Quarantined appends are never replayed automatically, and `session.delete` drops that session's quarantined appends too. No protocol version, storage schema, or queued-outbox format change.** | A `stream did not contain valid UTF-8` append stayed at the FIFO head for 14.8 hours while `session.persistence.outbox.is.full` fired 5990 times, so every session's appends failed until restart. Only three error classes had a drain, and every other error was treated as transient forever (#1560). |
 
 ## B. Secondary implementation defaults
 
@@ -7960,3 +7961,27 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `apps/desktop/test/transcript-file-chips.test.mjs`. Checked in a static
   harness rendering a real reply: a row of thumbnails under the paragraph,
   and a click on a chip opened the viewer with no file-open call.
+
+## 2026-10-11 — Quarantine appends the host keeps refusing (UD656)
+
+- UD656 amends ADR 0041, D318, D444, and D597: the outbox retries an
+  unclassifiable host failure on a bounded backoff (5s, doubling to a 60s cap)
+  and, after five consecutive failures on the same head, quarantines that
+  append into an application-owned dead-letter file and keeps draining the
+  later entries. Previously any error outside the three known drains ended the
+  flush, so the head was retried forever, the 1024-entry cap stayed full, and
+  every session's writes failed until restart.
+- The backoff applies within one Host generation: the gate compares the Host
+  instance that failed the head, so a restarted Host retries the paused head at
+  once instead of waiting the remaining window.
+- A quarantined append keeps its payload, session id, quarantine timestamp,
+  and host error in `session-message-outbox.dead-letter.json`. It is never
+  replayed automatically, `session.delete` drops that session's quarantined
+  appends with its queued ones, and only the newest 256 are retained — a
+  discarded one is logged with its key, session, and the file path. The queued
+  outbox format, storage schema, and host protocol are unchanged.
+- Covered by `apps/desktop/test/persistence-outbox.test.mjs` (bounded retry and
+  backoff, quarantine and continued drain, dead-letter persistence across a
+  restart, dead-letter cap, session delete) and
+  E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue. See ADR
+  0041, `03-runtime/04-data-storage.md`, and `03-runtime/06-host-rpc-protocol.md`.
