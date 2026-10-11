@@ -54,7 +54,7 @@ test("hovering an audio chip reveals a player that stays reachable", () => {
   assert.match(hover, /<MediaHoverCard\s+media="audio"/);
   assert.match(card, /onPointerEnter=\{onPointerEnter\}/);
   assert.match(card, /data-media=\{media\}/);
-  assert.match(cardStyles, /\.image-hover-card audio \{/);
+  assert.match(cardStyles, /\.image-hover-card \.audio-player \{/);
   // The input mounts it beside the image hover, fed by the draft's references.
   assert.match(composerInput, /<ComposerMediaHover references=\{fileReferences\} editorRef=\{inputRef\} \/>/);
   assert.match(composer, /fileReferences=\{draft\.fileReferences\}/);

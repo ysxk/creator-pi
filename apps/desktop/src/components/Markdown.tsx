@@ -29,6 +29,7 @@ import {
   markdownRemarkPlugins,
 } from "../lib/markdown-blocks";
 import { mediaViewUrl } from "@pi-desktop/shared";
+import { AudioPlayer } from "./AudioPlayer";
 import {
   CHAT_GALLERY_ATTRIBUTE,
   MarkdownChatMediaContext,
@@ -819,22 +820,20 @@ function Table({
   return data ? <MarkdownTable {...data}>{table}</MarkdownTable> : table;
 }
 
-/** Inline audio player for audio URLs in markdown. */
+/** Inline audio player for audio URLs in markdown: the app's own player. */
 function AudioBlock({
   node: _node,
   src,
-  ...rest
+  title,
 }: ComponentProps<"audio"> & { node?: unknown }) {
   const source = typeof src === "string" ? src : "";
   const isRemote = /^https?:/i.test(source);
   const localSrc = isRemote ? null : mediaLocalSource(source);
   return (
     <div className="chat-audio">
-      <audio
-        controls
-        preload="metadata"
+      <AudioPlayer
         src={localSrc ?? source}
-        {...rest}
+        title={typeof title === "string" ? title : undefined}
       />
     </div>
   );

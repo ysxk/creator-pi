@@ -1759,7 +1759,10 @@ Single message render — either user (plaintext) or assistant (markdown streami
   path. The same player card opens from an audio chip in the Composer draft,
   streaming the pasted file's scratch path or the `@` reference it names, and
   waits a moment after the pointer leaves the chip so the controls can be
-  reached (D667). Assistant Markdown renders local `<video>`/`<audio>`
+  reached (D667). A recording plays in the app's own player everywhere it is
+  heard — a play/pause button, a seek bar and the time, in the audio file
+  type's tint — never in the browser's control; the audio element underneath
+  is hidden. Assistant Markdown renders local `<video>`/`<audio>`
   sources — a clip the agent referenced or a file a tool generated — through
   the same scheme, degrading to the compact file chip when the resolver
   refuses the path. Hovering or focusing the chip reveals the

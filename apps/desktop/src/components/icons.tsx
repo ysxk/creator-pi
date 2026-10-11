@@ -70,6 +70,7 @@ import {
   PhoneOff,
   PencilLine,
   Pin,
+  Pause,
   Play,
   Plug,
   Plus,
@@ -148,6 +149,7 @@ function icon(Lucide: LucideIcon) {
 
 export const IconPlus = icon(Plus);
 export const IconPower = icon(Power);
+export const IconPause = icon(Pause);
 export const IconPlay = icon(Play);
 export const IconBookOpen = icon(BookOpen);
 /** Paste-from-clipboard actions (MCP config import). */

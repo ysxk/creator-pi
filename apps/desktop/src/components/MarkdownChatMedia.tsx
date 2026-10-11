@@ -22,6 +22,7 @@ import type { ChatMediaKind } from "../lib/chat-media-refs";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { useOpenChatFileRef } from "../hooks/use-preview-target";
 import { useAppStore } from "../stores/app-store";
+import { AudioPlayer } from "./AudioPlayer";
 import { IconAudio, IconVideo } from "./icons";
 
 /**
@@ -218,13 +219,7 @@ function MentionedAudio({
   }
   return (
     <figure className="chat-audio chat-media-mention" onContextMenu={onContextMenu}>
-      <audio
-        controls
-        preload="metadata"
-        src={mediaViewUrl(file)}
-        title={name}
-        onError={() => setFailed(true)}
-      />
+      <AudioPlayer src={mediaViewUrl(file)} title={name} onError={() => setFailed(true)} />
       <figcaption>{name}</figcaption>
     </figure>
   );

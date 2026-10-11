@@ -26,11 +26,9 @@
 .image-hover-card.is-interactive { pointer-events: auto; }
 
 /* A recording is its controls: a bar wide enough to scrub a few minutes. */
-.image-hover-card audio {
-  display: block;
+.image-hover-card .audio-player {
+  display: flex;
   width: min(320px, 60vw);
-  height: 40px;
-  border-radius: var(--radius-2xs);
 }
 
 .image-hover-card video {

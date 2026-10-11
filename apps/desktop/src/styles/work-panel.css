@@ -893,11 +893,9 @@
   min-height: 0;
 }
 
-.file-viewer-media audio {
+.file-viewer-media .audio-player {
+  display: flex;
   width: min(100%, 480px);
-  height: 40px;
-  border-radius: var(--radius-sm);
-  outline: none;
 }
 
 .file-viewer-media video {

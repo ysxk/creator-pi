@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { portalToBody } from "../lib/portal-visibility";
+import { AudioPlayer } from "./AudioPlayer";
 import "../styles/image-hover-card.css";
 
 /** Viewport rect of the chip that owns the card. */
@@ -142,7 +143,7 @@ export function MediaHoverCard({ media, src, anchor, onDismiss, onPointerEnter, 
       {media === "video" ? (
         <video src={src} controls preload="metadata" />
       ) : (
-        <audio src={src} controls preload="metadata" />
+        <AudioPlayer src={src} compact />
       )}
     </div>,
   );

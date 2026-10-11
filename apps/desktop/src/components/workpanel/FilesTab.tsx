@@ -16,6 +16,7 @@ import {
 } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
+import { AudioPlayer } from "../AudioPlayer";
 import { Markdown } from "../Markdown";
 import { FileTypeBadge } from "../FileTypeBadge";
 import { fileDirOf } from "../../lib/chat-links";
@@ -412,9 +413,7 @@ export function FilesTab() {
                   onError={() => setMediaFailed(true)}
                 />
               ) : (
-                <audio
-                  controls
-                  preload="metadata"
+                <AudioPlayer
                   src={mediaViewUrl(selected)}
                   title={selected}
                   onError={() => setMediaFailed(true)}

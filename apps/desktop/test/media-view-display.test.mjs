@@ -35,7 +35,7 @@ test("the host file tab plays a clip or a recording inline, with the OS player o
   assert.match(filesTab, /if \(isAudioAttachment\(mimeType, path\)\) return "audio";/);
   assert.match(filesTab, /if \(isVideoAttachment\(mimeType, path\)\) return "video";/);
   // It streams over the host-owned scheme by the selected ref, never a raw path.
-  assert.match(filesTab, /<audio\s[^>]*src=\{mediaViewUrl\(selected\)\}/);
+  assert.match(filesTab, /<AudioPlayer\s[^>]*src=\{mediaViewUrl\(selected\)\}/);
   assert.match(filesTab, /<video\s[^>]*src=\{mediaViewUrl\(selected\)\}/);
   // A container the renderer cannot decode falls back to the binary notice.
   assert.match(filesTab, /onError=\{\(\) => setMediaFailed\(true\)\}/);
@@ -43,7 +43,7 @@ test("the host file tab plays a clip or a recording inline, with the OS player o
   // The system-open button stays, under the player and on the notice.
   assert.equal((filesTab.match(/void openWithSystem\(\)/g) ?? []).length, 2);
   assert.match(workPanelStyles, /\.file-viewer-media \{/);
-  assert.match(workPanelStyles, /\.file-viewer-media audio \{/);
+  assert.match(workPanelStyles, /\.file-viewer-media \.audio-player \{/);
 });
 
 test("the pi-media scheme is reserved privileged before app ready", () => {
@@ -93,9 +93,9 @@ test("user video and audio attachments render a chip with an operable hover play
   );
   assert.match(hoverCard, /export function MediaHoverCard/);
   assert.match(hoverCard, /is-interactive/);
-  // A clip plays in a video element, a recording in an audio one.
+  // A clip plays in a video element, a recording in the app's own player.
   assert.match(hoverCard, /<video src=\{src\} controls preload="metadata" \/>/);
-  assert.match(hoverCard, /<audio src=\{src\} controls preload="metadata" \/>/);
+  assert.match(hoverCard, /<AudioPlayer src=\{src\} compact \/>/);
   // The card is portal-rendered with a gap from the chip: the chip must not
   // dismiss on pointer leave, or the pointer can never reach the controls.
   // (The image chip keeps its own pointer-leave dismissal: its card is
