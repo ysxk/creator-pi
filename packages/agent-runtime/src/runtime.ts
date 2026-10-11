@@ -14,7 +14,7 @@ import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
-import { hostVideoReference, loadToolResultVideo, READ_VIDEO_HINT, toolResultVideoSupported, withToolResultVideoPayload } from "./tool-result-video.js";
+import { hostMediaReference, loadToolResultMedia, readMediaHint, withoutReadMediaHints, withToolResultMediaPayload } from "./tool-result-media.js";
 import { withPriorityServiceTier } from "./service-tier.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
@@ -47,6 +47,7 @@ import {
   Type,
   type Api,
   type AssistantMessage,
+  type AudioContent,
   type ImageContent,
   type Model,
   type VideoContent,
@@ -224,7 +225,7 @@ import {
   harvestRetainedReasoning,
   type ReasoningReplayIdentity,
 } from "./reasoning-replay.js";
-import { genericModelConfig, videoFromModelConfig, visionFromModelConfig } from "./model-capabilities.js";
+import { audioFromModelConfig, genericModelConfig, videoFromModelConfig, visionFromModelConfig } from "./model-capabilities.js";
 import type { ProjectInstructions } from "./project-instructions.js";
 import { projectInstructionsPrompt } from "./project-instructions-prompt.js";
 import type { CustomSystemPrompt } from "./custom-system-prompt.js";
@@ -347,20 +348,32 @@ function promptVideoBlock(attachment: RuntimePromptAttachment): VideoContent {
   };
 }
 
-/** The provider content block for one inlined media attachment. */
-function promptMediaBlock(
-  attachment: RuntimePromptAttachment,
-): ImageContent | VideoContent {
-  return attachment.kind === "video"
-    ? promptVideoBlock(attachment)
-    : promptImageBlock(attachment);
+/** One provider audio block for an attachment whose bytes crossed this turn. */
+function promptAudioBlock(attachment: RuntimePromptAttachment): AudioContent {
+  return {
+    type: "audio" as const,
+    data: attachment.data!,
+    mimeType: attachment.mimeType || "audio/mpeg",
+  };
 }
 
-/** Attachments carrying image or video bytes this call may inline for the model. */
+/** A content block the model receives for media the user attached. */
+type PromptMediaBlock = ImageContent | VideoContent | AudioContent;
+
+/** The provider content block for one inlined media attachment. */
+function promptMediaBlock(attachment: RuntimePromptAttachment): PromptMediaBlock {
+  return attachment.kind === "video"
+    ? promptVideoBlock(attachment)
+    : attachment.kind === "audio"
+      ? promptAudioBlock(attachment)
+      : promptImageBlock(attachment);
+}
+
+/** Attachments carrying image, video or audio bytes this call may inline for the model. */
 function promptImages(input: RuntimePrompt): RuntimePromptAttachment[] {
   return (input.attachments ?? []).filter(
     (attachment) =>
-      (attachment.kind === "image" || attachment.kind === "video") &&
+      (attachment.kind === "image" || attachment.kind === "video" || attachment.kind === "audio") &&
       typeof attachment.data === "string" &&
       attachment.data.length > 0,
   );
@@ -378,10 +391,8 @@ function promptContent(input: string | RuntimePrompt): UserMessage["content"] {
   const images = promptImages(input);
   if (!images.length) return text;
   const { parts, trailing } = splitInlineContent(text, images);
-  const blocks: Array<
-    { type: "text"; text: string } | ImageContent | VideoContent
-  > = parts.flatMap(
-    (part): Array<{ type: "text"; text: string } | ImageContent | VideoContent> =>
+  const blocks: Array<{ type: "text"; text: string } | PromptMediaBlock> = parts.flatMap(
+    (part): Array<{ type: "text"; text: string } | PromptMediaBlock> =>
       part.kind === "text"
         ? part.text
           ? [{ type: "text" as const, text: part.text }]
@@ -2085,7 +2096,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // Last, so it sees the payload extensions settled on: a clip a tool
         // result carries is put in the shape this wire API delivers it in.
         const hookedOptions = withPriorityServiceTier(
-          withToolResultVideoPayload(
+          withToolResultMediaPayload(
             this.withExtensionProviderHooks(requestOptions, m),
             m.api,
           ),
@@ -3133,9 +3144,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       : "";
     const externalPathHint =
       " An explicit path outside the workspace and session scratch roots requires permission unless the effective mode is Auto.";
-    // Said only to a model that will actually receive the clip: told this, it
-    // reads the file instead of reaching for ffmpeg to extract frames.
-    const videoHint = toolResultVideoSupported(this.provider) ? READ_VIDEO_HINT : "";
+    // Said only to a model that will actually receive the clip or recording:
+    // told this, it reads the file instead of reaching for ffmpeg or whisper.
+    const mediaHint = readMediaHint(this.provider);
     const describe = (toolName: string): string => {
       if (toolName === "GenerateImages") return imageGenerationDescription;
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
@@ -3151,7 +3162,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             "For files beyond the default window, use Grep to locate the target content first, then Read " +
             "the relevant range with `offset` and `limit`. Activate and use Glob " +
             "when a directory must be listed or the file name is uncertain." +
-            `${videoHint}${scratchPathHint}${externalPathHint}`
+            `${mediaHint}${scratchPathHint}${externalPathHint}`
           );
         case "Glob":
           return (
@@ -3610,24 +3621,24 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           collectImageBlocks(contentBlocks);
           text = textParts.join("\n") || JSON.stringify(rawContent, null, 2);
           details = { ...rawContent, imageCount: imageBlocks.length };
-        } else if (isRecord(rawContent) && hostVideoReference(rawContent)) {
-          // Read of a video file: the host admitted the path and named the
-          // file; whether the clip can ride this result is decided here.
-          const reference = hostVideoReference(rawContent)!;
-          const video = await loadToolResultVideo(
+        } else if (isRecord(rawContent) && hostMediaReference(rawContent)) {
+          // Read of a video or audio file: the host admitted the path and named
+          // the file; whether the media can ride this result is decided here.
+          const reference = hostMediaReference(rawContent)!;
+          const media = await loadToolResultMedia(
             reference,
             typeof rawContent.text === "string"
               ? rawContent.text
-              : `Video file ${reference.path}.`,
+              : `${reference.kind === "video" ? "Video" : "Audio"} file ${reference.path}.`,
             this.provider,
             { delegate: this.mutationOwners.has(toolCallId) },
           );
-          text = video.text;
-          if (video.block) imageBlocks.push(video.block);
+          text = media.text;
+          if (media.block) imageBlocks.push(media.block);
           details = {
             ...(typeof rawContent.path === "string" ? { path: rawContent.path } : {}),
-            video: reference,
-            videoAttached: video.block !== undefined,
+            [reference.kind]: reference,
+            [`${reference.kind}Attached`]: media.block !== undefined,
           };
         } else if (isRecord(rawContent) && Array.isArray(rawContent.images)) {
           text =
@@ -4886,9 +4897,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     const scope = definition.permission ?? DEFAULT_SUBAGENT_PERMISSION;
     return tools.map((tool) => ({
       ...tool,
-      // A delegate's Read never carries a clip (its model is not this one), so
-      // its description must not say it does.
-      description: tool.description.replace(READ_VIDEO_HINT, ""),
+      // A delegate's Read never carries a clip or a recording (its model is
+      // not this one), so its description must not say it does.
+      description: withoutReadMediaHints(tool.description),
       execute: async (toolCallId, args, signal, onUpdate) => {
         this.mutationOwners.set(toolCallId, mutationOwner);
         if (scope !== DEFAULT_SUBAGENT_PERMISSION) {
@@ -8775,6 +8786,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     projectPath?: string;
     supportsVision: boolean;
     supportsVideo: boolean;
+    supportsAudio: boolean;
   } {
     if (
       this.disposed || !this.acceptingSteering || this.runCancelled ||
@@ -8789,9 +8801,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     return {
       projectPath: this.projectPath,
       supportsVision: this.model.input.includes("image"),
-      // pi-ai's adapter subset cannot carry "video"; the full modality array
-      // on the launch modelConfig is the authoritative gate.
+      // pi-ai's adapter subset cannot carry "video" or "audio"; the full
+      // modality array on the launch modelConfig is the authoritative gate.
       supportsVideo: videoFromModelConfig(this.provider.modelConfig),
+      supportsAudio: audioFromModelConfig(this.provider.modelConfig),
     };
   }
 

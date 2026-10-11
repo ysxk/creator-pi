@@ -22,7 +22,7 @@ import type { ChatMediaKind } from "../lib/chat-media-refs";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { useOpenChatFileRef } from "../hooks/use-preview-target";
 import { useAppStore } from "../stores/app-store";
-import { IconVideo } from "./icons";
+import { IconAudio, IconVideo } from "./icons";
 
 /**
  * What the transcript lends a Markdown tree so its media can be looked at.
@@ -191,6 +191,45 @@ function MentionedVideo({
   );
 }
 
+function MentionedAudio({
+  file,
+  onContextMenu,
+}: {
+  file: string;
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
+}) {
+  const openFileRef = useOpenChatFileRef();
+  const [failed, setFailed] = useState(false);
+  const name = leafName(file);
+  // A container the renderer cannot decode still names a file worth opening.
+  if (failed) {
+    return (
+      <button
+        type="button"
+        className="chat-image-chip"
+        title={file}
+        onClick={() => openFileRef(file)}
+        onContextMenu={onContextMenu}
+      >
+        <IconAudio size={14} aria-hidden />
+        <span>{name}</span>
+      </button>
+    );
+  }
+  return (
+    <figure className="chat-audio chat-media-mention" onContextMenu={onContextMenu}>
+      <audio
+        controls
+        preload="metadata"
+        src={mediaViewUrl(file)}
+        title={name}
+        onError={() => setFailed(true)}
+      />
+      <figcaption>{name}</figcaption>
+    </figure>
+  );
+}
+
 function MentionedImage({
   file,
   media,
@@ -249,6 +288,8 @@ export function MentionedMedia({
     : undefined;
   return kind === "video" ? (
     <MentionedVideo file={file} onContextMenu={openMenu} />
+  ) : kind === "audio" ? (
+    <MentionedAudio file={file} onContextMenu={openMenu} />
   ) : (
     <MentionedImage file={file} media={media} onContextMenu={openMenu} />
   );

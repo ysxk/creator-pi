@@ -720,7 +720,7 @@ type Block =
       status: "ok" | "error" | "denied"; result?: unknown;
       completedAt?: string; durationMs?: number;
       toolUsage?: ToolTokenUsage }
-  | { type: "attachment"; kind: "image" | "file" | "session"; name: string;
+  | { type: "attachment"; kind: "image" | "video" | "audio" | "file" | "session"; name: string;
       ref: string /* attachments/<sha256>、绝对路径或会话 id */;
       mimeType?: string; size?: number;
       text?: string /* 被引用对话的有界摘录 */ }

@@ -19,7 +19,7 @@
  *   already stopped calling tools. Only user Stop or `TaskStop` aborts it.
  */
 
-import { toolResultWithoutVideoBytes } from "./tool-result-video.js";
+import { toolResultWithoutMediaBytes } from "./tool-result-media.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -972,7 +972,7 @@ export class SubagentRun {
         this.emit({
           type: "tool_end",
           toolCallId: event.toolCallId,
-          result: toolResultWithoutVideoBytes(event.result),
+          result: toolResultWithoutMediaBytes(event.result),
           isError: event.isError,
         });
         break;

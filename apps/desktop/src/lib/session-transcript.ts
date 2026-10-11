@@ -11,7 +11,7 @@ import {
 type OptimisticFileReference = {
   path: string;
   name: string;
-  kind?: "image" | "video" | "file" | "session" | "subagent";
+  kind?: "image" | "video" | "audio" | "file" | "session" | "subagent";
   mimeType?: string;
   /** Large-text paste tokens travel inline in the text, not as attachments. */
   token?: string;

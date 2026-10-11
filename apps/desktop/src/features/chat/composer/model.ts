@@ -62,7 +62,7 @@ export type ComposerFileReference = {
   path: string;
   name: string;
   /** `subagent`: a mention whose `path` is the handle and `name` its label. */
-  kind: "image" | "video" | "file" | "session" | "subagent";
+  kind: "image" | "video" | "audio" | "file" | "session" | "subagent";
   mimeType?: string;
   token?: string;
   plugin?: ComposerPluginPart;

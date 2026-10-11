@@ -12,11 +12,15 @@ import type {
 import { editorSelectionRange, readEditorValue } from "./editor";
 import { ComposerImagePreview } from "./ComposerImagePreview";
 import { ComposerImageHover } from "./ComposerImageHoverPreview";
+import { ComposerMediaHover } from "./ComposerMediaHoverPreview";
 import type { CompletionController } from "./hooks/useComposerCompletions";
 import type { ComposerImagePreviewController } from "./hooks/useComposerImagePreview";
+import type { ComposerFileReference } from "./model";
 
 export type ComposerInputProps = {
   imagePreview?: ComposerImagePreviewController;
+  /** The draft's attachments; an audio chip among them gets a hover player. */
+  fileReferences?: ComposerFileReference[];
   inputRef: RefObject<HTMLDivElement | null>;
   value: string;
   placeholderText: string;
@@ -49,6 +53,7 @@ export type ComposerInputProps = {
 /** Rich contenteditable input; draft state and async operations stay outside. */
 export function ComposerInput({
   imagePreview,
+  fileReferences,
   inputRef,
   value,
   placeholderText,
@@ -78,6 +83,7 @@ export function ComposerInput({
     <div className="composer-input-wrap">
       {imagePreview ? <ComposerImagePreview controller={imagePreview} /> : null}
       {imagePreview ? <ComposerImageHover controller={imagePreview} editorRef={inputRef} /> : null}
+      {fileReferences ? <ComposerMediaHover references={fileReferences} editorRef={inputRef} /> : null}
       <div className="composer-input-stage">
         {/* React does not render children into this node; the editor module
           paints atomic attachment chips imperatively. */}

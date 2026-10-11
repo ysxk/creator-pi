@@ -4,14 +4,14 @@
  * A reply that says "saved to `out/final.mp4`" or lists a folder of clips in a
  * table leaves the reader a file name and nothing to look at. This pass finds
  * the file links the chat-link pass already made, keeps the ones that name a
- * clip the renderer can play or a vector drawing it can show, and places a
- * preview node under the block that mentions them. Whether the file exists is
- * not known here; the component that renders the node asks the host and draws
- * nothing for a name that resolves to no file.
+ * clip or a recording the renderer can play or a vector drawing it can show,
+ * and places a preview node under the block that mentions them. Whether the
+ * file exists is not known here; the component that renders the node asks the
+ * host and draws nothing for a name that resolves to no file.
  */
 import { isHttpUrl, safeDecodeUri, type MdastNode } from "./chat-links.ts";
 
-export type ChatMediaKind = "video" | "image";
+export type ChatMediaKind = "video" | "audio" | "image";
 
 export type ChatMediaRef = { path: string; kind: ChatMediaKind };
 
@@ -20,12 +20,15 @@ export const CHAT_MEDIA_TAG = "chat-media";
 
 /** Clips Chromium decodes and the `pi-media:` handler has a type for. */
 const VIDEO_RE = /\.(?:mp4|mov|webm)$/i;
+/** Recordings Chromium decodes and the `pi-media:` handler has a type for. */
+const AUDIO_RE = /\.(?:mp3|wav|m4a|flac|ogg|oga|aac)$/i;
 /** Named drawings. Raster images are shown where the reply embeds them. */
 const VECTOR_IMAGE_RE = /\.svg$/i;
 
 /** What a path would preview as, or null when it is not previewed. */
 export function chatMediaKind(path: string): ChatMediaKind | null {
   if (VIDEO_RE.test(path)) return "video";
+  if (AUDIO_RE.test(path)) return "audio";
   if (VECTOR_IMAGE_RE.test(path)) return "image";
   return null;
 }

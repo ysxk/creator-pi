@@ -242,6 +242,13 @@ export type ModelBinding = {
    */
   supportsVideos?: boolean | null;
   /**
+   * User override for audio input, with the same three-state meaning as
+   * `supportsImages`. A proxied endpoint's plain model list says nothing
+   * about audio, so the user's own knowledge of the endpoint can enable
+   * inline audio the catalog entry does not mention.
+   */
+  supportsAudio?: boolean | null;
+  /**
    * User override for document (PDF) input, with the same three-state meaning.
    * An explicit boolean remains pinned if the catalog later changes. Documents
    * are still transported as bounded file references, so this records

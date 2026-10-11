@@ -22,7 +22,7 @@ import {
 import { useOpenChatFileRef, useOpenPreviewTarget } from "../../../hooks/use-preview-target";
 import { useChatFileMenu } from "../../../hooks/use-chat-file-menu";
 import { ContextMenu } from "../../../components/ContextMenu";
-import { ImageHoverCard, VideoHoverCard, type ImageHoverAnchor } from "../../../components/ImageHoverCard";
+import { ImageHoverCard, MediaHoverCard, type ImageHoverAnchor } from "../../../components/ImageHoverCard";
 import { useDisclosureAnchorNotifier } from "../../../lib/disclosure-anchor-context";
 import { isThinkingActive, resolveThinkingDisplayMode } from "../../../lib/turn-process";
 import { TranscriptSearchContext } from "../../../lib/transcript-search-context";
@@ -405,7 +405,7 @@ export function ToolActionIcon({ action }: { action: ToolAction }) {
 /** Actions whose path/url argument makes sense to preview in the panel. */
 export const PREVIEWABLE_ACTIONS = new Set<ToolAction>(["read", "write", "edit", "fetch"]);
 
-export function fileChipIcon(name: string, kind?: "image" | "video" | "file") {
+export function fileChipIcon(name: string, kind?: "image" | "video" | "audio" | "file") {
   if (kind === "image" || /\.(avif|bmp|gif|heic|jpe?g|png|tiff?|webp)$/i.test(name)) {
     return IconImage;
   }
@@ -418,8 +418,8 @@ export function fileChipIcon(name: string, kind?: "image" | "video" | "file") {
   }
   if (/\.(7z|bz2|gz|jar|rar|tar|zip)$/i.test(name)) return IconArchive;
   if (/\.(csv|ods|xls|xlsx)$/i.test(name)) return IconSheet;
-  if (/\.(flac|m4a|mp3|ogg|wav)$/i.test(name)) return IconAudio;
-  if (/\.(avi|mkv|m4v|mov|mp4|webm)$/i.test(name)) return IconVideo;
+  if (kind === "audio" || /\.(aac|aiff?|flac|m4a|mp3|oga|ogg|wav)$/i.test(name)) return IconAudio;
+  if (kind === "video" || /\.(avi|mkv|m4v|mov|mp4|webm)$/i.test(name)) return IconVideo;
   return IconFileText;
 }
 
@@ -436,7 +436,7 @@ export function FileRefChip({
 }: {
   name: string;
   path: string;
-  kind?: "image" | "video" | "file";
+  kind?: "image" | "video" | "audio" | "file";
   mimeType?: string;
   onOpen: (
     path: string,
@@ -589,13 +589,13 @@ export function MessageAttachmentImage({
 }
 
 /**
- * User-message video attachment: the same compact chip as any other file
- * reference, with a hover (or focus) player card. The clip streams from the
- * host-owned pi-media: scheme, which confines and re-resolves the ref on every
- * request; a file the resolver refuses simply keeps the chip. Clicking opens
- * the clip in the OS player via the same contained ref.
+ * User-message video or audio attachment: the same compact chip as any other
+ * file reference, with a hover (or focus) player card. The clip or recording
+ * streams from the host-owned pi-media: scheme, which confines and re-resolves
+ * the ref on every request; a file the resolver refuses simply keeps the chip.
+ * Clicking opens the file in the OS player via the same contained ref.
  */
-export function MessageAttachmentVideo({
+export function MessageAttachmentMedia({
   attachment,
   onOpenFile,
   inline = false,
@@ -605,6 +605,7 @@ export function MessageAttachmentVideo({
   /** Inline placement inside the message prose; only the trailing list has a list parent. */
   inline?: boolean;
 }) {
+  const media = attachment.kind === "audio" ? "audio" : "video";
   const [anchor, setAnchor] = useState<ImageHoverAnchor | null>(null);
   const chipRef = useRef<HTMLSpanElement>(null);
   // This attachment's own player card, portal-rendered elsewhere in the tree;
@@ -642,7 +643,7 @@ export function MessageAttachmentVideo({
         <FileRefChip
           name={attachment.name}
           path={attachment.ref}
-          kind="video"
+          kind={media}
           mimeType={attachment.mimeType}
           onOpen={onOpenFile}
         />
@@ -654,7 +655,8 @@ export function MessageAttachmentVideo({
         chip's blur and the card's blur-exit both check this attachment's own
         card element; scroll/resize matches the image card.
       */}
-      <VideoHoverCard
+      <MediaHoverCard
+        media={media}
         src={mediaViewUrl(attachment.ref)}
         anchor={anchor}
         onDismiss={dismiss}

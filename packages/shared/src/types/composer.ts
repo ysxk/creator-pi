@@ -47,7 +47,7 @@ export type ComposerPastedFile = {
   path: string;
   /** Sanitized original leaf name used only for compact composer display. */
   name: string;
-  kind: "image" | "video" | "file";
+  kind: "image" | "video" | "audio" | "file";
   mimeType: string;
   size: number;
 };

@@ -344,10 +344,12 @@ type ModelBinding = {
   thinkingProtocol?: "legacy" | "adaptive"
   // Three-state attachment overrides; null/absent follows the published
   // models.dev capability, an explicit boolean is pinned. `supportsVideos`
-  // gates inline base64 video transport the same way `supportsImages` gates
-  // images; documents stay file references either way.
+  // and `supportsAudio` gate inline base64 video and audio transport the
+  // same way `supportsImages` gates images; documents stay file references
+  // either way.
   supportsImages?: boolean | null
   supportsVideos?: boolean | null
+  supportsAudio?: boolean | null
   supportsDocuments?: boolean | null
   availableForSubagents?: boolean // opt-in for AI-driven delegation
 }

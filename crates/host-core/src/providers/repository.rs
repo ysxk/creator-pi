@@ -125,6 +125,11 @@ fn hydrate_dynamic_plugin_models(db: &Database, provider: &mut ProviderPublic) -
                     .iter()
                     .any(|value| value == "video")
                     .then_some(true),
+                supports_audio: model
+                    .capabilities
+                    .iter()
+                    .any(|value| value == "audio")
+                    .then_some(true),
                 supports_documents: None,
                 available_for_subagents: None,
                 native_web_search: None,

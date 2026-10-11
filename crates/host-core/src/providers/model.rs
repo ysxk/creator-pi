@@ -181,6 +181,8 @@ pub struct ModelBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supports_videos: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_audio: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supports_documents: Option<bool>,
     /// Whether this model may be selected for AI-driven subagent delegation.
     /// None/false keeps the opt-in disabled for existing provider records.

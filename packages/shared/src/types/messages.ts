@@ -49,7 +49,7 @@ export type UsageOperation = Omit<MessageUsage, "operations" | "aggregation"> & 
 export { addUsage, withUsageIdentity } from "../message-usage.js";
 
 export type MessageAttachment = {
-  kind: "image" | "video" | "file" | "session";
+  kind: "image" | "video" | "audio" | "file" | "session";
   name: string;
   /** Workspace-relative path, session-scratch absolute path, or a session id. */
   ref: string;
@@ -72,10 +72,10 @@ export type MessageAttachment = {
   data?: string;
 };
 
-/** Whether an attachment is a renderer-resolvable file or image reference. */
+/** Whether an attachment is a renderer-resolvable file or media reference. */
 export function isRenderableAttachment(
   attachment: MessageAttachment,
-): attachment is MessageAttachment & { kind: "image" | "file" } {
+): attachment is MessageAttachment & { kind: "image" | "video" | "audio" | "file" } {
   return attachment.kind !== "session";
 }
 

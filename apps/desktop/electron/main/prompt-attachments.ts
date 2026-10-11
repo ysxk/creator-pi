@@ -2,9 +2,10 @@
  * Prompt attachment preparation for the main process.
  *
  * Resolves renderer-supplied attachment paths against the session roots
- * (project, session scratch, content-addressed attachments), stores image
- * bytes as content-addressed blobs, and decides whether an image is inlined
- * for a vision-capable model or handed to the agent as a file reference.
+ * (project, session scratch, content-addressed attachments), stores media
+ * bytes as content-addressed blobs, and decides whether an image, a clip or a
+ * recording is inlined for a model that takes it or handed to the agent as a
+ * file reference.
  */
 import { createHash } from "node:crypto";
 import {
@@ -19,14 +20,18 @@ import {
 import { copyFile, readFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
+  AUDIO_MIME_BY_EXTENSION,
   ErrorCodes,
   formatFileInsert,
   formatPromptPathText,
+  isAudioAttachment,
   isSvgAttachment,
   isVideoAttachment,
   locateInlinePromptPaths,
+  normalizeAudioMimeType,
   SVG_MIME_TYPE,
   VIDEO_MIME_BY_EXTENSION,
+  MAX_INLINE_AUDIO_BYTES,
   MAX_INLINE_IMAGE_BYTES,
   MAX_INLINE_VIDEO_BYTES,
   type AgentPromptAttachment,
@@ -96,13 +101,32 @@ function canonicalPath(path: string): string | undefined {
 function promptMimeType(path: string, supplied?: string, name?: string): string {
   if (isSvgAttachment(supplied, path, name)) return SVG_MIME_TYPE;
   const value = supplied?.trim().toLowerCase();
-  if (value) return value;
+  // The system's spelling of an audio type (`audio/x-m4a`, `audio/mp3`) is
+  // folded onto the one the provider tables name before it reaches a request.
+  if (value) return value.startsWith("audio/") ? normalizeAudioMimeType(value) : value;
   const extension = path.split(".").at(-1)?.toLowerCase() ?? "";
   return (
     IMAGE_MIME_BY_EXTENSION[extension] ??
     VIDEO_MIME_BY_EXTENSION[extension] ??
+    AUDIO_MIME_BY_EXTENSION[extension] ??
     "application/octet-stream"
   );
+}
+
+/**
+ * The type a clip or recording is sent as. A file picked with a generic type
+ * (`application/octet-stream`) but a media extension is still media; the
+ * extension names the type the request carries.
+ */
+function mediaMimeType(
+  kind: "video" | "audio",
+  mimeType: string,
+  path: string,
+): string {
+  if (mimeType.startsWith(`${kind}/`)) return mimeType;
+  const extension = path.split(".").at(-1)?.toLowerCase() ?? "";
+  const table = kind === "video" ? VIDEO_MIME_BY_EXTENSION : AUDIO_MIME_BY_EXTENSION;
+  return table[extension] ?? mimeType;
 }
 
 function isImagePromptAttachment(
@@ -244,6 +268,7 @@ export async function preparePromptAttachments(
    */
   promptContent: string,
   supportsVideo = false,
+  supportsAudio = false,
 ): Promise<PreparedPromptAttachment[]> {
   const prepared: PreparedPromptAttachment[] = [];
   // Reference order is the user's order, so each entry takes the next matching
@@ -260,10 +285,16 @@ export async function preparePromptAttachments(
       });
     }
     const name = attachment.name.trim() || source.absolute.split(/[\\/]/).at(-1) || "attachment";
-    const mimeType = promptMimeType(source.absolute, attachment.mimeType, name);
+    const suppliedMimeType = promptMimeType(source.absolute, attachment.mimeType, name);
     const isImage = isImagePromptAttachment(attachment, source.absolute);
-    const isVideo = !isImage && isVideoAttachment(mimeType, source.absolute, name);
-    if (!isImage && !isVideo) {
+    const isVideo = !isImage && isVideoAttachment(suppliedMimeType, source.absolute, name);
+    const isAudio = !isImage && !isVideo && isAudioAttachment(suppliedMimeType, source.absolute, name);
+    const mimeType = isVideo
+      ? mediaMimeType("video", suppliedMimeType, source.absolute)
+      : isAudio
+        ? mediaMimeType("audio", suppliedMimeType, source.absolute)
+        : suppliedMimeType;
+    if (!isImage && !isVideo && !isAudio) {
       prepared.push({
         message: {
           kind: "file",
@@ -279,11 +310,17 @@ export async function preparePromptAttachments(
       continue;
     }
 
-    const kind = isVideo ? "video" : "image";
+    const kind = isVideo ? "video" : isAudio ? "audio" : "image";
     const size = statSync(source.absolute).size;
-    const inline =
-      (isVideo ? supportsVideo : supportsVision) &&
-      size <= (isVideo ? MAX_INLINE_VIDEO_BYTES : MAX_INLINE_IMAGE_BYTES);
+    // Each medium has its own gate and its own bound: the model must take it,
+    // and the file must fit a request.
+    const inlineAllowed = isVideo ? supportsVideo : isAudio ? supportsAudio : supportsVision;
+    const inlineBound = isVideo
+      ? MAX_INLINE_VIDEO_BYTES
+      : isAudio
+        ? MAX_INLINE_AUDIO_BYTES
+        : MAX_INLINE_IMAGE_BYTES;
+    const inline = inlineAllowed && size <= inlineBound;
     const bytes = inline ? await readFile(source.absolute) : undefined;
     const ref =
       source.root === "attachment" && attachment.path.trim().startsWith("attachments/")

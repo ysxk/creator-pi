@@ -2,7 +2,12 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { protocol, type CustomScheme } from "electron";
-import { PI_MEDIA_SCHEME, parseMediaViewUrl, VIDEO_MIME_BY_EXTENSION } from "@pi-desktop/shared";
+import {
+  AUDIO_MIME_BY_EXTENSION,
+  PI_MEDIA_SCHEME,
+  parseMediaViewUrl,
+  VIDEO_MIME_BY_EXTENSION,
+} from "@pi-desktop/shared";
 
 /**
  * Stream local media to the renderer over the host-owned `pi-media:` scheme.
@@ -21,12 +26,7 @@ export type MediaResolver = (ref: string) => Promise<string | null>;
 
 const MIME_BY_EXTENSION: Record<string, string> = {
   ...VIDEO_MIME_BY_EXTENSION,
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  flac: "audio/flac",
-  aac: "audio/aac",
-  m4a: "audio/mp4",
+  ...AUDIO_MIME_BY_EXTENSION,
 };
 
 function mimeTypeFor(path: string): string {

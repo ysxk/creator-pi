@@ -1569,6 +1569,7 @@ sklm: {
     modelCapabilities: "能力",
     imageInput: "圖片",
     videoInput: "影片",
+    audioInput: "音訊",
     documentInput: "PDF",
     thinkingManualOverrideHint: "目錄未標註，可手動開啟",
     contextWindowCatalogHint: "跟隨 models.dev；手動修改後會固定為你的值",

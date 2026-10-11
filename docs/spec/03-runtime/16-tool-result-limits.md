@@ -175,10 +175,10 @@ counts are the stable signals. The UI truncated chip follows `truncated`.
 3. binary files: do not dump raw binary into model; return metadata error
    `TOOL_BINARY_CONTENT`. Detected by extension blacklist plus a sniff of the
    first 4KB (any NUL byte, or >30% non-printable). Grep skips binary files
-   silently rather than matching lossily-decoded bytes. Image and video files
-   are the exception for `Read`: an image comes back as an image block, and a
-   video as a reference the runtime resolves (D660), never as decoded bytes in
-   the result text
+   silently rather than matching lossily-decoded bytes. Image, video and audio
+   files are the exception for `Read`: an image comes back as an image block,
+   and a video or an audio file as a reference the runtime resolves (D660,
+   D667), never as decoded bytes in the result text
 4. a single line longer than the whole budget yields a char-boundary-safe prefix
    (or suffix, for a tail cut), never an empty payload
 5. aggregate checkpoint truncation must preserve every provider-valid assistant

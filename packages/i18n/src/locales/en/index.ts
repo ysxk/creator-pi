@@ -1604,6 +1604,7 @@ sklm: {
     modelCapabilities: "Capabilities",
     imageInput: "Images",
     videoInput: "Video",
+    audioInput: "Audio",
     documentInput: "PDF",
     thinkingManualOverrideHint: "Not in catalog; enable if supported.",
     contextWindowCatalogHint: "Follows models.dev; editing pins your value.",

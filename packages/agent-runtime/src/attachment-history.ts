@@ -5,21 +5,27 @@ import { copyFile, mkdir, open, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   formatFileInsert,
+  isAudioAttachment,
   isSvgAttachment,
   isVideoAttachment,
+  MAX_INLINE_AUDIO_BYTES,
   MAX_INLINE_IMAGE_BYTES,
-  MAX_INLINED_IMAGE_HISTORY_BYTES,
   MAX_INLINE_VIDEO_BYTES,
+  MAX_INLINED_AUDIO_HISTORY_BYTES,
+  MAX_INLINED_IMAGE_HISTORY_BYTES,
   MAX_INLINED_VIDEO_HISTORY_BYTES,
   SVG_MIME_TYPE,
   type MessageAttachment,
   type UiMessage,
 } from "@pi-desktop/shared";
 
+/** The inline pools a restored attachment can draw from. */
+type InlineMedia = "image" | "video" | "audio";
+
 type ResolvedAttachment = {
   attachment: MessageAttachment;
   /** Which inline pool this attachment draws from when restored. */
-  media: "image" | "video";
+  media: InlineMedia;
   canonicalPath?: string;
   size?: number;
   fallbackPath?: string;
@@ -32,6 +38,7 @@ export type AttachmentHistoryContext = {
   attachmentsDir?: string;
   supportsVision: boolean;
   supportsVideo?: boolean;
+  supportsAudio?: boolean;
   /**
    * Maximum aggregate raw image bytes inlined during history restoration
    * (default: 30 MB, hard-capped by MAX_INLINED_IMAGE_HISTORY_BYTES).
@@ -44,7 +51,20 @@ export type AttachmentHistoryContext = {
    * Independent of the image pool so one large clip cannot evict every image.
    */
   maxInlinedVideoBytes?: number;
+  /**
+   * Maximum aggregate raw audio bytes inlined during history restoration
+   * (default: 100 MB, hard-capped by MAX_INLINED_AUDIO_HISTORY_BYTES).
+   * A pool of its own, like video, so a long recording evicts no picture.
+   */
+  maxInlinedAudioBytes?: number;
 };
+
+/** A requested pool budget, clamped to its hard cap; absent means the cap. */
+function poolBudget(requested: number | undefined, cap: number): number {
+  return requested === undefined || !Number.isFinite(requested)
+    ? cap
+    : Math.min(cap, Math.max(0, Math.floor(requested)));
+}
 
 function pathInside(root: string, candidate: string): boolean {
   const child = relative(root, candidate);
@@ -109,22 +129,19 @@ export async function hydrateAttachmentHistory(
 ): Promise<UiMessage[]> {
   const supportsVision = params.supportsVision;
   const supportsVideo = params.supportsVideo === true;
-  const requestedImageBudget = params.maxInlinedImageBytes;
-  const maxInlinedImageBytes =
-    requestedImageBudget === undefined || !Number.isFinite(requestedImageBudget)
-      ? MAX_INLINED_IMAGE_HISTORY_BYTES
-      : Math.min(
-          MAX_INLINED_IMAGE_HISTORY_BYTES,
-          Math.max(0, Math.floor(requestedImageBudget)),
-        );
-  const requestedVideoBudget = params.maxInlinedVideoBytes;
-  const maxInlinedVideoBytes =
-    requestedVideoBudget === undefined || !Number.isFinite(requestedVideoBudget)
-      ? MAX_INLINED_VIDEO_HISTORY_BYTES
-      : Math.min(
-          MAX_INLINED_VIDEO_HISTORY_BYTES,
-          Math.max(0, Math.floor(requestedVideoBudget)),
-        );
+  const supportsAudio = params.supportsAudio === true;
+  const maxInlinedImageBytes = poolBudget(
+    params.maxInlinedImageBytes,
+    MAX_INLINED_IMAGE_HISTORY_BYTES,
+  );
+  const maxInlinedVideoBytes = poolBudget(
+    params.maxInlinedVideoBytes,
+    MAX_INLINED_VIDEO_HISTORY_BYTES,
+  );
+  const maxInlinedAudioBytes = poolBudget(
+    params.maxInlinedAudioBytes,
+    MAX_INLINED_AUDIO_HISTORY_BYTES,
+  );
   const roots = [
     params.scratchDir,
     params.projectPath,
@@ -156,17 +173,21 @@ export async function hydrateAttachmentHistory(
     )
       ? { ...cleanAttachment, kind: "file", mimeType: SVG_MIME_TYPE }
       : cleanAttachment;
-    // A legacy row recorded a video with the plain `file` kind; upgrade it so
-    // the video pool and the transcript renderer both recognize it.
+    // A legacy row recorded a clip or a recording with the plain `file` kind;
+    // upgrade it so its pool and the transcript renderer both recognize it.
+    const legacyFile = attachment.kind !== "session" && attachment.kind !== "image";
     const isVideoMedia =
       attachment.kind === "video" ||
-      (attachment.kind !== "session" &&
-        attachment.kind !== "image" &&
+      (legacyFile &&
+        attachment.kind !== "audio" &&
         isVideoAttachment(attachment.mimeType, attachment.name, attachment.ref));
-    const mediaAttachment: MessageAttachment = isVideoMedia
-      ? { ...attachment, kind: "video" }
-      : attachment;
-    const media: "image" | "video" = isVideoMedia ? "video" : "image";
+    const isAudioMedia =
+      !isVideoMedia &&
+      (attachment.kind === "audio" ||
+        (legacyFile && isAudioAttachment(attachment.mimeType, attachment.name, attachment.ref)));
+    const media: InlineMedia = isVideoMedia ? "video" : isAudioMedia ? "audio" : "image";
+    const mediaAttachment: MessageAttachment =
+      media === "image" ? attachment : { ...attachment, kind: media };
     const ref = mediaAttachment.ref.trim();
     if (!ref) return { attachment: mediaAttachment, media };
     const candidate =
@@ -187,9 +208,11 @@ export async function hydrateAttachmentHistory(
       const canInline =
         media === "video"
           ? supportsVideo && size <= MAX_INLINE_VIDEO_BYTES
-          : supportsVision &&
-            mediaAttachment.kind === "image" &&
-            size <= MAX_INLINE_IMAGE_BYTES;
+          : media === "audio"
+            ? supportsAudio && size <= MAX_INLINE_AUDIO_BYTES
+            : supportsVision &&
+              mediaAttachment.kind === "image" &&
+              size <= MAX_INLINE_IMAGE_BYTES;
       if (canInline) {
         return { attachment: mediaAttachment, media, canonicalPath: canonical, size };
       }
@@ -218,8 +241,11 @@ export async function hydrateAttachmentHistory(
   // reverse attachment order within a message. This preserves every media item
   // when the history fits while keeping the most recent visual context when the
   // aggregate exceeds the cap.
-  let remainingImageBytes = maxInlinedImageBytes;
-  let remainingVideoBytes = maxInlinedVideoBytes;
+  const remaining: Record<InlineMedia, number> = {
+    image: maxInlinedImageBytes,
+    video: maxInlinedVideoBytes,
+    audio: maxInlinedAudioBytes,
+  };
   const selectedForInlining: ResolvedAttachment[] = [];
   for (let messageIndex = resolvedHistory.length - 1; messageIndex >= 0; messageIndex--) {
     const resolved = resolvedHistory[messageIndex];
@@ -232,10 +258,8 @@ export async function hydrateAttachmentHistory(
       ) {
         continue;
       }
-      const budget = item.media === "video" ? remainingVideoBytes : remainingImageBytes;
-      if (item.size > budget) continue;
-      if (item.media === "video") remainingVideoBytes -= item.size;
-      else remainingImageBytes -= item.size;
+      if (item.size > remaining[item.media]) continue;
+      remaining[item.media] -= item.size;
       selectedForInlining.push(item);
     }
   }

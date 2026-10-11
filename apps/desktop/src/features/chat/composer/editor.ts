@@ -1,6 +1,7 @@
 import {
   fileReferenceLabel,
   formatFileInsert,
+  isAudioAttachment,
   isVideoAttachment,
   subagentAvatarDataUrl,
 } from "@pi-desktop/shared";
@@ -15,7 +16,7 @@ const CODE_FILE_PATTERN =
   /\.(cjs|css|go|java|js|json|jsx|kt|mjs|php|py|rb|rs|sh|sql|svelte|swift|toml|ts|tsx|vue|ya?ml)$/i;
 const ARCHIVE_FILE_PATTERN = /\.(7z|bz2|gz|jar|rar|tar|zip)$/i;
 const SHEET_FILE_PATTERN = /\.(csv|ods|xls|xlsx)$/i;
-const AUDIO_FILE_PATTERN = /\.(flac|m4a|mp3|ogg|wav|webm)$/i;
+const AUDIO_FILE_PATTERN = /\.(aac|aiff?|flac|m4a|mp3|oga|ogg|wav)$/i;
 const VIDEO_FILE_PATTERN = /\.(avi|mkv|m4v|mov|mp4|webm)$/i;
 
 /** Paste/scratch files keep absolute paths; `@` entries are workspace-relative. */
@@ -41,7 +42,7 @@ export function createFileReference(
   preferredName?: string,
   sessionId = "",
   metadata?: {
-    kind?: "image" | "video" | "file" | "session" | "subagent";
+    kind?: "image" | "video" | "audio" | "file" | "session" | "subagent";
     mimeType?: string;
     token?: string;
     plugin?: ComposerPluginPart;
@@ -65,7 +66,9 @@ export function createFileReference(
         ? "image"
         : isVideoAttachment(undefined, path)
           ? "video"
-          : "file"),
+          : isAudioAttachment(undefined, path)
+            ? "audio"
+            : "file"),
     ...(metadata?.mimeType ? { mimeType: metadata.mimeType } : {}),
     ...(metadata?.token ? { token: metadata.token } : {}),
     ...(metadata?.plugin ? { plugin: metadata.plugin } : {}),
@@ -276,8 +279,12 @@ function chipIconKey(reference: ComposerFileReference): string {
   }
   if (ARCHIVE_FILE_PATTERN.test(name) || /zip|compressed|tar$/i.test(mime)) return "archive";
   if (SHEET_FILE_PATTERN.test(name) || /csv|spreadsheet/i.test(mime)) return "sheet";
-  if (AUDIO_FILE_PATTERN.test(name) || mime.startsWith("audio/")) return "audio";
-  if (VIDEO_FILE_PATTERN.test(name) || mime.startsWith("video/")) return "video";
+  if (reference.kind === "audio" || AUDIO_FILE_PATTERN.test(name) || mime.startsWith("audio/")) {
+    return "audio";
+  }
+  if (reference.kind === "video" || VIDEO_FILE_PATTERN.test(name) || mime.startsWith("video/")) {
+    return "video";
+  }
   return "file";
 }
 
@@ -312,6 +319,9 @@ function buildChipElement(
   // that conversation, and only plain text expands into editable draft text.
   const image = chipIconKey(reference) === "image";
   if (image) chip.dataset.image = "";
+  // A recording's chip gets a hover player; the marker is what the hover
+  // tracker looks for.
+  if (reference.kind === "audio") chip.dataset.audio = "";
   const session = reference.kind === "session";
   if (session) chip.dataset.sessionId = reference.path;
   const editableText = !image && !session && isEditableTextReference(reference);

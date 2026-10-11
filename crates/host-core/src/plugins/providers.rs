@@ -186,6 +186,7 @@ pub(crate) fn declared_providers(manifest: &PluginManifest) -> Vec<DeclaredPlugi
                                     .get("supportsImages")
                                     .and_then(Value::as_bool),
                                 supports_videos: None,
+                                supports_audio: None,
                                 supports_documents: None,
                                 available_for_subagents: None,
                                 native_web_search: None,

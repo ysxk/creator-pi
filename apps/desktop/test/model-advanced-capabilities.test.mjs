@@ -68,6 +68,12 @@ test("the capability checkboxes show and follow the published value", () => {
   assert.match(pickerSource, /settings\.videoInput/);
   assert.match(pickerSource, /supportsVideos: next/);
   assert.match(pickerSource, /published=\{publishedVideos\}/);
+  // Audio has the same override. Its published baseline is the input modality:
+  // the bare `audio` capability also marks a model that speaks but does not listen.
+  assert.match(pickerSource, /settings\.audioInput/);
+  assert.match(pickerSource, /supportsAudio: next/);
+  assert.match(pickerSource, /published=\{publishedAudio\}/);
+  assert.match(pickerSource, /info\.modalities\.input\.includes\("audio"\)/);
   // A deliberate checkbox change pins the selected value even when it equals
   // today's catalog value; later catalog corrections must not undo that choice.
   assert.match(pickerSource, /onChange\(event\.target\.checked\)/);

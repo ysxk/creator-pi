@@ -51,7 +51,7 @@ try {
     entryPoints: {
       writer: join(root, "apps/desktop/electron/main/composer-paste.ts"),
       reader: join(root, "packages/host-runtime/src/workspace-files.ts"),
-      video: join(root, "apps/desktop/electron/main/open-attachment-video.ts"),
+      video: join(root, "apps/desktop/electron/main/open-attachment-media.ts"),
     },
     outdir: temp,
     outExtension: { ".js": ".cjs" },
@@ -85,7 +85,7 @@ const fs = require("node:fs/promises");
 const assert = require("node:assert/strict");
 const { saveComposerPasteFiles } = require("./writer.cjs");
 const { readOpenableFile, readOpenableImage, resolveRealOpenablePath } = require("./reader.cjs");
-const { openableMp4Path } = require("./video.cjs");
+const { openableMediaPath } = require("./video.cjs");
 app.setPath("userData", path.join(__dirname, "profile"));
 const saved = [];
 const history = [];
@@ -137,7 +137,7 @@ ipcMain.handle("pi-desktop/fs/resolveRef", async (_event, input) => {
 ipcMain.handle("pi-desktop/fs/open", async (_event, input) => {
   const target = await resolveRealOpenablePath(input.path, null, [path.join(__dirname, "scratch"), path.join(__dirname, "attachments")]);
   assert(target, "host rejected the MP4 attachment path");
-  const openPath = await openableMp4Path(__dirname, target, input.mimeType);
+  const openPath = await openableMediaPath(__dirname, target, input.mimeType);
   opened.push(openPath);
   if (opened.length === 3) completeOpens();
   return { ok: true, data: { ok: true } };

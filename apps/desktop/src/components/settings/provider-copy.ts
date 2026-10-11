@@ -45,6 +45,7 @@ export function copyProviderConfiguration(provider: ProviderPublic, name: string
         : {}),
       ...(model.supportsImages !== undefined ? { supportsImages: model.supportsImages } : {}),
       ...(model.supportsVideos !== undefined ? { supportsVideos: model.supportsVideos } : {}),
+      ...(model.supportsAudio !== undefined ? { supportsAudio: model.supportsAudio } : {}),
       ...(model.supportsDocuments !== undefined ? { supportsDocuments: model.supportsDocuments } : {}),
       ...(model.availableForSubagents !== undefined ? { availableForSubagents: model.availableForSubagents } : {}),
       ...(model.nativeWebSearch !== undefined ? { nativeWebSearch: model.nativeWebSearch } : {}),

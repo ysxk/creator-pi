@@ -35,7 +35,8 @@ const KNOWN_EXTS = new Set([
   "bash", "yml", "yaml", "toml", "sql", "swift", "kt", "java", "c", "h",
   "cpp", "hpp", "cs", "php", "vue", "svelte", "xml", "ini", "cfg", "conf",
   "env", "lock", "svg", "png", "jpg", "jpeg", "gif", "webp", "ico", "pdf",
-  "csv", "tsv", "log", "mp4", "mov", "webm",
+  "csv", "tsv", "log", "mp4", "mov", "webm", "mp3", "wav", "m4a", "flac",
+  "ogg", "aac",
 ]);
 
 const FILE_TOKEN_RE =

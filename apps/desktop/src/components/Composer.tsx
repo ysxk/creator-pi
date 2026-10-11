@@ -558,6 +558,7 @@ export function Composer({
           ) : null}
           <ComposerInput
             imagePreview={draft.imagePreview}
+            fileReferences={draft.fileReferences}
             inputRef={ref}
             value={value}
             placeholderText={placeholderText}

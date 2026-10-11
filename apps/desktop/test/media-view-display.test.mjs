@@ -57,17 +57,29 @@ test("markdown video blocks stream local paths and fall back to a chip", () => {
   assert.match(markdown, /chat-image-chip/);
 });
 
-test("user video attachments render a chip with an operable hover player", () => {
-  assert.match(transcriptShared, /export function MessageAttachmentVideo/);
-  assert.match(transcriptShared, /VideoHoverCard\n?\s*src=\{mediaViewUrl\(attachment\.ref\)\}/);
-  assert.match(hoverCard, /export function VideoHoverCard/);
+test("the media scheme types every container the chat plays", () => {
+  assert.match(mediaProtocol, /\.\.\.VIDEO_MIME_BY_EXTENSION/);
+  assert.match(mediaProtocol, /\.\.\.AUDIO_MIME_BY_EXTENSION/);
+});
+
+test("user video and audio attachments render a chip with an operable hover player", () => {
+  assert.match(transcriptShared, /export function MessageAttachmentMedia/);
+  assert.match(transcriptShared, /const media = attachment\.kind === "audio" \? "audio" : "video";/);
+  assert.match(
+    transcriptShared,
+    /MediaHoverCard\s+media=\{media\}\s+src=\{mediaViewUrl\(attachment\.ref\)\}/,
+  );
+  assert.match(hoverCard, /export function MediaHoverCard/);
   assert.match(hoverCard, /is-interactive/);
+  // A clip plays in a video element, a recording in an audio one.
+  assert.match(hoverCard, /<video src=\{src\} controls preload="metadata" \/>/);
+  assert.match(hoverCard, /<audio src=\{src\} controls preload="metadata" \/>/);
   // The card is portal-rendered with a gap from the chip: the chip must not
   // dismiss on pointer leave, or the pointer can never reach the controls.
   // (The image chip keeps its own pointer-leave dismissal: its card is
   // pointer-inert, so nothing needs crossing a gap.)
   const videoComponent = transcriptShared.slice(
-    transcriptShared.indexOf("export function MessageAttachmentVideo"),
+    transcriptShared.indexOf("export function MessageAttachmentMedia"),
     transcriptShared.indexOf("/** Plain user text"),
   );
   assert.doesNotMatch(videoComponent, /onPointerLeave=\{dismiss\}/);
@@ -89,6 +101,9 @@ test("user video attachments render a chip with an operable hover player", () =>
   assert.match(hoverCard, /onBlur=\{onCardBlur\}/);
   assert.match(transcriptShared, /cardRef=\{cardRef\}/);
   assert.match(hoverCard, /cardRef\?: RefObject<HTMLDivElement \| null>/);
-  // Both placements — inline between words and the trailing list — route video.
-  assert.match(messageRow, /MessageAttachmentVideo/);
+  // Both placements — inline between words and the trailing list — route
+  // video and audio to the same chip.
+  assert.match(messageRow, /part\.attachment\.kind === "video" \|\| part\.attachment\.kind === "audio"/);
+  assert.match(messageRow, /\) : attachment\.kind === "video" \|\| attachment\.kind === "audio" \? \(/);
+  assert.match(messageRow, /MessageAttachmentMedia/);
 });

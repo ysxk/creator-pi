@@ -63,7 +63,7 @@ export type AgentPromptRequest = {
 export type AgentPromptAttachment = {
   path: string;
   name: string;
-  kind: "image" | "video" | "file";
+  kind: "image" | "video" | "audio" | "file";
   mimeType?: string;
   size?: number;
   /**

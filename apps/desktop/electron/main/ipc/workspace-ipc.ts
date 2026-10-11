@@ -34,7 +34,7 @@ import {
   readOpenableImage,
   resolveRealOpenablePath,
 } from "@pi-desktop/host-runtime";
-import { openableMp4Path } from "../open-attachment-video";
+import { openableMediaPath } from "../open-attachment-media";
 import { installMediaProtocol } from "../media-protocol";
 import { isChatRefOutsideRoots, resolveChatFileRef } from "../chat-ref-resolve";
 import { getWorkspaceFileIndex } from "../fs-index";
@@ -910,7 +910,7 @@ export function registerWorkspaceIpc({
         errorCode: ErrorCodes.INVALID_ARGUMENT,
       });
     }
-    const openPath = await openableMp4Path(dataDir, target, input.mimeType);
+    const openPath = await openableMediaPath(dataDir, target, input.mimeType);
     const openError = await shell.openPath(stripWinLongPrefix(openPath));
     if (openError) throw new Error(openError);
     return { ok: true };

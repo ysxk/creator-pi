@@ -1587,6 +1587,7 @@ sklm: {
     modelCapabilities: "Yetenekler",
     imageInput: "Görüntüler",
     videoInput: "Video",
+    audioInput: "Audio",
     documentInput: "PDF",
     thinkingManualOverrideHint: "Katalogda yok; destekleniyorsa açın.",
     contextWindowCatalogHint: "models.dev'i takip eder; düzenlerseniz değeriniz sabitlenir.",

@@ -78,6 +78,17 @@ export function videoFromModelConfig(
   return model?.modalities?.input.includes("video") === true;
 }
 
+/**
+ * Resolve inline audio transport from the full input modalities. Like video,
+ * the adapter subset (`input`) cannot carry "audio": the published modality
+ * array, or a binding that injected it via `modalityOverride`, is the source.
+ */
+export function audioFromModelConfig(
+  model?: Pick<ModelConfig, "modalities" | "input"> | null,
+): boolean {
+  return model?.modalities?.input.includes("audio") === true;
+}
+
 /** Map a public catalog row to the capability shape used by settings helpers. */
 export function capabilitiesFromModelInfo(model?: ModelInfo | null): ModelCapabilities {
   if (!model?.reasoning) {
@@ -112,6 +123,7 @@ export function modelConfigWithBinding(
         | "thinkingProtocol"
         | "supportsImages"
         | "supportsVideos"
+        | "supportsAudio"
         | "supportsDocuments"
         | "nativeWebSearch"
       >
@@ -210,14 +222,19 @@ export function modelConfigWithBinding(
  */
 function modalityOverride(
   model: ModelConfig,
-  binding: Pick<ModelBinding, "supportsImages" | "supportsVideos" | "supportsDocuments">,
+  binding: Pick<
+    ModelBinding,
+    "supportsImages" | "supportsVideos" | "supportsAudio" | "supportsDocuments"
+  >,
 ): Partial<ModelConfig> {
   const images = binding.supportsImages;
   const videos = binding.supportsVideos;
+  const audio = binding.supportsAudio;
   const documents = binding.supportsDocuments;
   if (
     typeof images !== "boolean" &&
     typeof videos !== "boolean" &&
+    typeof audio !== "boolean" &&
     typeof documents !== "boolean"
   ) {
     return {};
@@ -231,6 +248,10 @@ function modalityOverride(
   if (typeof videos === "boolean") {
     if (videos) nextInput.add("video");
     else nextInput.delete("video");
+  }
+  if (typeof audio === "boolean") {
+    if (audio) nextInput.add("audio");
+    else nextInput.delete("audio");
   }
   if (typeof documents === "boolean") {
     if (documents) nextInput.add("pdf");

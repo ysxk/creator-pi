@@ -38,6 +38,12 @@ test("only clips the renderer plays and vector drawings are previewed", () => {
   assert.equal(chatMediaKind("A.MOV"), "video");
   assert.equal(chatMediaKind("clip.webm"), "video");
   assert.equal(chatMediaKind("design/panel.svg"), "image");
+  // A recording the renderer decodes gets a player too.
+  assert.equal(chatMediaKind("notes/memo.mp3"), "audio");
+  assert.equal(chatMediaKind("Take 1.WAV"), "audio");
+  assert.equal(chatMediaKind("voice.m4a"), "audio");
+  assert.equal(chatMediaKind("master.flac"), "audio");
+  assert.equal(chatMediaKind("memo.mp3:12"), null);
   // A raster picture is shown where the reply embeds it, not where it is named.
   assert.equal(chatMediaKind("shot.png"), null);
   // No decoder, or no type on the media scheme.
@@ -53,6 +59,11 @@ test("a named clip gets a preview under the paragraph that names it", () => {
   // The node becomes the element the Markdown component map renders.
   assert.equal(tree.children[1].data.hName, "chat-media");
   assert.deepEqual(tree.children[1].position, tree.children[0].position);
+});
+
+test("a named recording gets a player under the paragraph that names it", () => {
+  const tree = previewsOf("The voice-over is in `out/vo.mp3`, next to `out/vo.wav`.\n");
+  assert.deepEqual(tree.children.map(preview), ["paragraph", "audio:out/vo.mp3", "audio:out/vo.wav"]);
 });
 
 test("a table of bare file names is followed by one preview per file, in order", () => {
@@ -195,6 +206,10 @@ test("the reply lends its Markdown the previews and the viewer; nothing else get
   assert.match(mention, /folderKey\.split\("\\n"\)\.map\(\(folder\) => `\$\{folder\}\/\$\{ref\}`\)/);
   assert.match(mention, /if \(!media \|\| !file \|\| owned !== file\) return null;/);
   assert.match(mention, /src=\{mediaViewUrl\(file\)\}/);
+  // A recording has its own player and chip fallback, and the node reaches it.
+  assert.match(mention, /function MentionedAudio\(/);
+  assert.match(mention, /kind === "audio" \? \(\s*<MentionedAudio file=\{file\} onContextMenu=\{openMenu\} \/>/);
+  assert.match(markdown, /kind !== "video" && kind !== "audio" && kind !== "image"/);
   // A generated set is every picture at reading size, not one and a strip.
   assert.match(images, /\{images\.map\(\(image, position\) => \(\s*<ImageResult/);
   assert.doesNotMatch(images, /<GeneratedImageThumbnail/);

@@ -634,6 +634,13 @@ export function ModelSelectionPanes({
                 ? info.capabilities.includes("video") ||
                   (info.modalities?.input?.includes("video") ?? false)
                 : false;
+              // Audio follows the published input modality: the bare `audio`
+              // capability also marks a model that speaks without listening.
+              const publishedAudio = info
+                ? info.modalities
+                  ? info.modalities.input.includes("audio")
+                  : info.capabilities.includes("audio")
+                : false;
               const expanded = expandedModelId === binding.id;
               const imageModelSelected = imageModelIds?.some((modelId) =>
                 modelId.toLowerCase() === binding.id.toLowerCase(),
@@ -960,6 +967,14 @@ export function ModelSelectionPanes({
                           value={binding.supportsVideos}
                           onChange={(next) =>
                             updateBinding(binding.id, { supportsVideos: next })
+                          }
+                        />
+                        <CapabilityToggle
+                          label={t("settings.audioInput")}
+                          published={publishedAudio}
+                          value={binding.supportsAudio}
+                          onChange={(next) =>
+                            updateBinding(binding.id, { supportsAudio: next })
                           }
                         />
                         <CapabilityToggle

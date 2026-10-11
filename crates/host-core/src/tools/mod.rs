@@ -1379,6 +1379,72 @@ fn read_video_reference(
     }))
 }
 
+/// Audio containers Read answers with a reference instead of refusing them as
+/// binary content. Mirrors `AUDIO_EXTENSIONS` in
+/// packages/shared/src/attachment-formats.ts; host-core cannot import it.
+fn inline_audio_mime(extension: &str) -> Option<&'static str> {
+    match extension {
+        "mp3" => Some("audio/mpeg"),
+        "wav" => Some("audio/wav"),
+        "aiff" | "aif" => Some("audio/aiff"),
+        "aac" => Some("audio/aac"),
+        "ogg" | "oga" => Some("audio/ogg"),
+        "flac" => Some("audio/flac"),
+        "m4a" => Some("audio/mp4"),
+        _ => None,
+    }
+}
+
+/// Whether the head of a file is one of the containers `inline_audio_mime`
+/// names: an ID3 tag or an MPEG/ADTS frame sync, RIFF/WAVE, FORM/AIFF, OggS,
+/// fLaC, or an ISO-BMFF box (m4a). A text file renamed to `.mp3` must not
+/// reach a provider as audio data: the request it rides in would be refused
+/// and the turn lost with it.
+fn looks_like_audio_container(head: &[u8]) -> bool {
+    const ISO_BMFF_BOXES: [&[u8]; 6] = [b"ftyp", b"moov", b"mdat", b"free", b"wide", b"skip"];
+    head.starts_with(b"ID3")
+        || (head.len() >= 2 && head[0] == 0xff && (head[1] & 0xe0) == 0xe0)
+        || (head.len() >= 12 && head.starts_with(b"RIFF") && &head[8..12] == b"WAVE")
+        || (head.len() >= 12
+            && head.starts_with(b"FORM")
+            && (&head[8..12] == b"AIFF" || &head[8..12] == b"AIFC"))
+        || head.starts_with(b"OggS")
+        || head.starts_with(b"fLaC")
+        || (head.len() >= 8 && ISO_BMFF_BOXES.contains(&&head[4..8]))
+}
+
+/// Answer a Read of an audio file with where it is, never with its bytes.
+///
+/// The same contract as `read_video_reference`: the runtime, which knows the
+/// model, attaches the recording to the tool result for a model that takes
+/// audio and says so in words for one that does not.
+fn read_audio_reference(
+    resolved: &Path,
+    display: &str,
+    size: u64,
+    mime: &str,
+) -> Result<Value, (String, String)> {
+    let mut head = [0u8; 12];
+    let read = File::open(resolved)
+        .and_then(|mut file| file.read(&mut head))
+        .map_err(|e| ("TOOL_FAILED".into(), format!("read failed: {e}")))?;
+    if !looks_like_audio_container(&head[..read]) {
+        return Err((
+            "TOOL_BINARY_CONTENT".into(),
+            format!("{display} does not look like a valid {mime} audio file"),
+        ));
+    }
+    Ok(json!({
+        "path": display,
+        "text": format!("Audio file {display} ({size} bytes, {mime})."),
+        "audio": {
+            "path": resolved.to_string_lossy(),
+            "mimeType": mime,
+            "size": size,
+        },
+    }))
+}
+
 fn tool_read(
     workspace: Option<&Path>,
     scratch: Option<&Path>,
@@ -1441,6 +1507,9 @@ fn tool_read(
         }
         if let Some(mime) = inline_video_mime(ext) {
             return read_video_reference(&resolved, &display, meta.len(), mime);
+        }
+        if let Some(mime) = inline_audio_mime(ext) {
+            return read_audio_reference(&resolved, &display, meta.len(), mime);
         }
         if BINARY_EXTENSIONS.contains(&ext.as_str()) {
             return Err((
@@ -3830,6 +3899,51 @@ mod tests {
         std::fs::write(&fake, b"just some notes, nothing to watch").unwrap();
         let error = read_video_reference(&fake, "notes.mp4", 33, "video/mp4").unwrap_err();
         assert_eq!(error.0, "TOOL_BINARY_CONTENT");
+    }
+
+    #[test]
+    fn read_answers_an_audio_file_with_a_reference_not_its_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("memo.mp3");
+        let bytes = b"ID3\x04\x00\x00\x00\x00\x00\x00 payload";
+        std::fs::write(&path, bytes).unwrap();
+        let content =
+            read_audio_reference(&path, "memo.mp3", bytes.len() as u64, "audio/mpeg").unwrap();
+        assert_eq!(content["audio"]["mimeType"], "audio/mpeg");
+        assert_eq!(content["audio"]["size"], bytes.len() as u64);
+        assert_eq!(content["audio"]["path"], path.to_string_lossy().as_ref());
+        assert!(content.get("images").is_none());
+        assert!(content.get("video").is_none());
+        // A text file with an audio extension is refused, not referenced.
+        let fake = dir.path().join("notes.wav");
+        std::fs::write(&fake, "just some words in a file").unwrap();
+        let error = read_audio_reference(&fake, "notes.wav", 25, "audio/wav").unwrap_err();
+        assert_eq!(error.0, "TOOL_BINARY_CONTENT");
+    }
+
+    #[test]
+    fn audio_containers_are_recognized_by_their_first_bytes() {
+        assert!(looks_like_audio_container(
+            b"ID3\x04\x00\x00\x00\x00\x02\x01"
+        ));
+        assert!(looks_like_audio_container(b"\xff\xfb\x90\x64\x00\x00"));
+        assert!(looks_like_audio_container(b"\xff\xf1\x50\x80\x00\x1f"));
+        assert!(looks_like_audio_container(b"RIFF\x24\x08\x00\x00WAVEfmt "));
+        assert!(looks_like_audio_container(b"FORM\x00\x00\x00\x00AIFFCOMM"));
+        assert!(looks_like_audio_container(b"OggS\x00\x02\x00\x00"));
+        assert!(looks_like_audio_container(b"fLaC\x00\x00\x00\x22"));
+        assert!(looks_like_audio_container(b"\x00\x00\x00\x1cftypM4A "));
+        // A RIFF that is not a WAVE is some other container, not audio.
+        assert!(!looks_like_audio_container(b"RIFF\x00\x00\x00\x00AVI "));
+        assert!(!looks_like_audio_container(b"#!/bin/sh\n"));
+        assert!(!looks_like_audio_container(b""));
+        for extension in [
+            "mp3", "wav", "aiff", "aif", "aac", "ogg", "oga", "flac", "m4a",
+        ] {
+            assert!(inline_audio_mime(extension).is_some(), "{extension}");
+        }
+        assert!(inline_audio_mime("mp4").is_none());
+        assert!(inline_audio_mime("txt").is_none());
     }
 
     #[test]

@@ -266,10 +266,12 @@ test("file picker exposes files only", () => {
 test("large image attachments avoid whole-file startup reads", () => {
   assert.match(attachments, /async function hashFile\(path: string\)/);
   assert.match(attachments, /createReadStream\(path\)/);
+  // Each medium has its own gate and bound; the file is read only when both allow it.
   assert.match(
     attachments,
-    /const inline =\n\s*\(isVideo \? supportsVideo : supportsVision\) &&\n\s*size <= \(isVideo \? MAX_INLINE_VIDEO_BYTES : MAX_INLINE_IMAGE_BYTES\)/,
+    /const inlineAllowed = isVideo \? supportsVideo : isAudio \? supportsAudio : supportsVision;/,
   );
+  assert.match(attachments, /const inline = inlineAllowed && size <= inlineBound;/);
   assert.match(attachments, /await copyFile\(source, target, fsConstants\.COPYFILE_EXCL\)/);
   assert.doesNotMatch(attachments, /const bytes = readFileSync\(source\.absolute\)/);
   assert.match(history, /const size = \(await stat\(canonical\)\)\.size/);
@@ -306,6 +308,25 @@ test("paste results separate display names from unique storage paths", async () 
       [1, 2, 3],
     );
     assert.deepEqual(Array.from(await readFile(files[1].path)), [4, 5]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a pasted recording is an audio file whatever type the system gave it", async () => {
+  const { saveComposerPasteFiles } = await import(
+    "../electron/main/composer-paste.ts"
+  );
+  const root = await mkdtemp(join(tmpdir(), "pi-composer-paste-audio-"));
+  try {
+    const files = await saveComposerPasteFiles(root, "session-audio", [
+      { name: "memo.m4a", mimeType: "audio/x-m4a", data: new Uint8Array([1]).buffer },
+      { name: "voice.ogg", mimeType: "application/octet-stream", data: new Uint8Array([2]).buffer },
+      { name: "clip.webm", mimeType: "video/webm", data: new Uint8Array([3]).buffer },
+    ]);
+    assert.deepEqual(files.map((file) => file.kind), ["audio", "audio", "video"]);
+    assert.match(basename(files[0].path), /\.m4a$/);
+    assert.match(basename(files[1].path), /\.ogg$/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

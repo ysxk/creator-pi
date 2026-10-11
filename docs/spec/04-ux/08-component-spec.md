@@ -1749,13 +1749,17 @@ Single message render — either user (plaintext) or assistant (markdown streami
   on the attachment) renders as the same compact image chip at that position in
   the body, so a sent message keeps the order the Composer showed. An image
   attachment without a recorded position continues the message text instead of
-  heading it on a line of its own. A video attachment (`kind: "video"`) takes
-  the same inline/trailing chip placements, with a hover/focus player card that
-  accepts pointer events for its controls: the clip streams from the
-  host-owned `pi-media:` scheme, which re-resolves the ref against the
-  openable roots on every request and answers Range requests so seeking works;
-  the CSP allows the scheme for media elements, and the renderer never loads a
-  raw filesystem path. Assistant Markdown renders local `<video>`/`<audio>`
+  heading it on a line of its own. A video or audio attachment (`kind:
+  "video"` / `"audio"`) takes the same inline/trailing chip placements, with a
+  hover/focus player card (a video or an audio element) that accepts pointer
+  events for its controls: the clip or recording streams from the host-owned
+  `pi-media:` scheme, which re-resolves the ref against the openable roots on
+  every request and answers Range requests so seeking works; the CSP allows
+  the scheme for media elements, and the renderer never loads a raw filesystem
+  path. The same player card opens from an audio chip in the Composer draft,
+  streaming the pasted file's scratch path or the `@` reference it names, and
+  waits a moment after the pointer leaves the chip so the controls can be
+  reached (D667). Assistant Markdown renders local `<video>`/`<audio>`
   sources — a clip the agent referenced or a file a tool generated — through
   the same scheme, degrading to the compact file chip when the resolver
   refuses the path. Hovering or focusing the chip reveals the
@@ -1821,10 +1825,10 @@ Single message render — either user (plaintext) or assistant (markdown streami
   inline via the same contained data-URL channel, with a chip fallback;
   clicking one opens the image viewer on it, with the other pictures of the
   same reply to step through and the file tab one action away (D663). A local
-  clip (`mp4`, `mov`, `webm`) or vector drawing (`svg`) the reply only names
-  gets a preview under the block that names it — an inline player, or the
-  drawing as an image that opens in the same viewer — with the file's name
-  under it. A list keeps a preview inside its item; a table's previews follow
+  clip (`mp4`, `mov`, `webm`), recording (`mp3`, `wav`, `m4a`, `flac`, `ogg`,
+  `aac`; D667) or vector drawing (`svg`) the reply only names gets a preview
+  under the block that names it — an inline player, or the drawing as an image
+  that opens in the same viewer — with the file's name under it. A list keeps a preview inside its item; a table's previews follow
   the table. A bare name is also looked for in the folders the reply names,
   a name that matches no file draws nothing, and one file is previewed once
   per reply. Fenced code, remote URLs and `path:line` references are not

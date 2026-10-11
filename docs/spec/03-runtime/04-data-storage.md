@@ -925,7 +925,7 @@ type Block =
       status: "ok" | "error" | "denied"; result?: unknown;
       completedAt?: string; durationMs?: number;
       toolUsage?: ToolTokenUsage }
-  | { type: "attachment"; kind: "image" | "video" | "file" | "session"; name: string;
+  | { type: "attachment"; kind: "image" | "video" | "audio" | "file" | "session"; name: string;
       ref: string /* attachments/<sha256>, absolute path, or session id */;
       mimeType?: string; size?: number;
       text?: string /* bounded referenced-conversation excerpt */ }
@@ -954,7 +954,11 @@ type Block =
   override): the block's `kind` is `video`, bytes are content-addressed the
   same way, and a non-video or oversized turn keeps the `@path` fallback. A clip
   the model watched by reading a file is not stored at all: the tool row keeps
-  the host's reference and a note in place of the bytes (D660). Replayed content-store images use
+  the host's reference and a note in place of the bytes (D660). Audio follows
+  the same contract (D667): the block's `kind` is `audio`, it has its own 100 MB
+  inline bound and replay pool, its gate is the published `audio` input modality
+  or the binding's `supportsAudio` override, and a recording the model heard by
+  reading a file is likewise kept as a reference and a note. Replayed content-store images use
   `scratch/<sessionId>/replayed/` when a path fallback is required. Images
   above the inline bound are hashed and copied with streaming file operations;
   startup and history hydration must not load the whole image into memory.

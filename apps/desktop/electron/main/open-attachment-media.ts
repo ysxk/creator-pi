@@ -1,16 +1,36 @@
 import { lstat, mkdir, realpath, symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { normalizeAudioMimeType } from "@pi-desktop/shared";
 
 const ATTACHMENT_HASH = /^[0-9a-f]{64}$/i;
 
+/**
+ * The extension the OS associates a stored media blob's type with. Only types
+ * the chat plays itself are listed: a stored picture already opens through the
+ * image viewer, and anything else keeps its hash name.
+ */
+const OPENABLE_MEDIA_EXTENSIONS: Record<string, string> = {
+  "video/mp4": "mp4",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/aiff": "aiff",
+  "audio/aac": "aac",
+  "audio/ogg": "ogg",
+  "audio/flac": "flac",
+  "audio/mp4": "m4a",
+};
+
 /** Give an extensionless attachment its media association without copying it. */
-export async function openableMp4Path(
+export async function openableMediaPath(
   dataDir: string,
   target: string,
   mimeType?: string,
 ): Promise<string> {
   const hash = basename(target);
-  if (!ATTACHMENT_HASH.test(hash) || mimeType?.toLowerCase() !== "video/mp4") {
+  const extension = mimeType
+    ? OPENABLE_MEDIA_EXTENSIONS[normalizeAudioMimeType(mimeType)]
+    : undefined;
+  if (!ATTACHMENT_HASH.test(hash) || !extension) {
     return target;
   }
   let attachmentRoot: string;
@@ -26,7 +46,7 @@ export async function openableMp4Path(
   if ((await lstat(directory)).isSymbolicLink()) {
     throw new Error("attachment open directory is a symbolic link");
   }
-  const alias = join(directory, `${hash.toLowerCase()}.mp4`);
+  const alias = join(directory, `${hash.toLowerCase()}.${extension}`);
   try {
     await symlink(target, alias, "file");
   } catch (error) {

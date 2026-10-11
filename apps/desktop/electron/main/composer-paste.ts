@@ -9,6 +9,8 @@ import {
 import { constants as fsConstants } from "node:fs";
 import { basename, extname, isAbsolute, join } from "node:path";
 import {
+  AUDIO_MIME_BY_EXTENSION,
+  isAudioAttachment,
   isSvgAttachment,
   isVideoAttachment,
   SVG_MIME_TYPE,
@@ -55,6 +57,13 @@ const MIME_EXTENSIONS: Record<string, string> = {
   "video/x-ms-wmv": ".wmv",
   "video/x-flv": ".flv",
   "video/3gpp": ".3gp",
+  "audio/mpeg": ".mp3",
+  "audio/wav": ".wav",
+  "audio/aiff": ".aiff",
+  "audio/aac": ".aac",
+  "audio/ogg": ".ogg",
+  "audio/flac": ".flac",
+  "audio/mp4": ".m4a",
 };
 
 const MIME_BY_EXTENSION: Record<string, string> = Object.fromEntries(
@@ -70,6 +79,12 @@ Object.assign(MIME_BY_EXTENSION, {
   ".tiff": "image/tiff",
   ...Object.fromEntries(
     Object.entries(VIDEO_MIME_BY_EXTENSION).map(([extension, mimeType]) => [
+      `.${extension}`,
+      mimeType,
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(AUDIO_MIME_BY_EXTENSION).map(([extension, mimeType]) => [
       `.${extension}`,
       mimeType,
     ]),
@@ -92,6 +107,7 @@ function composerFileKind(
 ): ComposerPastedFile["kind"] {
   if (isImageFile(name, mimeType)) return "image";
   if (isVideoAttachment(mimeType, name)) return "video";
+  if (isAudioAttachment(mimeType, name)) return "audio";
   return "file";
 }
 

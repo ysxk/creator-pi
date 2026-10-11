@@ -26,7 +26,7 @@ import {
 import { initialHighlight } from "../../../../lib/composer-ac-navigation";
 import { slotRegistry } from "../../../../plugins/renderer-slots/registry";
 import { useAppStore } from "../../../../stores/app-store";
-import { isVideoAttachment } from "@pi-desktop/shared";
+import { isAudioAttachment, isVideoAttachment } from "@pi-desktop/shared";
 import { useTranslation } from "react-i18next";
 import { subagentDisplayName } from "../../../../lib/subagent-names";
 import { createFileReference, isImageFilePath, nextChipToken } from "../editor";
@@ -242,7 +242,9 @@ export function useComposerCompletions({
                   ? "image"
                   : isVideoAttachment(undefined, acceptedFileReference.path)
                     ? "video"
-                    : "file",
+                    : isAudioAttachment(undefined, acceptedFileReference.path)
+                      ? "audio"
+                      : "file",
                 token,
               },
             ),

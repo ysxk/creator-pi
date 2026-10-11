@@ -1857,9 +1857,12 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
 - `fs/open({path, mimeType?})` → open an existing regular file with the OS
   default application. It uses the same realpath containment as `fs/read`,
   including rejection of symlink escapes. For a content-addressed
-  `attachments/<sha256>` blob declared as `video/mp4`, the host creates a
-  `.mp4` symlink inside its private app-data directory before the OS handoff,
-  so the extensionless blob has a media association without copying its bytes.
+  `attachments/<sha256>` blob declared as `video/mp4` or as an audio type the
+  chat plays (`audio/mpeg`, `audio/wav`, `audio/aiff`, `audio/aac`,
+  `audio/ogg`, `audio/flac`, `audio/mp4`; D667), the host creates a symlink
+  with the matching extension (`.mp4`, `.mp3`, …) inside its private app-data
+  directory before the OS handoff, so the extensionless blob has a media
+  association without copying its bytes.
 - `fs/resolveRef({ref, sessionId?})` → `FsChatRefResolveResult`
   (`{ match: FsChatRefMatch | null, reason?: "outside-allowed-roots" }`, the match naming the answering `root`
   (`workspace` / `scratch` / `attachments`), the `relativePath` relative to that

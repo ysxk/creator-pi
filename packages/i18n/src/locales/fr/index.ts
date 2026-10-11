@@ -1581,6 +1581,7 @@ sklm: {
     "modelCapabilities": "Capacités",
     "imageInput": "Images",
     "videoInput": "Video",
+    "audioInput": "Audio",
     "documentInput": "PDF",
     "thinkingManualOverrideHint": "Pas dans le catalogue ; activer si pris en charge.",
     "contextWindowCatalogHint": "Suit models.dev ; une modification fixe votre valeur.",

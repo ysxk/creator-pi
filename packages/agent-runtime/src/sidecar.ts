@@ -7,7 +7,7 @@ import { parseMcpServerIds, parseMcpToolNames } from "./mcp-tool-selection.js";
 import { randomUUID } from "node:crypto";
 import type { ModelAuth } from "@earendil-works/pi-ai";
 import { ParentHostProxy } from "./parent-host-proxy.js";
-import { videoFromModelConfig, visionFromModelConfig } from "./model-capabilities.js";
+import { audioFromModelConfig, videoFromModelConfig, visionFromModelConfig } from "./model-capabilities.js";
 import { hydrateAttachmentHistory } from "./attachment-history.js";
 import { classifyAgentError } from "./agent-errors.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
@@ -274,12 +274,14 @@ async function runtimeFor(
     }
     const supportsVision = visionFromModelConfig(params.provider.modelConfig);
     const supportsVideo = videoFromModelConfig(params.provider.modelConfig);
+    const supportsAudio = audioFromModelConfig(params.provider.modelConfig);
     history = await hydrateAttachmentHistory(restoredMessages, {
       scratchDir: params.scratchDir,
       projectPath: params.projectPath,
       attachmentsDir: params.attachmentsDir,
       supportsVision,
       supportsVideo,
+      supportsAudio,
     });
     compaction = detail?.session?.compaction;
   } catch {

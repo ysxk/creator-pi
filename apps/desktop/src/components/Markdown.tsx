@@ -914,7 +914,9 @@ function isAttachmentBlobRefText(value: string): boolean {
 function ChatMediaNode({ path, kind }: { path?: unknown; kind?: unknown }) {
   const baseDir = useContext(MarkdownBaseDirContext);
   const openFileMenu = useContext(MarkdownFileMenuContext);
-  if (typeof path !== "string" || (kind !== "video" && kind !== "image")) return null;
+  if (typeof path !== "string" || (kind !== "video" && kind !== "audio" && kind !== "image")) {
+    return null;
+  }
   return (
     <MentionedMedia
       path={path}

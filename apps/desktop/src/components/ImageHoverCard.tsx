@@ -58,21 +58,27 @@ export function ImageHoverCard({ src, anchor, onDismiss }: {
   );
 }
 
+/** What a media card plays: a clip in a video element, a recording in an audio element. */
+export type HoverMedia = "video" | "audio";
+
 /**
- * Hover player for a video chip: same placement discipline as the image card,
- * but the card takes pointer events because the controls are the point. The
- * stream comes from the host-owned pi-media: scheme, so the renderer never
- * loads a raw filesystem path.
+ * Hover player for a video or audio chip: same placement discipline as the
+ * image card, but the card takes pointer events because the controls are the
+ * point. The stream comes from the host-owned pi-media: scheme, so the
+ * renderer never loads a raw filesystem path.
  *
  * The card is portal-rendered with a gap from its chip, so it owns its own
  * exit — the chip's pointerleave must not close it, or the pointer could
  * never cross the gap to the controls. It dismisses on leaving the card
  * itself, on Escape while open, and on scroll/resize like the image card.
  */
-export function VideoHoverCard({ src, anchor, onDismiss, cardRef }: {
+export function MediaHoverCard({ media, src, anchor, onDismiss, onPointerEnter, cardRef }: {
+  media: HoverMedia;
   src: string | null;
   anchor: ImageHoverAnchor | null;
   onDismiss?: () => void;
+  /** The pointer reached the card: an owner with a grace timer cancels it here. */
+  onPointerEnter?: () => void;
   /** The owner's ref to this card's element, so it can tell its own card from
    * another attachment's when several are open at once. */
   cardRef?: RefObject<HTMLDivElement | null>;
@@ -123,15 +129,21 @@ export function VideoHoverCard({ src, anchor, onDismiss, cardRef }: {
       ref={setCardRef}
       className="image-hover-card is-interactive"
       data-placement={placement}
+      data-media={media}
       role="presentation"
       style={{
         left: anchor.left + anchor.width / 2,
         top: placement === "above" ? anchor.top - PREVIEW_GAP : anchor.bottom + PREVIEW_GAP,
       }}
+      onPointerEnter={onPointerEnter}
       onPointerLeave={onDismiss}
       onBlur={onCardBlur}
     >
-      <video src={src} controls preload="metadata" />
+      {media === "video" ? (
+        <video src={src} controls preload="metadata" />
+      ) : (
+        <audio src={src} controls preload="metadata" />
+      )}
     </div>,
   );
 }

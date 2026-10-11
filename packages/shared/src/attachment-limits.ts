@@ -32,3 +32,21 @@ export const MAX_INLINE_VIDEO_BYTES = 100_000_000;
  * otherwise vanish from every later turn of the same conversation.
  */
 export const MAX_INLINED_VIDEO_HISTORY_BYTES = 100_000_000;
+
+/**
+ * Maximum raw audio size that may be embedded in a provider request. Audio
+ * rides the same inline media allowance as video: Gemini accepts inline
+ * media up to 100 MB per request, and a CLIProxyAPI relay forwards the bytes
+ * on the native and the adapter path alike. A recording over it travels as a
+ * file path, which leaves the model transcribing it with tools instead of
+ * listening to it.
+ */
+export const MAX_INLINE_AUDIO_BYTES = 100_000_000;
+
+/**
+ * Maximum aggregate raw audio bytes inlined during history restoration. Audio
+ * has a pool of its own, like video, so a long recording cannot evict every
+ * image, and the pool is never below the per-file bound: a recording the
+ * first turn could send would otherwise vanish from every later turn.
+ */
+export const MAX_INLINED_AUDIO_HISTORY_BYTES = 100_000_000;

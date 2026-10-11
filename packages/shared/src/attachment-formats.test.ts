@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUDIO_MIME_BY_EXTENSION,
+  isAudioAttachment,
   isVideoAttachment,
+  normalizeAudioMimeType,
   VIDEO_MIME_BY_EXTENSION,
 } from "./attachment-formats.js";
 
@@ -30,5 +33,49 @@ describe("isVideoAttachment", () => {
       expect(VIDEO_MIME_BY_EXTENSION[extension]).toMatch(/^video\//);
       expect(isVideoAttachment(undefined, `x.${extension}`)).toBe(true);
     }
+  });
+});
+
+describe("isAudioAttachment", () => {
+  it("detects audio by MIME type", () => {
+    expect(isAudioAttachment("audio/mpeg")).toBe(true);
+    expect(isAudioAttachment("audio/x-m4a; charset=binary")).toBe(true);
+    expect(isAudioAttachment("video/mp4")).toBe(false);
+    expect(isAudioAttachment(undefined)).toBe(false);
+  });
+
+  it("detects audio by path or name extension", () => {
+    expect(isAudioAttachment(undefined, "voice.mp3")).toBe(true);
+    expect(isAudioAttachment(undefined, "/tmp/Memo 0001.M4A")).toBe(true);
+    expect(isAudioAttachment(undefined, undefined, "a/b/take one.wav")).toBe(true);
+    expect(isAudioAttachment(undefined, "notes.txt")).toBe(false);
+    expect(isAudioAttachment(undefined, "clip.mp4")).toBe(false);
+    expect(isAudioAttachment(undefined, "archive.mp3.bak")).toBe(false);
+  });
+
+  it("maps every audio extension to a concrete MIME type", () => {
+    for (const extension of Object.keys(AUDIO_MIME_BY_EXTENSION)) {
+      expect(AUDIO_MIME_BY_EXTENSION[extension]).toMatch(/^audio\//);
+      expect(isAudioAttachment(undefined, `x.${extension}`)).toBe(true);
+    }
+  });
+
+  it("keeps audio and video extensions apart", () => {
+    for (const extension of Object.keys(AUDIO_MIME_BY_EXTENSION)) {
+      expect(isVideoAttachment(undefined, `x.${extension}`)).toBe(false);
+    }
+  });
+});
+
+describe("normalizeAudioMimeType", () => {
+  it("folds the system's spellings onto the provider tables' names", () => {
+    expect(normalizeAudioMimeType("audio/mp3")).toBe("audio/mpeg");
+    expect(normalizeAudioMimeType("audio/x-m4a")).toBe("audio/mp4");
+    expect(normalizeAudioMimeType("audio/x-wav; rate=44100")).toBe("audio/wav");
+    expect(normalizeAudioMimeType("Audio/FLAC")).toBe("audio/flac");
+  });
+
+  it("leaves a type it does not know as given", () => {
+    expect(normalizeAudioMimeType("audio/opus")).toBe("audio/opus");
   });
 });

@@ -75,10 +75,17 @@ function isMarkdownPath(path: string): boolean {
   return /\.(?:md|markdown)$/i.test(path);
 }
 
-function isMp4(path: string, mimeType?: string): boolean {
-  return /\.mp4$/i.test(path) || (
+/**
+ * A conversation clip or recording the host `file:` tab cannot preview as text
+ * and hands to the OS player instead: a named media file, or a stored blob
+ * whose attachment metadata declares a media type.
+ */
+function isSystemOpenableMedia(path: string, mimeType?: string): boolean {
+  if (/\.(?:mp4|mp3|wav|m4a|flac|ogg|oga|aac|aiff?)$/i.test(path)) return true;
+  const mime = mimeType?.toLowerCase() ?? "";
+  return (
     /(?:^|[\\/])attachments[\\/][0-9a-f]{64}$/i.test(path) &&
-    mimeType?.toLowerCase() === "video/mp4"
+    (mime === "video/mp4" || mime.startsWith("audio/"))
   );
 }
 
@@ -246,7 +253,7 @@ export function FilesTab() {
     return () => cancelAnimationFrame(frame);
   }, [file, selectedLine]);
 
-  const openMp4 = useCallback(async () => {
+  const openWithSystem = useCallback(async () => {
     if (!selected) return;
     try {
       await api.fsOpen(selected, selectedMimeType);
@@ -406,8 +413,8 @@ export function FilesTab() {
                   : t("panel.files.binary")
               }
             >
-              {isMp4(selected, selectedMimeType) && (
-                <Button type="button" onClick={() => void openMp4()}>
+              {isSystemOpenableMedia(selected, selectedMimeType) && (
+                <Button type="button" onClick={() => void openWithSystem()}>
                   {t("chat.openFile")}
                 </Button>
               )}

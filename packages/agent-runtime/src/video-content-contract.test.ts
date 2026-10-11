@@ -5,13 +5,15 @@ import { estimateTextAndImageContentTokens } from "@earendil-works/pi-ai/utils/e
 import type { Model, UserMessage } from "@earendil-works/pi-ai";
 
 /**
- * Contract tests for the pi-ai video-content patch
- * (patches/@earendil-works__pi-ai@1.0.1.patch).
+ * Contract tests for the pi-ai media-content patch
+ * (patches/@earendil-works__pi-ai@1.1.0.patch).
  *
  * A `VideoContent` user part must serialize per protocol — an OpenAI Files
  * content part on chat-completions, an `inlineData` part on the native Gemini
  * API — instead of being mis-encoded as an `image_url` data URL, and context
- * estimation must not reject the block.
+ * estimation must not reject the block. An `AudioContent` part follows the
+ * same contract, as `input_audio` on chat-completions for the containers that
+ * part can name and as the Files part for the rest.
  */
 
 const model = {
@@ -102,5 +104,83 @@ describe("pi-ai video content serialization", () => {
         { type: "video", data: videoBase64, mimeType: "video/mp4" },
       ] as never),
     ).not.toThrow();
+  });
+});
+
+const audioBase64 = Buffer.from("fake-mp3-bytes").toString("base64");
+
+describe("pi-ai audio content serialization", () => {
+  it("serializes an mp3 or wav part as input_audio on chat-completions", () => {
+    const params = convertOpenAiMessages(
+      model as never,
+      {
+        messages: [
+          userMessage([
+            { type: "text", text: "what is said here" },
+            { type: "audio", data: audioBase64, mimeType: "audio/mpeg" },
+            { type: "audio", data: audioBase64, mimeType: "audio/wav" },
+          ] as never),
+        ],
+      } as never,
+      {} as never,
+      {},
+    );
+    const parts = params[0]!.content!;
+    expect(parts[0]).toEqual({ type: "text", text: "what is said here" });
+    expect(parts[1]).toEqual({ type: "input_audio", input_audio: { data: audioBase64, format: "mp3" } });
+    expect(parts[2]).toEqual({ type: "input_audio", input_audio: { data: audioBase64, format: "wav" } });
+  });
+
+  it("serializes any other audio container as an OpenAI Files content part", () => {
+    const params = convertOpenAiMessages(
+      model as never,
+      {
+        messages: [
+          userMessage([{ type: "audio", data: audioBase64, mimeType: "audio/flac" }] as never),
+        ],
+      } as never,
+      {} as never,
+      {},
+    );
+    expect(params[0]!.content![0]).toEqual({
+      type: "file",
+      file: { file_data: `data:audio/flac;base64,${audioBase64}` },
+    });
+  });
+
+  it("serializes an audio part as inlineData on the native Gemini API", () => {
+    const contents = convertGoogleContents(model as never, {
+      messages: [
+        userMessage([
+          { type: "text", text: "transcribe this" },
+          { type: "audio", data: audioBase64, mimeType: "audio/mpeg" },
+        ] as never),
+      ],
+    } as never);
+    expect(contents[0]?.parts as unknown[]).toEqual([
+      { text: "transcribe this" },
+      { inlineData: { mimeType: "audio/mpeg", data: audioBase64 } },
+    ]);
+  });
+
+  it("estimates tokens for audio parts instead of rejecting them", () => {
+    expect(() =>
+      estimateTextAndImageContentTokens([
+        { type: "text", text: "hi" },
+        { type: "audio", data: audioBase64, mimeType: "audio/mpeg" },
+      ] as never),
+    ).not.toThrow();
+    // A recording is counted as more than a picture and less than a clip.
+    const audio = estimateTextAndImageContentTokens([
+      { type: "audio", data: audioBase64, mimeType: "audio/mpeg" },
+    ] as never);
+    const image = estimateTextAndImageContentTokens([
+      { type: "image", data: audioBase64, mimeType: "image/png" },
+    ] as never);
+    const video = estimateTextAndImageContentTokens([
+      { type: "video", data: videoBase64, mimeType: "video/mp4" },
+    ] as never);
+    expect(audio).toBeGreaterThan(image);
+    expect(audio).toBeLessThan(video);
   });
 });

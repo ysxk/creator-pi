@@ -1544,6 +1544,7 @@ export const ptBR = {
     modelCapabilities: "Recursos",
     imageInput: "Imagens",
     videoInput: "Video",
+    audioInput: "Audio",
     documentInput: "PDF",
     thinkingManualOverrideHint: "Substitui a configuração padrão de raciocínio deste modelo.",
     contextWindowCatalogHint: "Segue models.dev; editar fixa o seu valor.",

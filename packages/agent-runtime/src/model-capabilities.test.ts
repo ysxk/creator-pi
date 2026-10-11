@@ -2,6 +2,7 @@ import {
   capabilitiesFromModelConfig,
   capabilitiesFromModelInfo,
   clampThinkingLevel,
+  audioFromModelConfig,
   genericModelConfig,
   modelConfigWithBinding,
   videoFromModelConfig,
@@ -280,6 +281,54 @@ describe("binding attachment capability overrides", () => {
     });
     expect(disabled.modalities?.input).not.toContain("video");
     expect(videoFromModelConfig(disabled)).toBe(false);
+  });
+
+  it("resolves audio transport from the published modality array", () => {
+    expect(audioFromModelConfig(knownModel())).toBe(false);
+    expect(
+      audioFromModelConfig({
+        ...genericModelConfig("gemini-2.5-flash"),
+        modalities: { input: ["text", "image", "audio"], output: ["text"] },
+      }),
+    ).toBe(true);
+    // The adapter subset cannot carry "audio"; it must never report it alone.
+    expect(audioFromModelConfig({ input: ["text", "image"] })).toBe(false);
+    // Video and audio are separate gates.
+    expect(
+      audioFromModelConfig({
+        ...genericModelConfig("gemini-2.5-flash"),
+        modalities: { input: ["text", "image", "video"], output: ["text"] },
+      }),
+    ).toBe(false);
+  });
+
+  it("grants and revokes audio transport through the binding override", () => {
+    const proxied = {
+      ...genericModelConfig("proxy-model", "https://proxy.test/v1"),
+      modalities: { input: ["text", "image"] as const, output: ["text"] as const },
+    };
+    const enabled = modelConfigWithBinding(proxied, {
+      ...baseBinding,
+      supportsAudio: true,
+    });
+    expect(enabled.modalities?.input).toContain("audio");
+    expect(audioFromModelConfig(enabled)).toBe(true);
+    // The adapter subset still carries only what pi-ai encodes as a block.
+    expect(enabled.input).toEqual(["text", "image"]);
+
+    const native = {
+      ...genericModelConfig("gemini-2.5-flash"),
+      modalities: {
+        input: ["text", "image", "audio"] as const,
+        output: ["text"] as const,
+      },
+    };
+    const disabled = modelConfigWithBinding(native, {
+      ...baseBinding,
+      supportsAudio: false,
+    });
+    expect(disabled.modalities?.input).not.toContain("audio");
+    expect(audioFromModelConfig(disabled)).toBe(false);
   });
 
   it("leaves limits and explicit thinking levels untouched by a capability override", () => {

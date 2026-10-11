@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_INLINE_AUDIO_BYTES,
   MAX_INLINE_IMAGE_BYTES,
   MAX_INLINE_VIDEO_BYTES,
+  MAX_INLINED_AUDIO_HISTORY_BYTES,
   MAX_INLINED_IMAGE_HISTORY_BYTES,
   MAX_INLINED_VIDEO_HISTORY_BYTES,
 } from "./attachment-limits.js";
@@ -21,5 +23,13 @@ describe("attachment transport limits", () => {
 
   it("keeps a clip the first turn could send available to later turns", () => {
     expect(MAX_INLINED_VIDEO_HISTORY_BYTES).toBeGreaterThanOrEqual(MAX_INLINE_VIDEO_BYTES);
+  });
+
+  it("gives audio the same inline media allowance as video", () => {
+    expect(MAX_INLINE_AUDIO_BYTES).toBe(MAX_INLINE_VIDEO_BYTES);
+  });
+
+  it("keeps a recording the first turn could send available to later turns", () => {
+    expect(MAX_INLINED_AUDIO_HISTORY_BYTES).toBeGreaterThanOrEqual(MAX_INLINE_AUDIO_BYTES);
   });
 });

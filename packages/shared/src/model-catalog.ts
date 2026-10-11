@@ -314,6 +314,7 @@ export function bindingFromModelInfo(model: ModelInfo): ModelBinding {
     // reaches an already saved binding.
     supportsImages: null,
     supportsVideos: null,
+    supportsAudio: null,
     supportsDocuments: null,
   };
 }

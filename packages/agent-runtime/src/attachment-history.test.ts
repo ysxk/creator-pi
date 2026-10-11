@@ -214,6 +214,108 @@ describe("hydrateAttachmentHistory", () => {
     });
   });
 
+  it("inlines audio attachments only when the model supports audio", async () => {
+    await withTempDir(async (tmp) => {
+      const memoPath = resolve(tmp, "memo.mp3");
+      await writeFile(memoPath, "fake-mp3");
+      const history = [
+        userMessage("msg-1", [
+          {
+            name: "memo.mp3",
+            ref: memoPath,
+            kind: "audio",
+            mimeType: "audio/mpeg",
+            size: 8,
+          },
+        ]),
+      ];
+
+      const videoOnly = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+      });
+      expect(videoOnly[0]?.attachments?.[0]?.data).toBeUndefined();
+      expect(videoOnly[0]?.attachments?.[0]?.kind).toBe("audio");
+      expect(videoOnly[0]?.content).toContain("memo.mp3");
+
+      const audioCapable = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsAudio: true,
+      });
+      expect(audioCapable[0]?.attachments?.[0]?.data).toBe("ZmFrZS1tcDM=");
+    });
+  });
+
+  it("upgrades a legacy file-kind recording to the audio pool", async () => {
+    await withTempDir(async (tmp) => {
+      const memoPath = resolve(tmp, "legacy.m4a");
+      await writeFile(memoPath, "legacy-m4a");
+      const history = [
+        userMessage("msg-1", [
+          {
+            name: "legacy.m4a",
+            ref: memoPath,
+            kind: "file",
+            size: 10,
+          },
+        ]),
+      ];
+
+      const hydrated = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsAudio: true,
+      });
+      expect(hydrated[0]?.attachments?.[0]?.kind).toBe("audio");
+      expect(hydrated[0]?.attachments?.[0]?.data).toBe("bGVnYWN5LW00YQ==");
+    });
+  });
+
+  it("keeps the audio budget independent of the image and video budgets", async () => {
+    await withTempDir(async (tmp) => {
+      const imgPath = resolve(tmp, "a.png");
+      const clipPath = resolve(tmp, "b.mp4");
+      const memoPath = resolve(tmp, "c.wav");
+      await writeFile(imgPath, "x");
+      await writeFile(clipPath, "yy");
+      await writeFile(memoPath, "zzz");
+      const history = [
+        userMessage("msg-1", [
+          { name: "a.png", ref: imgPath, kind: "image", mimeType: "image/png", size: 1 },
+          { name: "b.mp4", ref: clipPath, kind: "video", mimeType: "video/mp4", size: 2 },
+          { name: "c.wav", ref: memoPath, kind: "audio", mimeType: "audio/wav", size: 3 },
+        ]),
+      ];
+
+      // The image and video pools are exhausted; the recording still inlines.
+      const hydrated = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+        supportsAudio: true,
+        maxInlinedImageBytes: 0,
+        maxInlinedVideoBytes: 0,
+      });
+      expect(hydrated[0]?.attachments?.[0]?.data).toBeUndefined();
+      expect(hydrated[0]?.attachments?.[1]?.data).toBeUndefined();
+      expect(hydrated[0]?.attachments?.[2]?.data).toBe("enp6");
+
+      // And the reverse: an empty audio pool evicts neither picture nor clip.
+      const reversed = await hydrateAttachmentHistory(history, {
+        projectPath: tmp,
+        supportsVision: true,
+        supportsVideo: true,
+        supportsAudio: true,
+        maxInlinedAudioBytes: 0,
+      });
+      expect(reversed[0]?.attachments?.[0]?.data).toBe("eA==");
+      expect(reversed[0]?.attachments?.[1]?.data).toBe("eXk=");
+      expect(reversed[0]?.attachments?.[2]?.data).toBeUndefined();
+    });
+  });
+
   it("keeps the video budget independent of the image budget", async () => {
     await withTempDir(async (tmp) => {
       const imgPath = resolve(tmp, "a.png");
