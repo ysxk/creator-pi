@@ -55,19 +55,23 @@ export type DiscoveredModel = {
   serviceTiers?: string[];
 };
 
-/** `vendor_key` of a provider row that addresses a CLIProxyAPI server. */
+/** `vendor_key` of a provider row marked as a CLIProxyAPI server. */
 export const CLIPROXYAPI_VENDOR_KEY = "cliproxyapi";
-/** The bundled plugin that declares the CLIProxyAPI provider row. */
-export const CLIPROXYAPI_PLUGIN_ID = "pi.cliproxyapi";
 
-/** Whether a provider row addresses a CLIProxyAPI server. */
-export function isCliProxyProvider(
-  provider: { vendorKey?: string | null; ownerPluginId?: string | null } | null | undefined,
-): boolean {
-  return (
-    provider?.vendorKey === CLIPROXYAPI_VENDOR_KEY ||
-    provider?.ownerPluginId === CLIPROXYAPI_PLUGIN_ID
-  );
+/**
+ * Whether a row's server is asked for a pi catalogue after its own model list.
+ *
+ * A CLIProxyAPI server is whatever address the user runs it on, and one server
+ * is usually reached through several rows, one per wire API, so that each
+ * model family speaks its own protocol. Nothing about such a row names the
+ * software behind it. So the question is put to every row that is not a known
+ * vendor's own endpoint: a server that has a catalogue answers with it, and
+ * any other answers with its plain list or an error, which changes nothing.
+ * The caller passes the key it would look the row up in a catalog under, so a
+ * custom row whose host names its publisher counts as that vendor's.
+ */
+export function asksForPiCatalogue(vendorKey: string | null | undefined): boolean {
+  return !vendorKey || vendorKey === "custom" || vendorKey === CLIPROXYAPI_VENDOR_KEY;
 }
 
 /**
@@ -79,6 +83,11 @@ export function isCliProxyProvider(
  * The catalogue lives at the server root's `/v1/models` whichever API path the
  * row's base URL names, so a base ending in `/v1`, `/v1beta` or `/backend-api`
  * is taken back to the root first.
+ *
+ * The catalogue adds to a row's own list and never replaces it. The ids a
+ * route accepts are the ids that route lists: the server's Anthropic route
+ * serves its models under names of its own, and its Gemini list is the only
+ * one that says a model takes audio or video.
  */
 export function cliProxyCatalogUrl(baseUrl: string): string {
   const root = baseUrl
@@ -207,7 +216,17 @@ function discoveredModelMetadata(item: Record<string, unknown>): {
         })
         .filter((effort) => effort.trim().length > 0)
     : undefined;
-  const serviceTiers = stringArray(item.service_tiers ?? item.serviceTiers);
+  // A tier is published as a name, or as `{ id, name, description }`.
+  const rawTiers = item.service_tiers ?? item.serviceTiers;
+  const serviceTiers = Array.isArray(rawTiers)
+    ? rawTiers
+        .flatMap((entry) => {
+          const record = asRecord(entry);
+          if (record && typeof record.id === "string") return [record.id];
+          return typeof entry === "string" ? [entry] : [];
+        })
+        .filter((tier) => tier.trim().length > 0)
+    : undefined;
   return {
     ...(contextWindow !== undefined ? { contextWindow } : {}),
     ...(input?.length ? { input } : {}),
@@ -446,18 +465,52 @@ export async function probeModelList(opts: {
    */
   signal?: AbortSignal;
 }): Promise<ModelListProbe> {
-  if (opts.cliProxyCatalog) {
-    // A server too old to know the pi catalogue, or one that answers it with
-    // nothing, still has the plain list every other provider is asked for.
-    try {
-      const catalogue = await requestModelList(opts);
-      if (catalogue.models.length > 0) return catalogue;
-    } catch (error) {
-      if ((error as { name?: string })?.name === "AbortError") throw error;
-    }
-    return requestModelList({ ...opts, cliProxyCatalog: false });
+  if (!opts.cliProxyCatalog) return requestModelList(opts);
+  // The row's own list decides which models it has; the catalogue only says
+  // more about them. A server without one leaves the list as it was.
+  const own = await requestModelList({ ...opts, cliProxyCatalog: false });
+  let catalogue: DiscoveredModel[] = [];
+  try {
+    catalogue = (await requestModelList(opts)).models;
+  } catch (error) {
+    if ((error as { name?: string })?.name === "AbortError") throw error;
   }
-  return requestModelList(opts);
+  return { ...own, models: withCatalogueFacts(own.models, catalogue) };
+}
+
+/**
+ * Fill each listed model in from the catalogue row of the same id.
+ *
+ * What the row's own list said is kept: its modalities are joined with the
+ * catalogue's rather than overwritten, since they describe what this route
+ * carries. A model the catalogue hides, or does not know, is left untouched.
+ */
+export function withCatalogueFacts(
+  models: readonly DiscoveredModel[],
+  catalogue: readonly DiscoveredModel[],
+): DiscoveredModel[] {
+  const byId = new Map(catalogue.map((entry) => [entry.modelId, entry]));
+  return models.map((model) => {
+    const entry = byId.get(model.modelId);
+    if (!entry) return model;
+    const input = [...new Set([...(model.input ?? []), ...(entry.input ?? [])])];
+    const capabilities = [
+      ...new Set([...(model.capabilities ?? []), ...(entry.capabilities ?? [])]),
+    ];
+    const contextWindow = model.contextWindow ?? entry.contextWindow;
+    const reasoningLevels = model.reasoningLevels?.length
+      ? model.reasoningLevels
+      : entry.reasoningLevels;
+    return {
+      modelId: model.modelId,
+      displayName: model.displayName !== model.modelId ? model.displayName : entry.displayName,
+      ...(contextWindow !== undefined ? { contextWindow } : {}),
+      ...(input.length ? { input } : {}),
+      ...(capabilities.length ? { capabilities } : {}),
+      ...(reasoningLevels?.length ? { reasoningLevels } : {}),
+      ...(entry.serviceTiers?.length ? { serviceTiers: entry.serviceTiers } : {}),
+    };
+  });
 }
 
 async function requestModelList(

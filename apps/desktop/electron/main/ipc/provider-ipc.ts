@@ -10,7 +10,7 @@ import {
   PRIORITY_TIER_CAPABILITY,
 } from "@pi-desktop/shared";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
-import { isCliProxyProvider, probeProviderEndpoint } from "../model-discovery";
+import { asksForPiCatalogue, probeProviderEndpoint } from "../model-discovery";
 import {
   probeDiscoveryCandidates,
   type DiscoveryAttempt,
@@ -44,8 +44,6 @@ type RuntimeProvider = {
   id: string;
   name: string;
   vendorKey?: string;
-  /** Set on a row a plugin declares; the host serializes it with the row. */
-  ownerPluginId?: string;
   baseUrl?: string;
   modelId?: string;
   models?: ModelBinding[];
@@ -247,8 +245,6 @@ export function registerProviderIpc({
         authKind?: string;
         apiStyle?: string;
         headers?: Record<string, string>;
-        vendorKey?: string;
-        ownerPluginId?: string;
       };
     }>("providers.get", { id });
     // A vendor account proves itself by resolving auth — refreshing the token
@@ -283,8 +279,6 @@ export function registerProviderIpc({
         apiStyle: detail.provider?.apiStyle,
         headers: detail.provider?.headers,
         signal: controller.signal,
-        // Tested the way its models are listed, so the two never disagree.
-        ...(isCliProxyProvider(detail.provider) ? { cliProxyCatalog: true } : {}),
       });
       return { ok: true, network: "ok", status: probe.status };
     } catch (e) {
@@ -752,7 +746,9 @@ export function registerProviderIpc({
                 candidates: profile.candidates,
                 apiKey,
                 headers: req.headers ?? provider?.headers,
-                ...(isCliProxyProvider(provider) ? { cliProxyCatalog: true } : {}),
+                // `catalogVendorKey` already folds in a host that names its
+                // publisher, so a custom row on a known vendor's host is not asked.
+                ...(asksForPiCatalogue(catalogVendorKey) ? { cliProxyCatalog: true } : {}),
               })
             : { attempts: [] };
           const outcome = sweep.outcome;

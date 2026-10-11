@@ -221,8 +221,8 @@ test("the provider cache payload carries displayName and decorated metadata", as
   assert.match(source, /filter\(\(modality\) => modality !== "text"\)/);
 });
 
-test("a CLIProxyAPI row asks for the pi catalogue at the server root", async () => {
-  const { cliProxyCatalogUrl, isCliProxyProvider } = await import(
+test("a CLIProxyAPI row is asked for the pi catalogue at the server root", async () => {
+  const { cliProxyCatalogUrl, asksForPiCatalogue } = await import(
     "../electron/main/model-discovery.ts"
   );
   // Whichever API path the row names, the catalogue is the root's /v1/models.
@@ -258,10 +258,14 @@ test("a CLIProxyAPI row asks for the pi catalogue at the server root", async () 
     "https://api.example.com/v1/models",
   );
 
-  assert.equal(isCliProxyProvider({ vendorKey: "cliproxyapi" }), true);
-  assert.equal(isCliProxyProvider({ vendorKey: "custom", ownerPluginId: "pi.cliproxyapi" }), true);
-  assert.equal(isCliProxyProvider({ vendorKey: "custom" }), false);
-  assert.equal(isCliProxyProvider(undefined), false);
+  // Asked of every row that is not a named vendor's own endpoint: nothing
+  // about a self-hosted proxy's row says what software answers it.
+  assert.equal(asksForPiCatalogue("custom"), true);
+  assert.equal(asksForPiCatalogue("cliproxyapi"), true);
+  assert.equal(asksForPiCatalogue(undefined), true);
+  assert.equal(asksForPiCatalogue("openai"), false);
+  assert.equal(asksForPiCatalogue("google"), false);
+  assert.equal(asksForPiCatalogue("anthropic"), false);
 });
 
 test("the catalogue's rows carry their limits, modalities, efforts and service tiers", () => {
@@ -273,8 +277,10 @@ test("the catalogue's rows carry their limits, modalities, efforts and service t
         context_window: 400000,
         input_modalities: ["text", "image"],
         supported_reasoning_levels: [{ effort: "low" }, { effort: "high" }],
-        service_tiers: ["priority"],
+        // Published as objects by the server, as plain names by older ones.
+        service_tiers: [{ id: "priority", name: "Fast", description: "2x speed" }],
       },
+      { slug: "named", service_tiers: ["priority"] },
       { slug: "plain", display_name: "Plain", service_tiers: [] },
       { slug: "hidden", visibility: "hide", service_tiers: ["priority"] },
     ],
@@ -289,49 +295,79 @@ test("the catalogue's rows carry their limits, modalities, efforts and service t
       reasoningLevels: ["low", "high"],
       serviceTiers: ["priority"],
     },
+    { modelId: "named", displayName: "named", serviceTiers: ["priority"] },
     // An empty tier list is a model the server does not serve on a tier.
     { modelId: "plain", displayName: "Plain" },
   ]);
 });
 
-test("a server without the catalogue is asked for the plain list instead", async () => {
-  const { probeModelList } = await import("../electron/main/model-discovery.ts");
+test("the catalogue adds to a row's own list and never replaces it", async () => {
+  const { probeModelList, withCatalogueFacts } = await import("../electron/main/model-discovery.ts");
+  // The route's own ids and modalities stand; the catalogue fills in the rest.
+  assert.deepEqual(
+    withCatalogueFacts(
+      [
+        { modelId: "gemini", displayName: "gemini", input: ["text", "image", "audio", "video"], capabilities: ["vision", "audio", "video"] },
+        { modelId: "route-alias", displayName: "route-alias" },
+        { modelId: "tool-model", displayName: "tool-model" },
+      ],
+      [
+        { modelId: "gemini", displayName: "Gemini Flash", contextWindow: 1048576, input: ["text", "image"], capabilities: ["vision"], reasoningLevels: ["low", "high"] },
+        { modelId: "gpt", displayName: "GPT", serviceTiers: ["priority"] },
+      ],
+    ),
+    [
+      {
+        modelId: "gemini",
+        displayName: "Gemini Flash",
+        contextWindow: 1048576,
+        input: ["text", "image", "audio", "video"],
+        capabilities: ["vision", "audio", "video"],
+        reasoningLevels: ["low", "high"],
+      },
+      // Not in the catalogue (an alias of this route, or a hidden row): untouched.
+      { modelId: "route-alias", displayName: "route-alias" },
+      { modelId: "tool-model", displayName: "tool-model" },
+    ],
+  );
+
   const realFetch = globalThis.fetch;
   const asked = [];
   const answer = (body, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   try {
-    // The catalogue answers: one request.
+    // The row's own list first, then the catalogue.
     globalThis.fetch = async (url) => {
       asked.push(String(url));
-      return answer({ models: [{ slug: "a", context_window: 1000 }] });
+      return String(url).includes("client_version=pi")
+        ? answer({ models: [{ slug: "a", context_window: 1000, service_tiers: [{ id: "priority" }] }, { slug: "only-in-catalogue" }] })
+        : answer({ data: [{ id: "a" }, { id: "b" }] });
     };
-    const catalogue = await probeModelList({
+    const merged = await probeModelList({
       baseUrl: "http://127.0.0.1:8317/v1",
       apiStyle: "responses",
       cliProxyCatalog: true,
     });
-    assert.deepEqual(asked, ["http://127.0.0.1:8317/v1/models?client_version=pi"]);
-    assert.deepEqual(catalogue.models, [{ modelId: "a", displayName: "a", contextWindow: 1000 }]);
+    assert.deepEqual(asked, [
+      "http://127.0.0.1:8317/v1/models",
+      "http://127.0.0.1:8317/v1/models?client_version=pi",
+    ]);
+    assert.deepEqual(merged.models, [
+      { modelId: "a", displayName: "a", contextWindow: 1000, serviceTiers: ["priority"] },
+      { modelId: "b", displayName: "b" },
+    ]);
 
-    // The catalogue is refused, or empty: the plain list is asked next.
-    for (const first of [() => answer({ error: "nope" }, 404), () => answer({ models: [] })]) {
-      asked.length = 0;
-      globalThis.fetch = async (url) => {
-        asked.push(String(url));
-        return asked.length === 1 ? first() : answer({ data: [{ id: "b" }] });
-      };
-      const plain = await probeModelList({
-        baseUrl: "http://127.0.0.1:8317/v1",
-        apiStyle: "responses",
-        cliProxyCatalog: true,
-      });
-      assert.deepEqual(asked, [
-        "http://127.0.0.1:8317/v1/models?client_version=pi",
-        "http://127.0.0.1:8317/v1/models",
-      ]);
-      assert.deepEqual(plain.models, [{ modelId: "b", displayName: "b" }]);
-    }
+    // A server without the catalogue leaves the list as it was.
+    globalThis.fetch = async (url) =>
+      String(url).includes("client_version=pi")
+        ? answer({ error: "nope" }, 404)
+        : answer({ data: [{ id: "b" }] });
+    const plain = await probeModelList({
+      baseUrl: "http://127.0.0.1:8317/v1",
+      apiStyle: "responses",
+      cliProxyCatalog: true,
+    });
+    assert.deepEqual(plain.models, [{ modelId: "b", displayName: "b" }]);
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -345,17 +381,18 @@ test("the priority-tier fact survives the model cache and gates /fast at launch"
     read("../src/lib/commands.ts"),
     read("../src/features/chat/composer/ComposerModelPicker.tsx"),
   ]);
-  // Both places that reach the endpoint ask a CLIProxyAPI row for its catalogue.
-  assert.equal([...ipc.matchAll(/isCliProxyProvider\((?:provider|detail\.provider)\) \? \{ cliProxyCatalog: true \} : \{\}/g)].length, 2);
+  // Listing a row's models asks its server for a catalogue unless the row, or
+  // the host it addresses, is a named vendor's own endpoint.
+  assert.match(ipc, /asksForPiCatalogue\(catalogVendorKey\) \? \{ cliProxyCatalog: true \} : \{\}/);
   // Written to the cache as a capability, taken back out on the way to ModelInfo.
   assert.match(ipc, /model\.supportsPriorityTier === true \? \[PRIORITY_TIER_CAPABILITY\] : \[\]/);
   assert.match(ipc, /capability !== PRIORITY_TIER_CAPABILITY/);
   assert.match(ipc, /model\.serviceTiers\?\.length \? \{ supportsPriorityTier: true \} : \{\}/);
-  // The launch asks for the tier only with the switch on, on such a server,
-  // for a model the cache marks.
+  // The launch asks for the tier only with the switch on, for a model the
+  // cache marks; the mark exists only where a catalogue listed service tiers.
   assert.match(
     launch,
-    /if \(settings\.fastMode === true && isCliProxyProvider\(provider\)\) \{[\s\S]*?model\.modelId === modelId &&\s*model\.capabilities\?\.includes\(PRIORITY_TIER_CAPABILITY\) === true/,
+    /if \(settings\.fastMode === true\) \{[\s\S]*?model\.modelId === modelId &&\s*model\.capabilities\?\.includes\(PRIORITY_TIER_CAPABILITY\) === true/,
   );
   assert.match(launch, /priorityServiceTier,\n/);
   // `/fast` flips one app-wide setting and reports the new state.

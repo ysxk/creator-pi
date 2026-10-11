@@ -40,7 +40,6 @@ import {
   type ModelsDevCatalog,
 } from "../models-dev-catalog";
 import type { Logger } from "../logger";
-import { isCliProxyProvider } from "../model-discovery";
 import type { PluginRuntime } from "../plugin-runtime";
 import type { UserMcpRuntime } from "../user-mcp";
 import type { RuntimeState } from "./context";
@@ -655,13 +654,13 @@ export function createSessionLaunchRuntime({
       }
     }
     /*
-      `/fast` asks for the priority tier, and only a CLIProxyAPI server says
-      which of its models take one. Its answer is in the model cache, written
-      when the list was last discovered, so nothing is fetched here; a model
-      the cache does not mark is sent as it always was.
+      `/fast` asks for the priority tier, and only a server's own catalogue
+      says which of its models take one. That answer is in the model cache,
+      written when the list was last discovered, so nothing is fetched here; a
+      model the cache does not mark is sent as it always was.
     */
     let priorityServiceTier = false;
-    if (settings.fastMode === true && isCliProxyProvider(provider)) {
+    if (settings.fastMode === true) {
       try {
         const cached = await runtimeState.host!.call<{
           models?: Array<{ modelId: string; capabilities?: string[] }>;
