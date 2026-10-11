@@ -1954,7 +1954,7 @@ identify the platform validation still needed.
   persistence); store callback race regression is covered by
   `apps/desktop/test/composer-input-history.test.mjs`.
 
-#### E2E-011d: New task creates an immediate durable empty slot
+#### E2E-011d: New task opens an unpersisted draft that the first message materializes
 
 - **Preconditions**: Provider configured; at least one real session exists so
   the sidebar history is non-empty.
@@ -1964,13 +1964,11 @@ identify the platform validation still needed.
   times quickly. 4) Type a message and send it. 5) Inspect the sidebar history
   again and repeat in a different project group.
 - **Expected**: When the group's latest session is non-empty, the empty home
-  replaces the previous transcript on the first frame, then one new row is
-  persisted from `session.create` (without a blocking `session.list` /
-  `session.get` round-trip) and selected before the first send. Once that row
-  is the group's latest empty session, repeated clicks select it (or do
-  nothing when already selected) and create no duplicate. Sending updates the
-  same row's title and message count; the project and temporary groups keep
-  independent slots.
+  replaces the previous transcript on the first frame and nothing is created:
+  no `session.create` call, no sidebar row (D668). Repeated clicks change
+  nothing. Sending the first message creates exactly one session, selects it,
+  and the row appears titled from the prompt with its message count; the
+  project and temporary groups keep independent drafts.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `04-ux/08-component-spec.md` (§11), `04-ux/01-ui-ia.md` (§5)
 - **Acceptance**: C (history integrity and group-scoped creation)
@@ -1984,13 +1982,15 @@ identify the platform validation still needed.
 - **Preconditions**: One project group contains an older empty session and a
   newer session with messages; a separate project and the Temporary group are
   available.
-- **Steps**: 1) Click New Task in the first project group. 2) Confirm the new
-  row is created even though the older empty session remains. 3) Click New Task
-  again before sending. 4) Repeat in the second project and Temporary group.
-- **Expected**: The first click creates a new durable row because only the
-  latest session is considered and it is non-empty. The second click reuses
-  that newly created empty row. The older empty row remains untouched, while
-  each other group gets its own independent empty-slot decision.
+- **Steps**: 1) Click New Task in the first project group. 2) Confirm no row
+  is created even though the older empty session remains. 3) Send a message,
+  then click New Task again. 4) Repeat in the second project and Temporary
+  group.
+- **Expected**: The first click opens the empty draft because only the latest
+  session is considered and it is non-empty; the older empty row is not reused
+  and remains untouched. After the send has created a session, New Task opens a
+  draft again, while each other group gets its own independent decision; a
+  group whose latest session is empty reuses that row instead (D668).
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`, `04-ux/01-ui-ia.md`,
   `04-ux/08-component-spec.md`
 - **Acceptance**: C (session creation and grouping), F (persistence)

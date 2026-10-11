@@ -59,6 +59,7 @@ export type SessionCoordination = {
     options?: PersistSessionOptions,
   ) => Promise<string | null>;
   materializeDraftSession: (intent?: number) => Promise<string | null>;
+  revealDraftSession: (intent: number) => void;
 };
 
 export type SessionCoordinationDependencies = StoreAccess & {
@@ -229,6 +230,22 @@ export function createSessionCoordination({
     });
   }
 
+  /**
+   * New Task's destination (D668): the empty home for the requested scope,
+   * with nothing created on the host. The draft lives in the Composer's home
+   * slot; its first message, or a pasted file that needs a session to attach
+   * to, materializes it through `materializeDraftSession`, and that is when
+   * the sidebar gains a row. Leaving a conversation starts the draft's toolbar
+   * from the defaults a new session gets, as the durable slot New Task used to
+   * create did; New Task on the empty home itself keeps what was chosen there.
+   */
+  function revealDraftSession(intent: number): void {
+    if (!runtime.navigationIntentIsCurrent(intent)) return;
+    const leavingSession = Boolean(get().activeSessionId);
+    revealEmptyCreatingSession(intent);
+    if (leavingSession) set({ draftConfiguration: null });
+  }
+
   function commitCreatedEmptySession(
     summary: SessionSummary,
     options: { activate: boolean },
@@ -358,5 +375,6 @@ export function createSessionCoordination({
     commitForkedSession,
     persistSessionAndSelect,
     materializeDraftSession,
+    revealDraftSession,
   };
 }

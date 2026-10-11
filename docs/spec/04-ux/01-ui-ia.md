@@ -411,9 +411,13 @@ shared capability contract:
   title stands.
 - New task resolves the current project or temporary group by its most recent
   session: if that session has `messageCount = 0`, it is selected and reused;
-  otherwise a durable empty session is created immediately and appears in the
-  sidebar. Repeated clicks therefore keep one empty slot per visible group;
-  an empty slot remains persisted until the user deletes or archives it.
+  otherwise the empty home for that scope opens as an unpersisted draft, with
+  no `session.create` call and no sidebar row (D668). The first message, or a
+  pasted file that needs a session to attach to, materializes the session,
+  which then appears in the sidebar titled from the prompt. Repeated clicks on
+  the empty home change nothing; New Task from an open conversation starts the
+  draft's toolbar from the defaults a new session gets. An existing empty row
+  stays until the user deletes or archives it.
 
 ## 6. Keyboard map (IA level)
 

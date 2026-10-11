@@ -46,7 +46,6 @@ import {
 import { sessionReadLooksEmpty } from "../../lib/session-transcript-read";
 import type {
   AppState,
-  DraftSessionConfiguration,
   SessionHistoryWindow,
 } from "../app-state";
 import {
@@ -85,11 +84,8 @@ export type SessionSliceDependencies = StoreAccess & {
     session: SessionDetail,
     options: { activate: boolean; clearError?: boolean },
   ) => void;
-  persistSessionAndSelect: (options: {
-    intent: number;
-    projectPath?: string | null;
-    draftConfiguration?: DraftSessionConfiguration | null;
-  }) => Promise<string | null>;
+  /** New Task's destination when there is no empty session to reuse (D668). */
+  revealDraftSession: (intent: number) => void;
 };
 
 function reconcilePendingQueue<T extends { requestId: string }>(
@@ -151,7 +147,7 @@ export function createSessionSlice({
   openPlanArtifact,
   rememberSessionCompactions,
   commitForkedSession,
-  persistSessionAndSelect,
+  revealDraftSession,
 }: SessionSliceDependencies): Pick<
   AppState,
   | "refreshSessions"
@@ -665,11 +661,9 @@ export function createSessionSlice({
           return;
         }
 
-        await persistSessionAndSelect({
-          intent,
-          projectPath: requestedProjectPath,
-          draftConfiguration: null,
-        });
+        // Nothing is created on the host: the empty home for this scope is
+        // the new conversation until its first message materializes it (D668).
+        revealDraftSession(intent);
       })();
       runtime.pendingNewSessionRequests.set(scopeKey, request);
       try {

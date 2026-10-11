@@ -191,14 +191,14 @@ test("editing a queued prompt needs an empty composer and restores its draft", (
   assert.doesNotMatch(queueSlice, /text: item\.content/);
 });
 
-test("new task persists or reuses an empty session and keeps the run flag scoped", () => {
+test("new task reveals a draft or reuses an empty session and keeps the run flag scoped", () => {
   const newSession = sessionSlice.match(
     /newSession: async [\s\S]*?\n    forkSession: async/,
   )?.[0] ?? "";
   assert.ok(newSession.length > 0, "newSession implementation not found");
   assert.match(newSession, /latestSessionInScope/);
   assert.match(newSession, /sessionIsReusableEmpty/);
-  assert.match(newSession, /persistSessionAndSelect/);
+  assert.match(newSession, /revealDraftSession/);
   assert.match(newSession, /pendingNewSessionRequests/);
   assert.doesNotMatch(newSession, /refreshSessions/);
   // A newly selected empty session uses its own run state, so a turn still

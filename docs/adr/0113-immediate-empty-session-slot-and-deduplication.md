@@ -5,6 +5,7 @@
 - **Supersedes:** ADR 0084 / D220
 - **Related:** D088 · D093 · D305 · E2E-011b · E2E-011d · E2E-011e · E2E-011g
 - **Amended by:** ADR 0154 (first-frame empty reveal; reuse without a blocking list refresh)
+- **Superseded in part by:** D668 (2026-10-12) — New Task opens an unpersisted draft again and the first message creates the session; the `messageCount` empty predicate and the latest-empty-session reuse rule stay
 
 ## Context
 

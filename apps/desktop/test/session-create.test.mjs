@@ -42,8 +42,27 @@ test("new task reuses renderer-empty sessions without a blocking list refresh", 
   assert.match(newSession, /sessionIsReusableEmpty/);
   assert.match(newSession, /liveMessageCountForSession/);
   assert.doesNotMatch(newSession, /refreshSessions/);
-  assert.match(newSession, /persistSessionAndSelect/);
   assert.match(newSession, /pendingNewSessionRequests/);
+});
+
+test("new task opens an unpersisted draft; the first message materializes it", () => {
+  const newSession =
+    sessionSlice.match(/newSession: async [\s\S]*?\n    forkSession: async/)?.[0] ?? "";
+  // Nothing is created on the host at click time (D668).
+  assert.match(newSession, /revealDraftSession\(intent\)/);
+  assert.doesNotMatch(newSession, /persistSessionAndSelect/);
+  assert.doesNotMatch(sessionSlice, /api\.createSession/);
+  const reveal =
+    sessionCoordination.match(
+      /function revealDraftSession[\s\S]*?\n  }\n/,
+    )?.[0] ?? "";
+  assert.ok(reveal.length > 0, "revealDraftSession not found");
+  assert.doesNotMatch(reveal, /api\.createSession/);
+  assert.match(reveal, /revealEmptyCreatingSession\(intent\)/);
+  // Leaving a conversation starts the draft's toolbar from the defaults.
+  assert.match(reveal, /if \(leavingSession\) set\(\{ draftConfiguration: null \}\)/);
+  // The send path is what creates the session.
+  assert.match(sessionCoordination, /async function materializeDraftSession/);
 });
 
 test("creating a session reveals the empty destination before host IO", () => {

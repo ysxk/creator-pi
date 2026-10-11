@@ -4,7 +4,7 @@ import type { LiveCallView, LiveStatus, LiveTranscriptSegment } from "@pi-deskto
 import { IconClose, IconExternal } from "../../../components/icons";
 import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
 import { Button, Panel, TooltipButton } from "../../../components/ui";
-import { useAppStore } from "../../../stores/app-store";
+import { materializeDraftSession, useAppStore } from "../../../stores/app-store";
 import { liveVoiceApi } from "./live-voice-api";
 import { formatWorkSessionLabel } from "./live-voice-presentation";
 import { liveWorkDecision, operationAwaitsDecision } from "./live-work-decision";
@@ -70,6 +70,9 @@ export function LiveVoiceDetails({ t, call, status, transcripts, open, onClose, 
     const target = await liveVoiceApi.resolveWorkSelection({ callId, selectionRef });
     if (target.kind !== "project") throw new Error("The selected item is not a project");
     await createSession({ projectPath: target.projectPath });
+    // New Task only opens a draft (D668); a voice work item needs a durable
+    // session to land in, so this entry point still creates one at once.
+    if (!useAppStore.getState().activeSessionId) await materializeDraftSession();
   };
 
   return (

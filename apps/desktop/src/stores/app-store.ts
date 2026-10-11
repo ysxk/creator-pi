@@ -140,6 +140,7 @@ const {
   commitForkedSession,
   persistSessionAndSelect,
   materializeDraftSession: materializeDraftSessionInternal,
+  revealDraftSession,
 } = sessionCoordination;
 
 const transcriptReading = createTranscriptReadingRuntime(runtimeStoreAccess, api.getSession);
@@ -170,7 +171,7 @@ export const useAppStore = create<AppState>((set, get) => {
     openPlanArtifact,
     rememberSessionCompactions,
     commitForkedSession,
-    persistSessionAndSelect,
+    revealDraftSession,
   }),
 
   ...createQueueSlice({
