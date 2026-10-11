@@ -171,6 +171,7 @@ export function createProviderCatalogRuntime({
       ...(value as T),
       infiniteProviderRetry: (value as T & { infiniteProviderRetry?: unknown })
         .infiniteProviderRetry === true,
+      fastMode: (value as T & { fastMode?: unknown }).fastMode === true,
       keepAwakeWhileRunning: (value as T & { keepAwakeWhileRunning?: unknown })
         .keepAwakeWhileRunning === true,
       jevEnabled: (value as T & { jevEnabled?: unknown }).jevEnabled === true,
@@ -187,6 +188,7 @@ export function createProviderCatalogRuntime({
     const value = settings as T & {
       defaultCommandShell?: unknown;
       infiniteProviderRetry?: unknown;
+      fastMode?: unknown;
       keepAwakeWhileRunning?: unknown;
       jevEnabled?: unknown;
       updatePreference?: unknown;
@@ -206,6 +208,14 @@ export function createProviderCatalogRuntime({
       typeof value.infiniteProviderRetry !== "boolean"
     ) {
       throw Object.assign(new Error("infiniteProviderRetry is invalid"), {
+        errorCode: ErrorCodes.INVALID_PARAMS,
+      });
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(value, "fastMode") &&
+      typeof value.fastMode !== "boolean"
+    ) {
+      throw Object.assign(new Error("fastMode is invalid"), {
         errorCode: ErrorCodes.INVALID_PARAMS,
       });
     }

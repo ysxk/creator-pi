@@ -15,6 +15,7 @@ import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
 import { hostVideoReference, loadToolResultVideo, READ_VIDEO_HINT, toolResultVideoSupported, withToolResultVideoPayload } from "./tool-result-video.js";
+import { withPriorityServiceTier } from "./service-tier.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
 import { withPiFileOpToolNames } from "./pi-file-ops.js";
@@ -991,6 +992,8 @@ export type AgentRuntimeOptions = {
   thinkingLevel: SessionThinkingLevel;
   /** Persisted opt-in for retrying transient provider failures until success. */
   infiniteProviderRetry?: boolean;
+  /** Ask for the priority service tier on this session's provider requests. */
+  priorityServiceTier?: boolean;
   /** TypeSafe Jev credential, resolved by Electron main only when enabled. */
   jevApiKey?: string;
   systemPrompt?: string;
@@ -1821,6 +1824,8 @@ export class DesktopAgentRuntime {
   private providerRateLimitRetryAttempt = 0;
   /** Opt-in mode removes only the retry-count ceiling; abort and backoff stay intact. */
   private infiniteProviderRetry = false;
+  /** `/fast`: the launch decided this session's requests may ask for it. */
+  private priorityServiceTier = false;
   private jevApiKey?: string;
   private activeProviderRetryAttempt = 0;
   private providerRetryInProgress = false;
@@ -1922,6 +1927,7 @@ export class DesktopAgentRuntime {
     this.provider = opts.provider;
     this.thinkingLevel = clampThinkingLevel(opts.provider, opts.thinkingLevel);
     this.infiniteProviderRetry = opts.infiniteProviderRetry === true;
+    this.priorityServiceTier = opts.priorityServiceTier === true;
     this.jevApiKey = opts.jevApiKey;
     this.host = opts.host;
     this.onDiagnostic = opts.onDiagnostic ?? (() => undefined);
@@ -2078,9 +2084,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         );
         // Last, so it sees the payload extensions settled on: a clip a tool
         // result carries is put in the shape this wire API delivers it in.
-        const hookedOptions = withToolResultVideoPayload(
-          this.withExtensionProviderHooks(requestOptions, m),
+        const hookedOptions = withPriorityServiceTier(
+          withToolResultVideoPayload(
+            this.withExtensionProviderHooks(requestOptions, m),
+            m.api,
+          ),
           m.api,
+          this.priorityServiceTier,
         );
         // The watchdog must be able to *stop* what it abandons. It wraps the
         // retry adapter, so draining alone would let the adapter wake from its
@@ -2217,6 +2227,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   setInfiniteProviderRetry(enabled: boolean): void {
     if (this.disposed) throw new Error("runtime disposed");
     this.infiniteProviderRetry = enabled;
+  }
+
+  /** Follow `/fast` for the next request without rebuilding an idle runtime. */
+  setPriorityServiceTier(enabled: boolean): void {
+    if (this.disposed) throw new Error("runtime disposed");
+    this.priorityServiceTier = enabled;
   }
 
   /** Refresh catalog instructions without changing the running session owner. */

@@ -220,3 +220,147 @@ test("the provider cache payload carries displayName and decorated metadata", as
   // `text` is implied by the reader; storing it would duplicate the entry.
   assert.match(source, /filter\(\(modality\) => modality !== "text"\)/);
 });
+
+test("a CLIProxyAPI row asks for the pi catalogue at the server root", async () => {
+  const { cliProxyCatalogUrl, isCliProxyProvider } = await import(
+    "../electron/main/model-discovery.ts"
+  );
+  // Whichever API path the row names, the catalogue is the root's /v1/models.
+  for (const base of [
+    "http://127.0.0.1:8317",
+    "http://127.0.0.1:8317/",
+    "http://127.0.0.1:8317/v1",
+    "http://127.0.0.1:8317/v1beta/",
+    "http://127.0.0.1:8317/backend-api",
+  ]) {
+    assert.equal(cliProxyCatalogUrl(base), "http://127.0.0.1:8317/v1/models?client_version=pi");
+  }
+  // A path that is not one of the API suffixes is part of the deployment.
+  assert.equal(
+    cliProxyCatalogUrl("https://gw.example/proxy/v1"),
+    "https://gw.example/proxy/v1/models?client_version=pi",
+  );
+
+  // One bearer-authenticated request whatever wire API the row speaks.
+  for (const apiStyle of ["responses", "anthropic_messages", "google_generative_ai"]) {
+    const request = modelListRequest({
+      baseUrl: "http://127.0.0.1:8317/v1",
+      apiKey: "sk-x",
+      apiStyle,
+      cliProxyCatalog: true,
+    });
+    assert.equal(request.url, "http://127.0.0.1:8317/v1/models?client_version=pi");
+    assert.deepEqual(request.headers, { Authorization: "Bearer sk-x" });
+  }
+  // Every other provider's request is what it was.
+  assert.equal(
+    modelListRequest({ baseUrl: "https://api.example.com/v1", apiStyle: "responses" }).url,
+    "https://api.example.com/v1/models",
+  );
+
+  assert.equal(isCliProxyProvider({ vendorKey: "cliproxyapi" }), true);
+  assert.equal(isCliProxyProvider({ vendorKey: "custom", ownerPluginId: "pi.cliproxyapi" }), true);
+  assert.equal(isCliProxyProvider({ vendorKey: "custom" }), false);
+  assert.equal(isCliProxyProvider(undefined), false);
+});
+
+test("the catalogue's rows carry their limits, modalities, efforts and service tiers", () => {
+  const models = normalizeModelList("openai_models", {
+    models: [
+      {
+        slug: "gpt-fast",
+        display_name: "GPT Fast",
+        context_window: 400000,
+        input_modalities: ["text", "image"],
+        supported_reasoning_levels: [{ effort: "low" }, { effort: "high" }],
+        service_tiers: ["priority"],
+      },
+      { slug: "plain", display_name: "Plain", service_tiers: [] },
+      { slug: "hidden", visibility: "hide", service_tiers: ["priority"] },
+    ],
+  });
+  assert.deepEqual(models, [
+    {
+      modelId: "gpt-fast",
+      displayName: "GPT Fast",
+      contextWindow: 400000,
+      input: ["text", "image"],
+      capabilities: ["vision"],
+      reasoningLevels: ["low", "high"],
+      serviceTiers: ["priority"],
+    },
+    // An empty tier list is a model the server does not serve on a tier.
+    { modelId: "plain", displayName: "Plain" },
+  ]);
+});
+
+test("a server without the catalogue is asked for the plain list instead", async () => {
+  const { probeModelList } = await import("../electron/main/model-discovery.ts");
+  const realFetch = globalThis.fetch;
+  const asked = [];
+  const answer = (body, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  try {
+    // The catalogue answers: one request.
+    globalThis.fetch = async (url) => {
+      asked.push(String(url));
+      return answer({ models: [{ slug: "a", context_window: 1000 }] });
+    };
+    const catalogue = await probeModelList({
+      baseUrl: "http://127.0.0.1:8317/v1",
+      apiStyle: "responses",
+      cliProxyCatalog: true,
+    });
+    assert.deepEqual(asked, ["http://127.0.0.1:8317/v1/models?client_version=pi"]);
+    assert.deepEqual(catalogue.models, [{ modelId: "a", displayName: "a", contextWindow: 1000 }]);
+
+    // The catalogue is refused, or empty: the plain list is asked next.
+    for (const first of [() => answer({ error: "nope" }, 404), () => answer({ models: [] })]) {
+      asked.length = 0;
+      globalThis.fetch = async (url) => {
+        asked.push(String(url));
+        return asked.length === 1 ? first() : answer({ data: [{ id: "b" }] });
+      };
+      const plain = await probeModelList({
+        baseUrl: "http://127.0.0.1:8317/v1",
+        apiStyle: "responses",
+        cliProxyCatalog: true,
+      });
+      assert.deepEqual(asked, [
+        "http://127.0.0.1:8317/v1/models?client_version=pi",
+        "http://127.0.0.1:8317/v1/models",
+      ]);
+      assert.deepEqual(plain.models, [{ modelId: "b", displayName: "b" }]);
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("the priority-tier fact survives the model cache and gates /fast at launch", async () => {
+  const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+  const [ipc, launch, commands, picker] = await Promise.all([
+    read("../electron/main/ipc/provider-ipc.ts"),
+    read("../electron/main/runtime/session-launch.ts"),
+    read("../src/lib/commands.ts"),
+    read("../src/features/chat/composer/ComposerModelPicker.tsx"),
+  ]);
+  // Both places that reach the endpoint ask a CLIProxyAPI row for its catalogue.
+  assert.equal([...ipc.matchAll(/isCliProxyProvider\((?:provider|detail\.provider)\) \? \{ cliProxyCatalog: true \} : \{\}/g)].length, 2);
+  // Written to the cache as a capability, taken back out on the way to ModelInfo.
+  assert.match(ipc, /model\.supportsPriorityTier === true \? \[PRIORITY_TIER_CAPABILITY\] : \[\]/);
+  assert.match(ipc, /capability !== PRIORITY_TIER_CAPABILITY/);
+  assert.match(ipc, /model\.serviceTiers\?\.length \? \{ supportsPriorityTier: true \} : \{\}/);
+  // The launch asks for the tier only with the switch on, on such a server,
+  // for a model the cache marks.
+  assert.match(
+    launch,
+    /if \(settings\.fastMode === true && isCliProxyProvider\(provider\)\) \{[\s\S]*?model\.modelId === modelId &&\s*model\.capabilities\?\.includes\(PRIORITY_TIER_CAPABILITY\) === true/,
+  );
+  assert.match(launch, /priorityServiceTier,\n/);
+  // `/fast` flips one app-wide setting and reports the new state.
+  assert.match(commands, /case "builtin\.agent\.fast": \{[\s\S]*?const fastMode = store\.settings\.fastMode !== true;[\s\S]*?await api\.setSettings\(next\);/);
+  // The chip marks it only when it is in effect for the selected model.
+  assert.match(picker, /state\.settings\?\.fastMode === true &&[\s\S]*?model\.supportsPriorityTier === true/);
+  assert.match(picker, /\{fast \? \(/);
+});

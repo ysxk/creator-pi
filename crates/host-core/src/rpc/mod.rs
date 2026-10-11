@@ -1078,6 +1078,15 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
             ));
         }
     }
+    if let Some(fast_mode) = object.get("fastMode") {
+        if !fast_mode.is_boolean() {
+            return Err(rpc_err(
+                1002,
+                "fastMode must be a boolean",
+                "INVALID_PARAMS",
+            ));
+        }
+    }
     if let Some(keep_awake) = object.get("keepAwakeWhileRunning") {
         if !keep_awake.is_boolean() {
             return Err(rpc_err(
@@ -7038,6 +7047,19 @@ mod tests {
         handle_request(
             state.clone(),
             "settings.set",
+            json!({ "fastMode": true }),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+        let fast_settings = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
+            .await
+            .unwrap();
+        assert_eq!(fast_settings["fastMode"], true);
+
+        handle_request(
+            state.clone(),
+            "settings.set",
             json!({ "keepAwakeWhileRunning": true }),
             tx.clone(),
         )
@@ -7067,6 +7089,16 @@ mod tests {
         .await
         .unwrap_err();
         assert_eq!(invalid_retry.data.unwrap()["errorCode"], "INVALID_PARAMS");
+
+        let invalid_fast = handle_request(
+            state.clone(),
+            "settings.set",
+            json!({ "fastMode": "on" }),
+            tx.clone(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(invalid_fast.data.unwrap()["errorCode"], "INVALID_PARAMS");
 
         let invalid_threshold = handle_request(
             state.clone(),

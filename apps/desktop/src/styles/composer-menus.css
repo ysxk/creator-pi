@@ -277,6 +277,14 @@
   color: var(--ds-text-muted);
 }
 
+/* `/fast` is in effect for the selected model: priority processing costs more,
+   so it is marked in the warning colour rather than the accent. */
+.composer-model-thinking-fast {
+  flex: 0 0 auto;
+  color: var(--ds-warning);
+  font-size: var(--text-sm);
+}
+
 .composer-model-thinking-menu .composer-menu-root {
   display: flex;
   flex-direction: column;

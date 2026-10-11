@@ -289,6 +289,9 @@ export const fr = {
     "atAgentCanEdit": "can edit files",
     "atAgentCanRun": "can run commands",
     "atAgentModelInherit": "session model",
+    "fastModeOn": "Fast is on: priority processing for this model.",
+    "fastModeOnUnsupported": "Fast is on, but the current model is not served on the priority tier.",
+    "fastModeOff": "Fast is off.",
     "send": "Envoyer",
     "todo": {
       "progress": "{{completed}}/{{total}} terminées",

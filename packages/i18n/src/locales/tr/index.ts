@@ -298,6 +298,9 @@ export const tr = {
     atAgentCanEdit: "can edit files",
     atAgentCanRun: "can run commands",
     atAgentModelInherit: "session model",
+    fastModeOn: "Fast is on: priority processing for this model.",
+    fastModeOnUnsupported: "Fast is on, but the current model is not served on the priority tier.",
+    fastModeOff: "Fast is off.",
     send: "Gönder",
     todo: {
       progress: "{{completed}}/{{total}} tamamlandı",

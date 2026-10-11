@@ -7,6 +7,7 @@ import {
   IconChevronDown,
 } from "../../../components/icons";
 import { TooltipButton } from "../../../components/ui";
+import { useAppStore } from "../../../stores/app-store";
 import type { useComposerModelMenu } from "./hooks/useComposerModelMenu";
 import { ThinkingLevelSlider } from "./ThinkingLevelSlider";
 
@@ -38,6 +39,17 @@ export function ComposerModelPicker({
   onCloseOtherMenus,
   rootActions,
 }: ComposerModelPickerProps) {
+  // `/fast` is on and the selected model is one its server serves on the
+  // priority tier, so the next request will ask for it.
+  const fast = useAppStore(
+    (state) =>
+      state.settings?.fastMode === true &&
+      Boolean(selectedProviderId) &&
+      (state.providerModels[selectedProviderId ?? ""]?.some(
+        (model) => model.modelId === selectedModelId && model.supportsPriorityTier === true,
+      ) ??
+        false),
+  );
   const {
     open,
     setOpen,
@@ -98,6 +110,14 @@ export function ComposerModelPicker({
             <>
               <span className="composer-model-thinking-dot" aria-hidden="true">·</span>
               <span className="composer-model-thinking-level">{thinkingLabel}</span>
+            </>
+          ) : null}
+          {fast ? (
+            <>
+              <span className="composer-model-thinking-dot" aria-hidden="true">·</span>
+              <span className="composer-model-thinking-fast" title={t("chat.fastModeOn")}>
+                fast
+              </span>
             </>
           ) : null}
           <IconChevronDown size={12} aria-hidden="true" className="composer-model-thinking-chevron" />

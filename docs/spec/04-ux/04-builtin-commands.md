@@ -27,6 +27,7 @@ builtin command contracts.
 | `builtin.mode.agent` | Switch to Agent | mode, agent | Session | low | set the idle session mode to Agent |
 | `builtin.mode.plan` | Switch to Plan | mode, plan, planning | Session | low | set the idle session mode to Plan |
 | `builtin.mode.goal` | Switch to Goal | mode, goal, objective, autonomous | Session | low | set the idle session mode to Goal |
+| `builtin.agent.fast` | Toggle Fast (priority processing) | fast, priority, speed, tier | Session | low | flip the app-wide `fastMode` setting and say whether the selected model can use it (D665) |
 
 ## 4. Visibility and execution rules
 
@@ -84,11 +85,14 @@ in the same registry that feeds palette search
 | `/agent-mode` | `builtin.mode.agent` |
 | `/plan-mode` | `builtin.mode.plan` |
 | `/goal-mode` | `builtin.mode.goal` |
+| `/fast` | `builtin.agent.fast` |
 
 Aliases share one namespace with template and plugin command names; builtin
 aliases win collisions, then project templates, then user templates, then
-plugin commands. Selecting an alias inserts `/alias `; sending `/new` or
-`/compact` alone executes locally without creating an empty prompt. The
+plugin commands. Selecting an alias inserts `/alias `; sending `/new`,
+`/compact` or `/fast` alone executes locally without creating an empty prompt.
+`/fast` is a switch: each send turns priority processing on or off for the
+whole app and reports the new state. The
 Agent/Plan/Goal aliases also support a prompt body:
 `/agent-mode <prompt>`, `/plan-mode <prompt>`, or `/goal-mode <prompt>` switches
 the idle session (or the next-session default) and sends `<prompt>` through the

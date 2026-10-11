@@ -26,6 +26,7 @@ builtin.<domain>.<action>
 | `builtin.mode.agent` | 切换到 Agent | mode、agent | Session | 低 | 将空闲会话模式设为 Agent |
 | `builtin.mode.plan` | 切换到 Plan | mode、plan、planning | Session | 低 | 将空闲会话模式设为 Plan |
 | `builtin.mode.goal` | 切换到 Goal | mode、goal、objective、autonomous | Session | 低 | 将空闲会话模式设为 Goal |
+| `builtin.agent.fast` | 切换 Fast（优先处理） | fast、priority、speed、tier | Session | 低 | 翻转应用级的 `fastMode` 设置，并说明当前所选模型能否使用（D665） |
 
 ## 4. 可见性与执行规则
 
@@ -74,10 +75,12 @@ type CommandExecutionResult =
 | `/agent-mode` | `builtin.mode.agent` |
 | `/plan-mode` | `builtin.mode.plan` |
 | `/goal-mode` | `builtin.mode.goal` |
+| `/fast` | `builtin.agent.fast` |
 
 别名与模板和插件命令名称共享一个命名空间；冲突时优先使用内置别名，其次是项目模板、
-用户模板和插件命令。选择别名会插入 `/alias `；单独发送 `/new` 或 `/compact` 时，
-会在本地执行，不会创建空提示。Agent/Plan/Goal 别名支持附带提示词：
+用户模板和插件命令。选择别名会插入 `/alias `；单独发送 `/new`、`/compact` 或 `/fast` 时，
+会在本地执行，不会创建空提示。`/fast` 是一个开关：每发送一次，就为整个应用打开或关闭优先处理，
+并提示新的状态。Agent/Plan/Goal 别名支持附带提示词：
 `/agent-mode <prompt>`、`/plan-mode <prompt>` 或 `/goal-mode <prompt>` 会切换空闲会话
 （或下一个会话默认值），并通过正常提示路径发送 `<prompt>`。不带正文的模式别名仍然
 只执行本地切换。提示正文仍是可见的用户回合；dispatch 失败不会清除输入框草稿。

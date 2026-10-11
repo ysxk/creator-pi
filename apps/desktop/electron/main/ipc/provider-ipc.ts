@@ -7,9 +7,10 @@ import {
   type ModelModality,
   type ProviderReorderInput,
   type OAuthRespondInput,
+  PRIORITY_TIER_CAPABILITY,
 } from "@pi-desktop/shared";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
-import { probeProviderEndpoint } from "../model-discovery";
+import { isCliProxyProvider, probeProviderEndpoint } from "../model-discovery";
 import {
   probeDiscoveryCandidates,
   type DiscoveryAttempt,
@@ -43,6 +44,8 @@ type RuntimeProvider = {
   id: string;
   name: string;
   vendorKey?: string;
+  /** Set on a row a plugin declares; the host serializes it with the row. */
+  ownerPluginId?: string;
   baseUrl?: string;
   modelId?: string;
   models?: ModelBinding[];
@@ -244,6 +247,8 @@ export function registerProviderIpc({
         authKind?: string;
         apiStyle?: string;
         headers?: Record<string, string>;
+        vendorKey?: string;
+        ownerPluginId?: string;
       };
     }>("providers.get", { id });
     // A vendor account proves itself by resolving auth — refreshing the token
@@ -278,6 +283,8 @@ export function registerProviderIpc({
         apiStyle: detail.provider?.apiStyle,
         headers: detail.provider?.headers,
         signal: controller.signal,
+        // Tested the way its models are listed, so the two never disagree.
+        ...(isCliProxyProvider(detail.provider) ? { cliProxyCatalog: true } : {}),
       });
       return { ok: true, network: "ok", status: probe.status };
     } catch (e) {
@@ -416,6 +423,7 @@ export function registerProviderIpc({
           contextWindow?: number;
           maxTokens?: number;
           reasoningLevels?: string[];
+          serviceTiers?: string[];
           source?: "bundled" | "discovered" | "user";
         },
         // Vendor accounts can span wire APIs, so a model may need a style of
@@ -518,6 +526,9 @@ export function registerProviderIpc({
           modelId: model.modelId,
           displayName: info.displayName || modelConfig.name,
           providerId: provider?.id ?? "",
+          // The endpoint's own statement, whatever a catalog says of the id:
+          // only the server knows which of its routes take a service tier.
+          ...(model.serviceTiers?.length ? { supportsPriorityTier: true } : {}),
           contextWindow:
             operationMetadata?.contextWindow ??
             (discoveredOnly && model.contextWindow ? model.contextWindow : modelConfig.contextWindow),
@@ -599,7 +610,10 @@ export function registerProviderIpc({
                 inputModalities: (
                   (model.modalities as { input?: string[] } | undefined)?.input ?? []
                 ).filter((modality) => modality !== "text"),
-                capabilities: model.capabilities as string[] | undefined,
+                capabilities: [
+                  ...((model.capabilities as string[] | undefined) ?? []),
+                  ...(model.supportsPriorityTier === true ? [PRIORITY_TIER_CAPABILITY] : []),
+                ],
                 reasoningLevels: model.supportedThinkingLevels as string[] | undefined,
               })),
             });
@@ -678,6 +692,13 @@ export function registerProviderIpc({
                 // The cached record spells input modalities in the shared
                 // vocabulary; decorate reads them as `input`.
                 input: model.inputModalities,
+                // The priority-tier marker is a cache-only spelling.
+                capabilities: model.capabilities?.filter(
+                  (capability) => capability !== PRIORITY_TIER_CAPABILITY,
+                ),
+                ...(model.capabilities?.includes(PRIORITY_TIER_CAPABILITY)
+                  ? { serviceTiers: ["priority"] }
+                  : {}),
               }),
             ),
             source: "cache" as const,
@@ -731,6 +752,7 @@ export function registerProviderIpc({
                 candidates: profile.candidates,
                 apiKey,
                 headers: req.headers ?? provider?.headers,
+                ...(isCliProxyProvider(provider) ? { cliProxyCatalog: true } : {}),
               })
             : { attempts: [] };
           const outcome = sweep.outcome;

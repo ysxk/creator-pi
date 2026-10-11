@@ -17,6 +17,7 @@ import {
   type SessionThinkingLevel,
   type UserSkillRecord,
   type UserSubagentRecord,
+  PRIORITY_TIER_CAPABILITY,
 } from "@pi-desktop/shared";
 import {
   capabilitiesFromModelConfig,
@@ -39,6 +40,7 @@ import {
   type ModelsDevCatalog,
 } from "../models-dev-catalog";
 import type { Logger } from "../logger";
+import { isCliProxyProvider } from "../model-discovery";
 import type { PluginRuntime } from "../plugin-runtime";
 import type { UserMcpRuntime } from "../user-mcp";
 import type { RuntimeState } from "./context";
@@ -652,6 +654,30 @@ export function createSessionLaunchRuntime({
         });
       }
     }
+    /*
+      `/fast` asks for the priority tier, and only a CLIProxyAPI server says
+      which of its models take one. Its answer is in the model cache, written
+      when the list was last discovered, so nothing is fetched here; a model
+      the cache does not mark is sent as it always was.
+    */
+    let priorityServiceTier = false;
+    if (settings.fastMode === true && isCliProxyProvider(provider)) {
+      try {
+        const cached = await runtimeState.host!.call<{
+          models?: Array<{ modelId: string; capabilities?: string[] }>;
+        }>("providers.listModels", { providerId: provider.id });
+        priorityServiceTier =
+          cached.models?.some(
+            (model) =>
+              model.modelId === modelId &&
+              model.capabilities?.includes(PRIORITY_TIER_CAPABILITY) === true,
+          ) ?? false;
+      } catch {
+        logger.app("session", "warn", "priority tier support could not be read", {
+          sessionId,
+        });
+      }
+    }
     return {
       providerId: provider.id,
       modelId,
@@ -662,6 +688,7 @@ export function createSessionLaunchRuntime({
         ...(overrides.turnId ? { turnId: overrides.turnId } : {}),
         thinkingLevel,
         infiniteProviderRetry: settings.infiniteProviderRetry === true,
+        priorityServiceTier,
         ...(jevApiKey ? { jevApiKey } : {}),
         commandShell,
         scratchDir: join(dataDir, "scratch", sessionId),

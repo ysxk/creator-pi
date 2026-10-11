@@ -57,6 +57,13 @@ export type AppSettings = {
    * Absent and false use the bounded ten-retry policy.
    */
   infiniteProviderRetry?: boolean;
+  /**
+   * Ask for the priority service tier (`/fast`). It applies only to a request
+   * whose provider is a CLIProxyAPI server and whose model the server listed
+   * with service tiers; every other request is sent unchanged. Faster, and
+   * billed at the priority rate.
+   */
+  fastMode?: boolean;
   /** Allow Agent mode to call TypeSafe Jev for explicit structured classifications. */
   jevEnabled?: boolean;
   /** Prevent idle system sleep while this desktop app runs; off when absent. */

@@ -361,6 +361,7 @@ export function normalizeSettings(settings: AppSettings): AppSettings {
     defaultMode: normalizeMode((settings as { defaultMode?: unknown }).defaultMode),
     infiniteProviderRetry:
       (settings as { infiniteProviderRetry?: unknown }).infiniteProviderRetry === true,
+    fastMode: (settings as { fastMode?: unknown }).fastMode === true,
     jevEnabled: (settings as { jevEnabled?: unknown }).jevEnabled === true,
     defaultCommandShell: isCommandShellId(
       (settings as { defaultCommandShell?: unknown }).defaultCommandShell,
@@ -397,6 +398,7 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     fontScale?: unknown;
     chatContentMaxWidth?: unknown;
     infiniteProviderRetry?: unknown;
+    fastMode?: unknown;
     jevEnabled?: unknown;
     smoothStreaming?: unknown;
     updatePreference?: unknown;
@@ -442,6 +444,14 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     typeof value.infiniteProviderRetry !== "boolean"
   ) {
     throw Object.assign(new Error("infiniteProviderRetry is invalid"), {
+      errorCode: "INVALID_PARAMS",
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(value, "fastMode") &&
+    typeof value.fastMode !== "boolean"
+  ) {
+    throw Object.assign(new Error("fastMode is invalid"), {
       errorCode: "INVALID_PARAMS",
     });
   }

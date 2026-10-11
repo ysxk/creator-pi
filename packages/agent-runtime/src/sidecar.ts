@@ -106,6 +106,8 @@ type RuntimeParams = {
   turnId?: string;
   thinkingLevel?: SessionThinkingLevel;
   infiniteProviderRetry?: boolean;
+  /** `/fast`, already checked against this provider and model by main. */
+  priorityServiceTier?: boolean;
   /** Opt-in TypeSafe classifier credential resolved by Electron main. */
   jevApiKey?: string;
   provider: RuntimeProviderConfig;
@@ -248,6 +250,7 @@ async function runtimeFor(
     reusable.setPluginSkills(pluginSkills);
     reusable.setCompactionSettings(params.compactionSettings);
     reusable.setInfiniteProviderRetry(params.infiniteProviderRetry === true);
+    reusable.setPriorityServiceTier(params.priorityServiceTier === true);
     reusable.setMode(mode);
     return reusable;
   }
@@ -298,6 +301,7 @@ async function runtimeFor(
     commandShell: params.commandShell,
     thinkingLevel,
     infiniteProviderRetry: params.infiniteProviderRetry === true,
+    priorityServiceTier: params.priorityServiceTier === true,
     jevApiKey: params.jevApiKey,
     history,
     compaction,

@@ -311,10 +311,23 @@ export type ModelCost = {
   tiers?: ModelCostTier[];
 };
 
+/**
+ * How the model cache remembers that an endpoint offers a model on the
+ * priority service tier. It rides in the cached capability list, which is
+ * stored as given, so the fact survives a restart without a column of its own;
+ * it is taken back out before the list reaches a `ModelInfo`.
+ */
+export const PRIORITY_TIER_CAPABILITY = "priority-tier";
+
 export type ModelInfo = {
   modelId: string;
   displayName: string;
   providerId: string;
+  /**
+   * The endpoint published service tiers for this model, so a request for it
+   * may ask for the priority tier (`/fast`). Absent means it may not.
+   */
+  supportsPriorityTier?: boolean;
   description?: string;
   family?: string;
   attachment?: boolean;

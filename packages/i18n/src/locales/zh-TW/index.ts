@@ -291,6 +291,9 @@ export const zhTW = {
     atAgentCanEdit: "可修改檔案",
     atAgentCanRun: "可執行命令",
     atAgentModelInherit: "跟隨會話模型",
+    fastModeOn: "Fast is on: priority processing for this model.",
+    fastModeOnUnsupported: "Fast is on, but the current model is not served on the priority tier.",
+    fastModeOff: "Fast is off.",
     send: "傳送",
     todo: {
       progress: "已完成 {{completed}}/{{total}}",

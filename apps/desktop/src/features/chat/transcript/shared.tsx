@@ -171,7 +171,10 @@ export function MessageMeta({
     responseOutputTokens ?? usage?.outputTokens ?? 0,
     responseDurationMs,
   );
-  const showThroughput = !usage && throughput !== undefined;
+  // A finished reply states how fast it came. The rate is measured when the
+  // provider reported its output tokens and marked as an estimate when the
+  // count had to be derived from the text (an interrupted reply).
+  const showThroughput = throughput !== undefined;
   if (!modelId && !showThroughput) {
     return null;
   }
@@ -184,7 +187,7 @@ export function MessageMeta({
       ) : null}
       {showThroughput ? (
         <span className="message-meta-chip throughput">
-          {t("chat.usageThroughputEstimated", {
+          {t(usage ? "chat.usageThroughput" : "chat.usageThroughputEstimated", {
             count: formatCompactTokenCount(throughput),
           })}
         </span>

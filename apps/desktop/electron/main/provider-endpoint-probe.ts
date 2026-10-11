@@ -52,6 +52,8 @@ type ProbeOptions = {
   candidates: readonly EndpointCandidate[];
   apiKey?: string;
   headers?: Record<string, string>;
+  /** The row addresses a CLIProxyAPI server: ask for its pi catalogue. */
+  cliProxyCatalog?: boolean;
   /** Overrides the sweep budget; used by tests. */
   budgetMs?: number;
   now?: () => number;
@@ -120,6 +122,7 @@ export async function probeDiscoveryCandidates(
         headers: options.headers,
         signal: controller.signal,
         allowOrigin: options.origin,
+        ...(options.cliProxyCatalog ? { cliProxyCatalog: true } : {}),
       });
       // `attempt.url` is the URL that finally answered, which a same-origin
       // redirect may have moved. The candidate's own base URL is what the row

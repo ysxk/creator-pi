@@ -291,6 +291,9 @@ export const zhCN = {
     atAgentCanEdit: "可修改文件",
     atAgentCanRun: "可执行命令",
     atAgentModelInherit: "跟随会话模型",
+    fastModeOn: "Fast 已开启：当前模型走优先处理。",
+    fastModeOnUnsupported: "Fast 已开启，但当前模型不支持优先处理。",
+    fastModeOff: "Fast 已关闭。",
     send: "发送",
     todo: {
       progress: "已完成 {{completed}}/{{total}}",

@@ -47,7 +47,46 @@ export type DiscoveredModel = {
    * the consumer; kept raw here so parsing stays pure.
    */
   reasoningLevels?: string[];
+  /**
+   * Service tiers the endpoint says this model can be asked for
+   * (CLIProxyAPI's `service_tiers`). A non-empty list is what makes a model
+   * eligible for the priority tier; nothing here guesses it from the id.
+   */
+  serviceTiers?: string[];
 };
+
+/** `vendor_key` of a provider row that addresses a CLIProxyAPI server. */
+export const CLIPROXYAPI_VENDOR_KEY = "cliproxyapi";
+/** The bundled plugin that declares the CLIProxyAPI provider row. */
+export const CLIPROXYAPI_PLUGIN_ID = "pi.cliproxyapi";
+
+/** Whether a provider row addresses a CLIProxyAPI server. */
+export function isCliProxyProvider(
+  provider: { vendorKey?: string | null; ownerPluginId?: string | null } | null | undefined,
+): boolean {
+  return (
+    provider?.vendorKey === CLIPROXYAPI_VENDOR_KEY ||
+    provider?.ownerPluginId === CLIPROXYAPI_PLUGIN_ID
+  );
+}
+
+/**
+ * The model list CLIProxyAPI serves to a pi client.
+ *
+ * Asked plainly, the server answers with the bare OpenAI list: ids and nothing
+ * else. Asked as pi, it answers with its own catalogue, where each row carries
+ * its context window, input modalities, reasoning efforts and service tiers.
+ * The catalogue lives at the server root's `/v1/models` whichever API path the
+ * row's base URL names, so a base ending in `/v1`, `/v1beta` or `/backend-api`
+ * is taken back to the root first.
+ */
+export function cliProxyCatalogUrl(baseUrl: string): string {
+  const root = baseUrl
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/(?:v1|v1beta|backend-api)$/i, "");
+  return `${root}/v1/models?client_version=pi`;
+}
 
 export const DISCOVERY_TIMEOUT_MS = 10_000;
 /** Total budget for one endpoint-resolution sweep; its candidates share it. */
@@ -130,6 +169,7 @@ function discoveredModelMetadata(item: Record<string, unknown>): {
   input?: string[];
   capabilities?: string[];
   reasoningLevels?: string[];
+  serviceTiers?: string[];
 } {
   const contextWindow =
     positiveInt(item.context_window) ?? positiveInt(item.contextWindow);
@@ -167,11 +207,13 @@ function discoveredModelMetadata(item: Record<string, unknown>): {
         })
         .filter((effort) => effort.trim().length > 0)
     : undefined;
+  const serviceTiers = stringArray(item.service_tiers ?? item.serviceTiers);
   return {
     ...(contextWindow !== undefined ? { contextWindow } : {}),
     ...(input?.length ? { input } : {}),
     ...(capabilities.size ? { capabilities: [...capabilities] } : {}),
     ...(reasoningLevels?.length ? { reasoningLevels } : {}),
+    ...(serviceTiers?.length ? { serviceTiers } : {}),
   };
 }
 
@@ -266,6 +308,8 @@ export function modelListRequest(opts: {
   apiStyle?: string;
   discoveryStyle?: DiscoveryStyle;
   headers?: Record<string, string>;
+  /** Ask a CLIProxyAPI server for its pi catalogue instead of the plain list. */
+  cliProxyCatalog?: boolean;
 }): { url: string; headers: Record<string, string> } {
   const apiKey = opts.apiKey ?? "";
   const discoveryStyle =
@@ -273,6 +317,15 @@ export function modelListRequest(opts: {
   const path = discoveryProbeUrl(opts.baseUrl, discoveryStyle);
   const withHeaders = (headers: Record<string, string>): Record<string, string> =>
     withCustomHeaders(headers, opts.headers);
+
+  // The catalogue is one bearer-authenticated route whatever wire API the row
+  // itself speaks, so it is addressed before the per-style request shapes.
+  if (opts.cliProxyCatalog) {
+    return {
+      url: cliProxyCatalogUrl(opts.baseUrl),
+      headers: withHeaders(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    };
+  }
 
   if (discoveryStyle === "google_models") {
     const params = new URLSearchParams({ pageSize: "1000" });
@@ -380,6 +433,8 @@ export async function probeModelList(opts: {
   apiStyle?: string;
   discoveryStyle?: DiscoveryStyle;
   headers?: Record<string, string>;
+  /** Ask a CLIProxyAPI server for its pi catalogue instead of the plain list. */
+  cliProxyCatalog?: boolean;
   /**
    * Credentials may only travel to this origin. Defaults to the configured base
    * URL's own origin, so a caller cannot widen it by accident.
@@ -391,6 +446,23 @@ export async function probeModelList(opts: {
    */
   signal?: AbortSignal;
 }): Promise<ModelListProbe> {
+  if (opts.cliProxyCatalog) {
+    // A server too old to know the pi catalogue, or one that answers it with
+    // nothing, still has the plain list every other provider is asked for.
+    try {
+      const catalogue = await requestModelList(opts);
+      if (catalogue.models.length > 0) return catalogue;
+    } catch (error) {
+      if ((error as { name?: string })?.name === "AbortError") throw error;
+    }
+    return requestModelList({ ...opts, cliProxyCatalog: false });
+  }
+  return requestModelList(opts);
+}
+
+async function requestModelList(
+  opts: Parameters<typeof probeModelList>[0],
+): Promise<ModelListProbe> {
   const request = modelListRequest(opts);
   const allowOrigin = opts.allowOrigin ?? originOf(opts.baseUrl);
   const responseSignal = opts.signal ?? defaultTimeoutSignal();
@@ -430,7 +502,8 @@ export async function probeModelList(opts: {
       url,
       status: res.status,
       models: normalizeModelList(
-        opts.discoveryStyle ?? opts.apiStyle,
+        // The catalogue has the OpenAI-list shape whatever the row speaks.
+        opts.cliProxyCatalog ? "openai_models" : opts.discoveryStyle ?? opts.apiStyle,
         await res.json(),
       ),
     };
