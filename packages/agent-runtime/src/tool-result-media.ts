@@ -131,15 +131,38 @@ function mediaFromModelConfig(
     : audioFromModelConfig(modelConfig);
 }
 
+/**
+ * What keeps a tool result from carrying this medium to the provider's model,
+ * or null when it can.
+ *
+ * `image-input` is the block's own disguise catching up with it: the media
+ * rides an image-typed block (see the module note), and pi-ai replaces every
+ * image-typed block in a tool result with a placeholder for a model that
+ * takes no images, before any adapter sees it. Audio and video have their own
+ * switches, so a model can take them with images off, and then the bytes
+ * would be dropped while the result still said they were attached.
+ */
+function toolResultMediaBlocker(
+  provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
+  kind: ToolResultMediaKind,
+): "modality" | "api" | "image-input" | null {
+  if (!provider || !mediaFromModelConfig(kind, provider.modelConfig)) return "modality";
+  if (
+    !TOOL_RESULT_MEDIA_APIS.has(
+      apiBindingForProviderModel(provider as RuntimeProviderConfig).api,
+    )
+  ) {
+    return "api";
+  }
+  return provider.modelConfig?.input?.includes("image") === true ? null : "image-input";
+}
+
 /** Whether a tool result can carry this medium to the provider's model. */
 export function toolResultMediaSupported(
   provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
   kind: ToolResultMediaKind,
 ): boolean {
-  if (!provider || !mediaFromModelConfig(kind, provider.modelConfig)) return false;
-  return TOOL_RESULT_MEDIA_APIS.has(
-    apiBindingForProviderModel(provider as RuntimeProviderConfig).api,
-  );
+  return toolResultMediaBlocker(provider, kind) === null;
 }
 
 /** The wire APIs media can ride a tool result on; see the module note. */
@@ -279,15 +302,20 @@ export async function loadToolResultMedia(
       text: `${description} A subagent's tool result does not carry ${noun}, so the ${noun} is not attached. The main agent can Read the file itself to ${verb} it.`,
     };
   }
-  if (!mediaFromModelConfig(reference.kind, provider?.modelConfig)) {
+  const blocker = toolResultMediaBlocker(provider, reference.kind);
+  if (blocker === "modality") {
     return {
       text: `${description} The current model does not take ${noun} input, so the ${noun} is not attached.`,
     };
   }
-  if (!toolResultMediaSupported(provider, reference.kind)) {
+  if (blocker !== null) {
+    const why =
+      blocker === "api"
+        ? `A tool result cannot carry ${noun} over this provider's API format`
+        : `A tool result can carry ${noun} to this model only while its image input is on`;
     return {
       text:
-        `${description} A tool result cannot carry ${noun} over this provider's API format, so the ${noun} is not attached. ` +
+        `${description} ${why}, so the ${noun} is not attached. ` +
         `Ask the user to attach the file to their message (drag it in or @-mention it) to ${verb} it directly.`,
     };
   }

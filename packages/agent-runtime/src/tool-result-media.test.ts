@@ -27,6 +27,11 @@ const videoOnlyModel = { modalities: { input: ["text", "image", "video"], output
 const gemini = { apiStyle: "google_generative_ai", modelConfig: mediaModel } as never;
 const relay = { apiStyle: "chat_completions", modelConfig: mediaModel } as never;
 const responses = { apiStyle: "responses", modelConfig: mediaModel } as never;
+/** Takes audio and video but has image input switched off. */
+const audioWithoutImages = {
+  apiStyle: "google_generative_ai",
+  modelConfig: { modalities: { input: ["text", "video", "audio"], output: ["text"] }, input: ["text"] },
+} as never;
 const videoOnly = { apiStyle: "google_generative_ai", modelConfig: videoOnlyModel } as never;
 const textOnly = {
   apiStyle: "google_generative_ai",
@@ -105,6 +110,15 @@ describe("media in a tool result", () => {
     expect(otherApi.text).toContain("attach the file to their message");
     expect(otherApi.text).toContain("listen to it directly");
 
+    // Audio on, images off: pi-ai would drop the image-typed block the
+    // recording rides in, so nothing may be attached or claimed.
+    const noImages = await loadToolResultMedia(reference, "Audio file memo.mp3.", audioWithoutImages);
+    expect(noImages.block).toBeUndefined();
+    expect(noImages.text).toContain("only while its image input is on");
+    expect(noImages.text).toContain("the audio is not attached");
+    expect(noImages.text).not.toContain("is attached to this result");
+    expect(noImages.text).toContain("attach the file to their message");
+
     // A delegate's model is not this provider's; it never receives the file.
     const delegate = await loadToolResultMedia(reference, "Audio file memo.mp3.", gemini, { delegate: true });
     expect(delegate.block).toBeUndefined();
@@ -161,6 +175,8 @@ describe("media in a tool result", () => {
     expect(readMediaHint(gemini)).toBe(`${READ_VIDEO_HINT}${READ_AUDIO_HINT}`);
     expect(readMediaHint(videoOnly)).toBe(READ_VIDEO_HINT);
     expect(readMediaHint(responses)).toBe("");
+    // No promise is made to a model the block would never reach.
+    expect(readMediaHint(audioWithoutImages)).toBe("");
     expect(readMediaHint(undefined)).toBe("");
     expect(withoutReadMediaHints(`Read a file.${READ_VIDEO_HINT}${READ_AUDIO_HINT} More.`)).toBe(
       "Read a file. More.",
