@@ -1726,6 +1726,9 @@ pub fn remove_session_files(data_dir: &Path, session_id: &str) {
     };
     for path in [
         transcript.with_extension("jsonl.tmp"),
+        transcript.with_extension("jsonl.layout"),
+        transcript.with_extension("jsonl.layout.tmp"),
+        transcript.with_extension("layout.tmp"),
         transcript,
         revisions,
         inflight.with_extension("json.tmp"),

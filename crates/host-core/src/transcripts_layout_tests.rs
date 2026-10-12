@@ -146,3 +146,21 @@ fn an_unsupported_identity_never_persists_a_layout() {
         identity != 0
     );
 }
+
+#[test]
+fn remove_session_files_cleans_up_layout_cache_and_tmp() {
+    let dir = tempdir().unwrap();
+    let transcript = transcript_path(dir.path(), "s1").unwrap();
+    let layout = transcript.with_extension("jsonl.layout");
+    let layout_tmp = transcript.with_extension("jsonl.layout.tmp");
+    let legacy_tmp = transcript.with_extension("layout.tmp");
+    fs::write(&transcript, "content").unwrap();
+    fs::write(&layout, "layout").unwrap();
+    fs::write(&layout_tmp, "tmp").unwrap();
+    fs::write(&legacy_tmp, "tmp").unwrap();
+    remove_session_files(dir.path(), "s1");
+    assert!(!transcript.exists());
+    assert!(!layout.exists());
+    assert!(!layout_tmp.exists());
+    assert!(!legacy_tmp.exists());
+}
