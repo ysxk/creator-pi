@@ -19,7 +19,7 @@
 
 <br />
 
-**[PI-Desktop 发布页](https://github.com/vastsa/PI-Desktop/releases/latest)**（原项目）·
+**[立即下载](https://github.com/ysxk/creator-pi/releases/latest)** ·
 [使用文档](https://pi-docs.aiuo.net/) ·
 [插件开发](docs/plugin-development.md) ·
 [界面预览](docs/guide/screenshots.md) ·
@@ -105,7 +105,7 @@ Subagent 与 Worker Session 可以承担独立任务并行工作。
 > **当前发布线：0.18.x（Early Preview）。**
 
 > [!NOTE]
-> **creator-pi 是 [PI-Desktop](https://github.com/vastsa/PI-Desktop) 的 fork，采用 LGPL-3.0 许可。** 方向是面向自媒体创作者的 Agent 工作台。目前代码仍以 PI-Desktop 为主，自媒体相关功能还在开发中；应用本身仍以 PI-Desktop 名称运行。本 fork 暂未发布安装包，请参考下文从源码运行。
+> **creator-pi 是 [PI-Desktop](https://github.com/vastsa/PI-Desktop) 的 fork，采用 LGPL-3.0 许可。** 方向是面向自媒体创作者的 Agent 工作台。目前代码仍以 PI-Desktop 为主，自媒体相关功能还在开发中；应用本身仍以 PI-Desktop 名称运行。creator-pi 0.18.0 的 Windows 与 Linux 安装包在 [Releases 页面](https://github.com/ysxk/creator-pi/releases/latest)。本 fork 不发布 macOS 版本：macOS 请使用原项目 PI-Desktop，或参考下文从源码运行。
 
 ---
 
@@ -566,9 +566,9 @@ Agent / Plan / Goal
 
 <div align="center">
 
-### [下载 PI-Desktop（原项目）→](https://github.com/vastsa/PI-Desktop/releases/latest)
+### [下载 creator-pi →](https://github.com/ysxk/creator-pi/releases/latest)
 
-**macOS · Windows · Linux**
+**Windows · Linux**（macOS 请使用原项目 PI-Desktop）
 
 </div>
 
@@ -576,12 +576,11 @@ Agent / Plan / Goal
 
 | Platform | Architecture  | Package                                 |
 | -------- | ------------- | --------------------------------------- |
-| macOS    | Apple Silicon | `.dmg` / `.zip`                         |
-| macOS    | Intel         | `.dmg` / `.zip`                         |
+| macOS    | —             | 本 fork 不发布，请使用原项目 PI-Desktop |
 | Windows  | x64           | 安装程序 / `.zip`                       |
 | Linux    | x64 / ARM64   | `.AppImage` / `.deb` / `.rpm` / `.asar` |
 
-macOS Release 使用 Developer ID 签名并经过 Apple Notarization。
+本 fork 不发布 macOS 版本。原项目 PI-Desktop 的 macOS Release 使用 Developer ID 签名并经过 Apple Notarization。
 
 <details>
 <summary><strong>Linux Compatibility</strong></summary>
@@ -746,7 +745,7 @@ creator-pi 是 PI-Desktop 的修改版本，原项目使用 **GNU Lesser General
 
 <br />
 
-**[PI-Desktop 发布页](https://github.com/vastsa/PI-Desktop/releases/latest)**（原项目）·
+**[立即下载](https://github.com/ysxk/creator-pi/releases/latest)** ·
 [Documentation](https://pi-docs.aiuo.net/) ·
 [Build a Plugin](docs/plugin-development.md)
 

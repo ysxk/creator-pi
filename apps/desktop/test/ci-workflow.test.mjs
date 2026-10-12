@@ -215,14 +215,14 @@ test("the Linux package config lets the workflow choose the architecture", () =>
   assert.equal(build.rpm.artifactName, "pi-desktop-${version}-${arch}.${ext}");
 });
 
-test("release matrix packages both native macOS architectures", () => {
+test("release matrix omits macOS lanes until Developer ID secrets exist", () => {
+  // creator-pi has no Apple Developer ID, so its tag releases ship Windows and
+  // Linux only. Restore the native macOS lanes together with the secrets; the
+  // macOS packaging assertions below keep guarding the config for that day.
+  assert.doesNotMatch(releaseWorkflowSource, /name: macOS (?:arm64|Intel x64)/);
   assert.match(
     releaseWorkflowSource,
-    /name: macOS arm64[\s\S]*?os: macos-15[\s\S]*?arch: arm64[\s\S]*?runner_arch: arm64/,
-  );
-  assert.match(
-    releaseWorkflowSource,
-    /name: macOS Intel x64[\s\S]*?os: macos-15-intel[\s\S]*?arch: x64[\s\S]*?runner_arch: x86_64/,
+    /name: Windows x64[\s\S]*?os: windows-latest/,
   );
   assert.match(
     releaseWorkflowSource,
@@ -257,7 +257,11 @@ test("release matrix packages both native macOS architectures", () => {
     releaseWorkflowSource,
     /latest-mac-\$\{\{ matrix\.arch \}\}\.yml/,
   );
-  assert.match(releaseWorkflowSource, /Merge macOS updater metadata[\s\S]*?ruby/);
+  assert.doesNotMatch(
+    releaseWorkflowSource,
+    /Merge macOS updater metadata/,
+    "no macOS updater feeds to merge without macOS lanes",
+  );
 });
 
 test("macOS release signing is required on tag pushes", () => {

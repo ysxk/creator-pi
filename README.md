@@ -18,7 +18,7 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 
 <br />
 
-**[PI-Desktop Releases](https://github.com/vastsa/PI-Desktop/releases/latest)** (upstream) ·
+**[Download](https://github.com/ysxk/creator-pi/releases/latest)** ·
 [Documentation](https://pi-docs.aiuo.net/) ·
 [Build a Plugin](docs/plugin-development.md) ·
 [Screenshots](docs/guide/screenshots.md) ·
@@ -37,7 +37,7 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 > **Current release line: 0.18.x (Early Preview).**
 
 > [!NOTE]
-> **creator-pi is a fork of [PI-Desktop](https://github.com/vastsa/PI-Desktop), licensed under LGPL-3.0.** It is being adapted for self-media creators. The code is still largely PI-Desktop's, creator-specific features are in development, and the app still runs under the PI-Desktop name. This fork has no release builds yet, so run it from source (see [Run from source](#run-from-source)).
+> **creator-pi is a fork of [PI-Desktop](https://github.com/vastsa/PI-Desktop), licensed under LGPL-3.0.** It is being adapted for self-media creators. The code is still largely PI-Desktop's, creator-specific features are in development, and the app still runs under the PI-Desktop name. creator-pi 0.18.0 is on the [Releases page](https://github.com/ysxk/creator-pi/releases/latest) for Windows and Linux. macOS builds are not published by this fork: use upstream PI-Desktop on macOS, or run from source (see [Run from source](#run-from-source)).
 
 ---
 
@@ -562,9 +562,9 @@ Agent / Plan / Goal
 
 <div align="center">
 
-### [Download PI-Desktop (upstream) →](https://github.com/vastsa/PI-Desktop/releases/latest)
+### [Download creator-pi →](https://github.com/ysxk/creator-pi/releases/latest)
 
-**macOS · Windows · Linux**
+**Windows · Linux** (macOS: use upstream PI-Desktop)
 
 </div>
 
@@ -572,12 +572,11 @@ Agent / Plan / Goal
 
 | Platform | Architecture  | Package                                 |
 | -------- | ------------- | --------------------------------------- |
-| macOS    | Apple Silicon | `.dmg` / `.zip`                         |
-| macOS    | Intel         | `.dmg` / `.zip`                         |
+| macOS    | —             | Not published by creator-pi; use upstream PI-Desktop |
 | Windows  | x64           | Installer / `.zip`                      |
 | Linux    | x64 / ARM64   | `.AppImage` / `.deb` / `.rpm` / `.asar` |
 
-macOS releases are signed with a Developer ID certificate and notarized by Apple.
+creator-pi does not publish macOS builds. Upstream PI-Desktop macOS releases are signed with a Developer ID certificate and notarized by Apple.
 
 <details>
 <summary><strong>Linux Compatibility</strong></summary>
@@ -742,7 +741,7 @@ See [LICENSE](LICENSE) for details.
 
 <br />
 
-**[PI-Desktop Releases](https://github.com/vastsa/PI-Desktop/releases/latest)** (upstream) ·
+**[Download](https://github.com/ysxk/creator-pi/releases/latest)** ·
 [Documentation](https://pi-docs.aiuo.net/) ·
 [Build a Plugin](docs/plugin-development.md)
 

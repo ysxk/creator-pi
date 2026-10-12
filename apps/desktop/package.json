@@ -1,6 +1,6 @@
 {
   "name": "@pi-desktop/desktop",
-  "version": "0.18.0-beta.2",
+  "version": "0.18.0",
   "desktopName": "pi-desktop.desktop",
   "private": true,
   "description": "PI-Desktop Electron application",
@@ -93,7 +93,12 @@
       }
     ],
     "extraMetadata": {
-      "piDistribution": "installed"
+      "piDistribution": "installed",
+      "piInstallation": {
+        "name": "creator-pi",
+        "dataDirName": ".creator-pi",
+        "updates": false
+      }
     },
     "files": [
       "out/**/*",
