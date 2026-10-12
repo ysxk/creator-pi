@@ -305,6 +305,56 @@ test("a scratch or attachment file a tool surface names opens on the host file t
   assert.equal(calls.files[0][0], "C:/data/scratch/session-1/notes.md");
 });
 
+for (const [label, workspace] of [["null", null], ["unset", undefined]]) {
+  test(`a file opens in a session with no project (workspace ${label})`, async () => {
+    reset();
+    const project = state.workspace;
+    state.workspace = workspace;
+    try {
+      nextMatch = {
+        root: "attachments",
+        relativePath: "memo.wav",
+        absolutePath: "C:/data/attachments/memo.wav",
+        matchedBy: "exact-relative",
+      };
+      await click({ kind: "file", path: "memo.wav" });
+      assert.deepEqual(calls.toasts, []);
+      assert.deepEqual(calls.tabs, []);
+      assert.equal(calls.files.length, 1, "the click is not mistaken for a stale one");
+      assert.equal(calls.files[0][0], "C:/data/attachments/memo.wav");
+    } finally {
+      state.workspace = project;
+    }
+  });
+}
+
+test("a click that outlives its projectless session opens nothing", async () => {
+  reset();
+  const project = state.workspace;
+  state.workspace = null;
+  try {
+    nextMatch = {
+      root: "scratch",
+      relativePath: "notes.md",
+      absolutePath: "C:/data/scratch/session-1/notes.md",
+      matchedBy: "exact-relative",
+    };
+    let open = null;
+    function Harness() {
+      open = useOpenPreviewTarget();
+      return null;
+    }
+    renderToStaticMarkup(React.createElement(Harness));
+    open({ kind: "file", path: "notes.md" });
+    // A project opens while the reference is still being resolved.
+    state.workspace = { path: "C:/project" };
+    await flush();
+    assert.deepEqual(calls.files, [], "the answer belongs to the session that was left");
+  } finally {
+    state.workspace = project;
+  }
+});
+
 test("a file from a sibling project folder opens in the view by absolute path", async () => {
   reset({ pluginView: true });
   nextMatch = projectMatch({

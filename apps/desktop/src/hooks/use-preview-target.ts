@@ -81,6 +81,16 @@ export type ResolvedChatFileRef = {
 };
 
 /**
+ * The open project's path as the hooks below capture it: null when no project
+ * is open. Both sides of a staleness check must use this spelling; the store
+ * leaves `workspace` unset or null in a projectless session, and `undefined`
+ * never equals the captured null.
+ */
+function currentWorkspacePath(): string | null {
+  return useAppStore.getState().workspace?.path ?? null;
+}
+
+/**
  * Load the bundled file view on demand when a user explicitly opens a project
  * file. Its enabled state can be off or its runtime can have failed even though
  * the app still ships the plugin; project scope and the recorded ui.view grant
@@ -106,7 +116,7 @@ async function ensureFileManagerView(workspacePath: string | null): Promise<bool
       if (
         !fileManager?.bundled ||
         !fileManager.permissions.includes("ui.view") ||
-        useAppStore.getState().workspace?.path !== workspacePath ||
+        currentWorkspacePath() !== workspacePath ||
         !isActiveInProject(
           { ...fileManager, enabled: true },
           workspacePath,
@@ -235,7 +245,7 @@ export function useOpenChatFileRef() {
         if (!resolved) return;
         const current = useAppStore.getState();
         if (
-          current.workspace?.path !== workspacePath ||
+          currentWorkspacePath() !== workspacePath ||
           current.activeSessionId !== sessionId
         ) {
           return;
@@ -255,7 +265,7 @@ export function useOpenChatFileRef() {
           if (await ensureFileManagerView(workspacePath)) {
             const latest = useAppStore.getState();
             if (
-              latest.workspace?.path !== workspacePath ||
+              currentWorkspacePath() !== workspacePath ||
               latest.activeSessionId !== sessionId
             ) {
               return;
@@ -265,7 +275,7 @@ export function useOpenChatFileRef() {
           }
           const latest = useAppStore.getState();
           if (
-            latest.workspace?.path !== workspacePath ||
+            currentWorkspacePath() !== workspacePath ||
             latest.activeSessionId !== sessionId
           ) {
             return;
