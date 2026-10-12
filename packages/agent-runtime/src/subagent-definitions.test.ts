@@ -235,6 +235,60 @@ describe("loadSubagentDefinitions", () => {
     expect(definitions.filter((d) => d.name === "explorer")).toHaveLength(1);
   });
 
+  it("falls back to the global document when the project one is past the project cap", async () => {
+    // What host-core reports for a project with nine documents and a global
+    // document named like the ninth: both candidates, each with its level.
+    const projectDocument = (name: string) => ({
+      id: name,
+      document: `---\nname: ${name}\ndescription: Project ${name}.\ntools: [Read]\n---\nProject.\n`,
+      filePath: `/repo/.agents/subagents/${name}.md`,
+      source: "project" as const,
+    });
+    const { definitions, diagnostics } = await loadSubagentDefinitions(null, {
+      userDocuments: [
+        ...Array.from({ length: 8 }, (_, index) => projectDocument(`a${index}`)),
+        {
+          id: "zcustom",
+          document:
+            "---\nname: zcustom\ndescription: Global custom.\ntools: [Read]\n---\nGlobal.\n",
+          filePath: "/home/.agents/subagents/zcustom.md",
+        },
+        projectDocument("zcustom"),
+      ],
+    });
+
+    const custom = definitions.filter((d) => d.name === "zcustom");
+    expect(custom).toHaveLength(1);
+    expect(custom[0].source).toBe("user");
+    expect(custom[0].prompt).toBe("Global.");
+    expect(definitions.filter((d) => d.source === "project")).toHaveLength(8);
+    expect(diagnostics.join("\n")).toContain("zcustom");
+  });
+
+  it("prefers the project document over the global one while the project is within its cap", async () => {
+    const { definitions } = await loadSubagentDefinitions(null, {
+      userDocuments: [
+        {
+          id: "reviewer",
+          document:
+            "---\nname: reviewer\ndescription: Global reviewer.\ntools: [Read]\n---\nGlobal.\n",
+          filePath: "/home/.agents/subagents/reviewer.md",
+        },
+        {
+          id: "reviewer",
+          document:
+            "---\nname: reviewer\ndescription: Project reviewer.\ntools: [Read]\n---\nProject.\n",
+          filePath: "/repo/.agents/subagents/reviewer.md",
+          source: "project",
+        },
+      ],
+    });
+
+    const reviewer = definitions.filter((d) => d.name === "reviewer");
+    expect(reviewer).toHaveLength(1);
+    expect(reviewer[0].source).toBe("project");
+  });
+
   it("ignores a permission scope a project document declares", async () => {
     const document =
       "---\nname: deployer\ndescription: Ships it.\ntools: [Read, Bash]\npermission: auto\n---\nShip.\n";

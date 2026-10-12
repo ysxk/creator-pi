@@ -1775,8 +1775,13 @@ fails with `CAPABILITY_INVALID` without it. `create` and `update` take the same
 two fields inside the payload. A record carries its `level` and, for a project
 document, its `projectPath`.
 
-`agents.active` resolves the catalog for one project: project documents shadow
-global ones by handle, and the shadow is taken before the enabled filter.
+`agents.active` returns the candidates for one project: every enabled global
+document and every enabled project document, each with its `level`. Two
+documents may share a name; the runtime's merge gives the project one
+precedence and, because a project document past the project cap does not claim
+its name, falls back to the global one (D674). A switched-off project document
+is the exception resolved by the host, before the enabled filter: it removes
+the global document of its handle.
 `suppressedHandles` lists the handles of project documents the user switched
 off; the launch path passes them to the runtime so the shipped builtin of that
 name stays out as well. `agents.transfer` moves a document between levels with

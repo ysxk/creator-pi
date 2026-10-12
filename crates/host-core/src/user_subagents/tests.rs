@@ -454,7 +454,7 @@ fn a_session_without_a_project_sees_global_documents_only() {
 }
 
 #[test]
-fn a_project_document_shadows_the_global_one_of_the_same_handle() {
+fn a_project_document_is_offered_beside_the_global_one_of_the_same_handle() {
     let levels = Levels::new();
     write_agent(
         &levels.global_dir(),
@@ -479,16 +479,54 @@ fn a_project_document_shadows_the_global_one_of_the_same_handle() {
             .iter()
             .map(|r| (r.id.as_str(), r.level.as_deref().unwrap_or("")))
             .collect();
-        assert_eq!(seen, vec![("mine", "global"), ("reviewer", "project")]);
+        // Both candidates travel: the runtime's merge gives the project one
+        // precedence, and keeps the global one for a project past its cap.
         assert_eq!(
-            active
-                .subagents
-                .iter()
-                .find(|r| r.id == "reviewer")
-                .unwrap()
-                .description,
-            "Project reviewer."
+            seen,
+            vec![
+                ("mine", "global"),
+                ("reviewer", "global"),
+                ("reviewer", "project")
+            ]
         );
+        assert!(active.suppressed_handles.is_empty());
+    });
+}
+
+#[test]
+fn a_project_past_its_cap_leaves_the_global_namesake_to_fall_back_on() {
+    // The runtime loads only the first eight project documents, and one past
+    // that cap does not claim its name. The host cannot know which documents
+    // parse, so it must not remove the global `zcustom` on the project's word.
+    let levels = Levels::new();
+    for index in 0..8 {
+        write_agent(
+            &levels.project_dir(),
+            &format!("a{index}"),
+            &format!("name: a{index}\ndescription: Project {index}."),
+        );
+    }
+    write_agent(
+        &levels.project_dir(),
+        "zcustom",
+        "name: zcustom\ndescription: Project custom.",
+    );
+    write_agent(
+        &levels.global_dir(),
+        "zcustom",
+        "name: zcustom\ndescription: Global custom.",
+    );
+    let project = levels.project_path();
+    levels.run(|registry| {
+        let active = registry.active_for(Some(&project)).unwrap();
+        let custom: Vec<_> = active
+            .subagents
+            .iter()
+            .filter(|record| record.id == "zcustom")
+            .map(|record| record.level.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(custom, vec!["global", "project"]);
+        assert_eq!(active.subagents.len(), 10);
         assert!(active.suppressed_handles.is_empty());
     });
 }

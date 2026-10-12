@@ -93,7 +93,8 @@ pub struct UserSubagentInput {
 /// What a session on one project may delegate to.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ActiveSubagents {
-    /// Enabled documents after project-over-global shadowing.
+    /// Enabled documents of both levels. A global and a project document may
+    /// share a name; the runtime's capped merge picks between them.
     pub subagents: Vec<UserSubagentRecord>,
     /// Handles owned by a project document the user switched off. The handle
     /// stays claimed: neither the global document nor the shipped builtin of
@@ -127,9 +128,19 @@ fn owner_for(level: CapabilityLevel, project_path: Option<&str>) -> Result<Optio
     }
 }
 
-/// Project documents shadow global ones by handle, and the shadow is resolved
-/// before the enabled filter so a switched-off project document does not let
-/// the global one back in.
+/// The candidates for a session: every enabled global document and every
+/// enabled project document, each tagged with its level.
+///
+/// Which of two documents with one name loads is not decided here. The
+/// runtime's merge (`mergeSubagentDefinitions`) gives a project document
+/// precedence, but only while the project is within its definition cap: a
+/// project document past the cap is dropped without claiming its name, and the
+/// global one must still be there to answer for it. Removing the global
+/// document here, before the cap is known, would leave neither available.
+///
+/// A switched-off project document is the one shadow resolved here, before the
+/// enabled filter (ADR 0112 §3): it keeps the handle claimed, so the global
+/// document goes and the handle is reported for the builtin to stay out too.
 fn merge_active_records(
     global: Vec<UserSubagentRecord>,
     project: Vec<UserSubagentRecord>,
@@ -137,14 +148,15 @@ fn merge_active_records(
     let mut subagents = global;
     let mut suppressed_handles = Vec::new();
     for record in project {
-        subagents.retain(|existing| existing.id != record.id);
         if record.enabled {
             subagents.push(record);
         } else {
+            subagents.retain(|existing| existing.id != record.id);
             suppressed_handles.push(record.id);
         }
     }
     subagents.retain(|record| record.enabled);
+    // Stable, so a global document stays ahead of the project one of its name.
     subagents.sort_by(|a, b| a.name.cmp(&b.name));
     suppressed_handles.sort();
     ActiveSubagents {

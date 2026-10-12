@@ -1353,8 +1353,11 @@ host-core 不携带内置清单。
 后者必须带 `projectPath`，否则返回 `CAPABILITY_INVALID`。`create` 与 `update`
 在载荷内携带同样两个字段。记录带有自己的 `level`，项目文档还带 `projectPath`。
 
-`agents.active` 为单个项目解析目录：项目文档按句柄遮蔽全局文档，且遮蔽先于启用
-过滤。`suppressedHandles` 列出被用户停用的项目文档的句柄；启动路径把它们交给
+`agents.active` 返回单个项目的候选：所有已启用的全局文档和所有已启用的项目文档，
+各带其 `level`。两份文档可以同名；运行时的合并让项目文档优先，并且由于超过项目
+上限的项目文档不占用名称，会回退到全局文档（D674）。被停用的项目文档是宿主自己
+处理的例外，且先于启用过滤：它会移除同句柄的全局文档。
+`suppressedHandles` 列出被用户停用的项目文档的句柄；启动路径把它们交给
 运行时，使同名的内置定义同样不被提供。`agents.transfer` 以 `skills.transfer`
 （§12d）的语义在层级间移动文档，并额外去掉移出项目的文档中的 `permission` 键。
 
