@@ -607,13 +607,16 @@ ldd --version
 
 ## Built on Pi
 
-PI-Desktop 构建在 [pi](https://github.com/badlogic/pi-mono) 生态之上。
+PI-Desktop 构建在 [pi](https://github.com/earendil-works/pi) 之上，pi 采用 MIT 许可。
 
-Agent Runtime 使用：
+Agent Runtime 使用该仓库的这些包，它们以 `@earendil-works` 的名义发布在 npm 上，版本固定为 1.1.0：
 
 * `pi-ai`
 * `pi-agent-core`
 * `pi-coding-agent`
+* `pi-mcp`
+
+前三个并非原样使用：本仓库在安装时对它们应用了自己的修改，修改以补丁文件的形式保存在 [`patches/`](patches/) 中。
 
 > **Pi 提供 Agent Engine，PI-Desktop 在其上构建 Desktop Workspace、Session、权限、插件与 Agent 编排。**
 

@@ -603,13 +603,18 @@ ldd --version
 
 ## Built on Pi
 
-PI-Desktop is built on the [pi](https://github.com/badlogic/pi-mono) ecosystem.
+PI-Desktop is built on [pi](https://github.com/earendil-works/pi), which is MIT licensed.
 
-The Agent Runtime uses:
+The Agent Runtime uses these packages from that repository, published on npm
+under `@earendil-works` and pinned at 1.1.0:
 
 * `pi-ai`
 * `pi-agent-core`
 * `pi-coding-agent`
+* `pi-mcp`
+
+The first three are not used as published: this repository applies its own
+changes to them at install time, kept as the patch files in [`patches/`](patches/).
 
 > **Pi provides the Agent Engine. PI-Desktop builds the persistent desktop workspace, sessions, permissions, plugins, and agent orchestration around it.**
 
