@@ -120,6 +120,9 @@ jobs:
       - name: Build Desktop bundle
         run: pnpm --filter @pi-desktop/desktop build
 
+      - name: Run browser capture/resize E2E
+        run: xvfb-run --auto-servernum node scripts/e2e-browser-capture-resize.mjs
+
       - name: Build host-core
         run: cargo build -p host-core --locked
 
