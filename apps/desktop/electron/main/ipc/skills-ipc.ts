@@ -1,12 +1,13 @@
 import { app, dialog, shell } from "electron";
 import { importSkillFolders, readLastSkillImportDirectory, writeLastSkillImportDirectory } from "../skill-folder-import";
-import { ErrorCodes, IPC, type ActivationScope, type AgentCapabilityMove, type AgentCapabilityQuery, type ProviderPublic, type UserSkillRecord, type UserSubagentRecord } from "@pi-desktop/shared";
+import { ErrorCodes, IPC, type ActivationScope, type AgentCapabilityMove, type AgentCapabilityQuery, type BuiltinSkillRecord, type ProviderPublic, type UserSkillRecord, type UserSubagentRecord } from "@pi-desktop/shared";
 import { loadSubagentDefinitions, type ActiveSubagentDocuments } from "@pi-desktop/agent-runtime";
 import {
   deleteSubagentIcon,
   generateSubagentIcon,
   readSubagentIcon,
 } from "../services/subagent-icon-service";
+import { builtinSkillCatalog } from "../builtin-skills";
 import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
 import type {
@@ -41,6 +42,8 @@ export type SkillsIpcDependencies = {
   activeSubagentDocuments: (projectPath: string | undefined) => Promise<ActiveSubagentDocuments>;
   /** Handles whose shipped definition the user turned off (builtin activation). */
   disabledBuiltinSubagents: () => Promise<string[]>;
+  /** User-disabled bundled skill IDs, read from host-owned activation state. */
+  disabledBuiltinSkills: () => Promise<string[]>;
   stripWinLongPrefix: (path: string) => string;
   sendToRenderer: (channel: string, payload?: unknown) => void;
   searchSkillMarket: (query: string, sources: { id: string; name: string; url: string }[]) => Promise<SkillMarketSearchResult>;
@@ -58,6 +61,7 @@ export function registerSkillsIpc({
   optionalWorkspaceRoot,
   activeSubagentDocuments,
   disabledBuiltinSubagents,
+  disabledBuiltinSkills,
   stripWinLongPrefix,
   sendToRenderer,
   searchSkillMarket,
@@ -171,6 +175,38 @@ export function registerSkillsIpc({
     if (!host) throw new Error("host unavailable");
     return host.call("skills.list", query);
   });
+
+  handle(IPC.invoke.skillBuiltinList, async () => {
+    if (!host) throw new Error("host unavailable");
+    const disabled = await disabledBuiltinSkills();
+    const off = new Set(disabled);
+    const builtins: BuiltinSkillRecord[] = builtinSkillCatalog().map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      ...(skill.description ? { description: skill.description } : {}),
+      enabled: !off.has(skill.id),
+    }));
+    return { builtins };
+  });
+
+  handle(
+    IPC.invoke.skillBuiltinSetEnabled,
+    async (payload: { id?: unknown; enabled?: unknown } = {}) => {
+      if (!host) throw new Error("host unavailable");
+      if (typeof payload.id !== "string" || typeof payload.enabled !== "boolean") {
+        throw new Error("invalid builtin skill activation request");
+      }
+      if (!builtinSkillCatalog().some((skill) => skill.id === payload.id)) {
+        throw new Error("unknown builtin skill");
+      }
+      const result = await host.call("skills.setBuiltinEnabled", {
+        id: payload.id,
+        enabled: payload.enabled,
+      });
+      sendToRenderer(IPC.event.pluginChanged, { reason: "skill" });
+      return result;
+    },
+  );
 
   handle(IPC.invoke.skillCreate, async (skill: Record<string, unknown>) => {
     if (!host) throw new Error("host unavailable");

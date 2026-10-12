@@ -39,6 +39,14 @@ test("agent settings have three independent destinations and extensions have two
   assert.doesNotMatch(pluginsPage, /plugins-(?:tab|panel)-(?:mcp|skills|subagents)/);
 });
 
+test("bundled skill activation validates the catalog and writes host-owned state", () => {
+  assert.match(skillImport, /handle\(IPC\.invoke\.skillBuiltinList,[\s\S]*?disabledBuiltinSkills\(\)/);
+  assert.match(skillImport, /handle\([\s\S]*?IPC\.invoke\.skillBuiltinSetEnabled,[\s\S]*?typeof payload\.enabled !== "boolean"/);
+  assert.match(skillImport, /builtinSkillCatalog\(\)\.some\(\(skill\) => skill\.id === payload\.id\)/);
+  assert.match(skillImport, /host\.call\("skills\.setBuiltinEnabled"/);
+  assert.match(skillImport, /sendToRenderer\(IPC\.event\.pluginChanged, \{ reason: "skill" \}\)/);
+});
+
 test("every capability page filters one list by level instead of stacking two sections", () => {
   // The subagents page reads its two directories through its data loader.
   for (const source of [skills, mcp, `${subagents}\n${subagentSettings}`]) {

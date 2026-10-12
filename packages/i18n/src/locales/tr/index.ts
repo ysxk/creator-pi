@@ -1067,6 +1067,8 @@ sklm: {
     },
     skills: "Beceriler",
     skillsGlobalPath: "Genel beceriler yolu",
+    builtinSkills: "Yerleşik beceriler",
+    builtin: "Yerleşik",
     skillsProjectPath: "Proje becerileri yolu",
     mcp: "MCP sunucuları",
     mcpGlobalPath: "Genel MCP yolu",

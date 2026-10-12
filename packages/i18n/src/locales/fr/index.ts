@@ -1069,6 +1069,8 @@ sklm: {
     },
     "skills": "Compétences",
     "skillsGlobalPath": "Parcours de compétences global",
+    "builtinSkills": "Compétences intégrées",
+    "builtin": "Intégrée",
     "skillsProjectPath": "Parcours de compétences projet",
     "mcp": "Serveurs MCP",
     "mcpGlobalPath": "Chemin MCP global",

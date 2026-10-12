@@ -1369,6 +1369,12 @@ boundary; checkpoints retain the effective per-entry state. Bodies remain
 on-demand and permission-checked. Different plugin tool schemas/permissions
 invalidate idle reuse even when their names are unchanged.
 
+The host-owned activation state for bundled skills is read when a session
+catalog is built. A disabled built-in is omitted from the prompt and slash
+catalog, and a stale direct load through `Skill` is refused. This switch governs
+the skill document only; associated agent tools keep their independent
+registration and activation behavior.
+
 Before model dispatch, Desktop acknowledges new system records through Host's
 existing transcript writer. Restart replays these provider-neutral records in
 order. An old history without records receives the current declaration at its
