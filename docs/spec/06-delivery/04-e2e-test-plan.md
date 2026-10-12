@@ -7257,6 +7257,23 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Milestone**: M6
 - **Status**: Draft
 
+#### E2E-PERMISSION-mid-turn-change-applies-to-the-next-tool-call
+
+- **Preconditions**: A local project-bound session in Agent mode with
+  permission mode Ask, and a prompt that makes the agent run several Bash
+  commands in one turn.
+- **Steps**: 1) Send the prompt and allow the first command once. 2) While the
+  turn is still running, switch the Composer permission picker to Auto.
+  3) Let the turn continue. 4) While it is still running, switch back to Ask.
+- **Expected**: After step 2 the picker shows Auto and the following commands
+  run without a permission request in the same turn. After step 4 the next
+  command asks again. A request already on screen when the mode changes stays
+  until answered. Mode, model and thinking changes made during the turn still
+  apply only to the next turn.
+- **Specs linked**: `03-runtime/02-agent-runtime.md`,
+  `03-runtime/03-tools-and-permissions.md`, `03-runtime/06-host-rpc-protocol.md`
+- **Acceptance**: E (tools and permissions)
+
 #### E2E-112: Selectable shell catalog persists the default
 
 - **Preconditions**: Host has an available platform catalog entry, a fixture can

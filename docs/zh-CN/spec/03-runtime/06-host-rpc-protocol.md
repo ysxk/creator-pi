@@ -255,6 +255,10 @@ type ToolBudgetHealth = {
   `INVALID_PARAMS`；模式为 `plan | goal | agent` 并更改任何会话
   仅在空闲且没有 pending/queued/running 时才允许配置
   Plan 或 Goal 记录
+- `session.setPermissionMode({ id, permissionMode })` — 只持久保存权限模式并返回
+  `{ session }`（D670）。回合或 Plan 执行运行中也允许，因为每次工具调用都在判定时
+  读取模式；只有审批待处理时以 `PLAN_CONFIGURATION_BLOCKED` 拒绝。无效模式返回
+  `INVALID_PARAMS`
 - `session.appendMessage`
 - `session.saveInflightMessage` — 仅供 Electron 主进程使用的检查点，保存正在流式
   输出的助手回复以及 `message_end` 的完成快照：`{ sessionId, turnId?, message }` 原子替换

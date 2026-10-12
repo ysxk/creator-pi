@@ -578,6 +578,21 @@ export function registerSessionIpc({
     },
   );
 
+  handle(
+    IPC.invoke.sessionSetPermissionMode,
+    async (id: string, permissionMode: "inherit" | "ask" | "accept-edits" | "auto") => {
+      rejectNativeMutation(id, "configuration");
+      if (!host) throw new Error("host unavailable");
+      const result = await host.call<{ session?: RuntimeSession | null }>(
+        "session.setPermissionMode",
+        { id, permissionMode },
+      );
+      if (!result.session) return result;
+      const { providers, defaults } = await sessionCapabilityContext();
+      return { ...result, session: enrichSession(result.session, providers, defaults) };
+    },
+  );
+
   handle(IPC.invoke.sessionImportScan, async () => {
     const { sessions, truncated } = await scanAllSources();
     scannedImportSessions = new Map(

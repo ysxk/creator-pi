@@ -166,7 +166,7 @@ stdio 与 Tokio 的动态阻塞池隔离，因此后一种情况
 | `PLAN_MARKDOWN_TOO_LARGE` | 不 | 提交的 Markdown 超出工件大小上限 |
 | `PLAN_REJECTED` | 不 | 用户拒绝了提案；本轮结束且不执行 |
 | `PLAN_SUBMIT_FAILED` | 也许 | 主机无法记录提案 |
-| `PLAN_CONFIGURATION_BLOCKED` | 不 | 提案或执行进行中时 `session.configure` 被拒绝 |
+| `PLAN_CONFIGURATION_BLOCKED` | 不 | 提案或执行进行中时 `session.configure` 被拒绝，或审批待处理时 `session.setPermissionMode` 被拒绝 |
 | `PLAN_ARTIFACT_INVALID` | 不 | 检查点工件在执行前未通过校验 |
 | `PLAN_ARTIFACT_NOT_READY` | 不 | 工件尚未持久写入就被认领执行 |
 | `PLAN_ARTIFACT_PATH_UNSAFE` | 不 | 工件路径逃逸了 `<workspaceRoot>/.pi/<kind>/` |

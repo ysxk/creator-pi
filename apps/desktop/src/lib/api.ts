@@ -651,6 +651,15 @@ export const api = {
       id,
       config,
     ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
+  setSessionPermissionMode: (
+    id: string,
+    permissionMode: SessionSummary["permissionMode"],
+  ) =>
+    invoke<{ session: SessionSummary }>(
+      IPC.invoke.sessionSetPermissionMode,
+      id,
+      permissionMode,
+    ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
   scanImportSessions: () =>
     invoke<{
       sessions: ImportCandidate[];

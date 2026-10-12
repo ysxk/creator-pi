@@ -1916,6 +1916,26 @@ pub fn configure_session_with_thinking(
     Ok(get_session(db, id)?.map(|detail| detail.summary))
 }
 
+/// Persist the permission mode alone, leaving mode, model and thinking level
+/// as they are. Allowed while a turn runs; see
+/// `plans::gate_session_permission_change`.
+pub fn set_session_permission_mode(
+    db: &Database,
+    id: &str,
+    permission_mode: &str,
+) -> Result<Option<SessionSummary>> {
+    validate_permission_mode(permission_mode)?;
+    crate::plans::gate_session_permission_change(db, id)?;
+    let changed = db
+        .conn()
+        .prepare_cached("UPDATE sessions SET permission_mode = ?2, updated_at = ?3 WHERE id = ?1")?
+        .execute(params![id, permission_mode, now_ms()])?;
+    if changed == 0 {
+        return Ok(None);
+    }
+    Ok(get_session(db, id)?.map(|detail| detail.summary))
+}
+
 pub fn delete_session(db: &Database, id: &str) -> Result<bool> {
     let n = db
         .conn()

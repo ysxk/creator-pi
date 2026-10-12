@@ -481,7 +481,8 @@ Rules:
 
 - The session value is stored in `sessions.permission_mode`
   (`inherit | ask | accept-edits | auto`, default `inherit`, schema v5) and
-  set via `session.configure` `permissionMode`.
+  set via `session.configure` `permissionMode` while idle, or alone through
+  `session.setPermissionMode`, which also reaches a running turn (D670).
 - Plan's hard deny wins over every permission mode for Write/Edit and plugin
   tools that lack `planSafeActions`. `auto` cannot re-enable a hidden or denied tool.
 - Low-risk tools (`Read`/`Glob`/`Grep`) inside the session roots auto-allow in

@@ -768,10 +768,50 @@ export function createSessionSlice({
             config,
           ),
         );
+        // The permission mode is the one choice that reaches a running turn:
+        // the host resolves it for every tool call (D670). Hosts reached
+        // through another surface keep the staged, next-turn behaviour.
+        const source = get().sessions.find(
+          (session) => session.id === sessionId,
+        )?.source;
+        const livePermissionMode =
+          source !== "remote" && source !== "pi-native"
+            ? config.permissionMode
+            : undefined;
+        if (livePermissionMode === undefined) {
+          set((state) => ({
+            sessions: state.sessions.map((session) =>
+              session.id === sessionId
+                ? applyOptimisticSessionConfiguration(session, config)
+                : session,
+            ),
+          }));
+          return;
+        }
+        // The live write supersedes any permission mode staged earlier.
+        const staged = runtime.pendingSessionConfigurations.get(sessionId);
+        if (staged) {
+          const { permissionMode: _superseded, ...deferred } = staged;
+          runtime.pendingSessionConfigurations.set(sessionId, deferred);
+        }
+        const { permissionMode: _live, ...deferredConfig } = config;
         set((state) => ({
           sessions: state.sessions.map((session) =>
             session.id === sessionId
-              ? applyOptimisticSessionConfiguration(session, config)
+              ? applyOptimisticSessionConfiguration(session, deferredConfig)
+              : session,
+          ),
+        }));
+        // Shown only once the host has it: a refused change must not read as
+        // applied while the turn keeps running under the old mode.
+        const applied = await api.setSessionPermissionMode(
+          sessionId,
+          livePermissionMode,
+        );
+        set((state) => ({
+          sessions: state.sessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, permissionMode: applied.session.permissionMode }
               : session,
           ),
         }));

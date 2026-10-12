@@ -168,6 +168,11 @@ Plan/Goal `content = expanded text`/`command: string`/`content` 记录存在。�
 本地并仅在终止事件后调用此通道；跑步的
 回合永远不会观察到乐观的下一个回合选择。
 
+`pi-desktop/session/setPermissionMode(id, permissionMode)` 只更改权限模式并返回
+`{ session }`（D670）。回合运行中也接受，运行中回合的下一次工具调用即按新模式
+判定；只有待处理的 Plan/Goal 审批会拒绝它（`PLAN_CONFIGURATION_BLOCKED`）。它只
+服务本地会话：远程会话与原生 Pi 会话仍走上面的暂存路径。
+
 只有更改后的有效全局 `defaultCommandShell` 在所有范围内仅处于空闲状态
 受影响的会话：任何活动轮次或 pending/queued/running Plan/Goal 工作块
 该 shell 会发生变化，而省略的或幂等的 shell 字段则不会。

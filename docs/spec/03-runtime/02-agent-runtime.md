@@ -628,7 +628,12 @@ its own (ADR 0299).
 - Host configuration is mutable only while the session is idle. The renderer
   keeps mode/provider/model/thinking/permission controls editable during a run,
   treats the latest selection as next-turn state, and flushes one full
-  configuration after the terminal event.
+  configuration after the terminal event. The permission mode is the
+  exception (D670): on a local session the renderer writes it at once through
+  `session.setPermissionMode`, the host accepts it while the turn runs, and
+  the next tool call is evaluated under it. A permission request already on
+  screen still waits for its answer. The toolbar shows the new mode only once
+  the host has stored it.
 - Changing mode/provider/model/thinking level applies to the next turn and
   recreates the pi runtime when any runtime-affecting configuration changes;
   no in-flight runtime observes a queued renderer choice.

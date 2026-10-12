@@ -349,6 +349,11 @@ to later refresh and inference; the vendor picker does not collect them.
   `INVALID_PARAMS`; mode is `plan | goal | agent` and changing any session
   configuration is allowed only while idle and without a pending/queued/running
   Plan or Goal record
+- `session.setPermissionMode({ id, permissionMode })` — persists the permission
+  mode alone and returns `{ session }` (D670). Allowed while a turn or a Plan
+  execution runs, because every tool call resolves the mode when it is
+  evaluated; refused with `PLAN_CONFIGURATION_BLOCKED` only while an approval
+  is pending. An invalid mode returns `INVALID_PARAMS`
 - `session.moveProject({ sessionId, projectPath })` moves an idle session to a
   project and returns `{ session }` carrying the canonical project path. It
   upserts the project row and updates only `sessions.project_id` and

@@ -125,6 +125,28 @@ pub fn gate_session_configure(
     Ok(())
 }
 
+/// Gate a change of the permission mode alone.
+///
+/// Unlike the rest of a session's configuration this is allowed while a turn
+/// runs: every tool call resolves the mode when it is evaluated, so the change
+/// takes effect at the next call. A pending approval still blocks it, because
+/// resolving that approval is what selects the mode.
+pub fn gate_session_permission_change(db: &Database, session_id: &str) -> Result<()> {
+    expire_pending_approvals(db)?;
+    let pending: bool = db.conn().query_row(
+        "SELECT EXISTS(
+             SELECT 1 FROM plan_approvals
+             WHERE session_id = ?1 AND status = 'pending'
+         )",
+        params![session_id],
+        |row| row.get(0),
+    )?;
+    if pending {
+        return Err(plan_error("PLAN_CONFIGURATION_BLOCKED"));
+    }
+    Ok(())
+}
+
 impl PlanManager {
     pub fn enter(
         &self,

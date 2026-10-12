@@ -2654,6 +2654,28 @@ async fn handle_request(
             .ok_or_else(|| rpc_err(1007, "session not found", "NOT_FOUND"))?;
             Ok(json!({ "session": session }))
         }
+        "session.setPermissionMode" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            let permission_mode = params
+                .get("permissionMode")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "permissionMode required", "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let session = sessions::set_session_permission_mode(&st.db, id, permission_mode)
+                .map_err(|e| {
+                    let message = e.to_string();
+                    if message.starts_with("PLAN_") {
+                        plan_rpc_err(message)
+                    } else {
+                        rpc_err(1002, message, "INVALID_PARAMS")
+                    }
+                })?
+                .ok_or_else(|| rpc_err(1007, "session not found", "NOT_FOUND"))?;
+            Ok(json!({ "session": session }))
+        }
         "session.delete" => {
             let id = params
                 .get("id")
@@ -6258,6 +6280,95 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn session_set_permission_mode_rpc_applies_while_a_turn_runs() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let session = sessions::create_session_with_options(
+            &app_state.db,
+            sessions::SessionCreateOptions {
+                permission_mode: Some("ask".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        sessions::begin_turn(&app_state.db, &session.id, None, None).unwrap();
+        let state = Arc::new(Mutex::new(app_state));
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let evaluate = |state: Arc<Mutex<AppState>>, tx: mpsc::UnboundedSender<String>| {
+            let session_id = session.id.clone();
+            async move {
+                handle_request(
+                    state,
+                    "permissions.evaluate",
+                    json!({ "sessionId": session_id, "toolName": "Bash", "args": {} }),
+                    tx,
+                )
+                .await
+                .unwrap()
+            }
+        };
+
+        // The rest of the configuration stays idle-only.
+        let blocked = handle_request(
+            state.clone(),
+            "session.configure",
+            json!({ "id": session.id, "mode": "agent", "permissionMode": "auto" }),
+            tx.clone(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            blocked.data.unwrap()["errorCode"],
+            "PLAN_CONFIGURATION_BLOCKED"
+        );
+        assert!(evaluate(state.clone(), tx.clone()).await["decision"].is_null());
+
+        let widened = handle_request(
+            state.clone(),
+            "session.setPermissionMode",
+            json!({ "id": session.id, "permissionMode": "auto" }),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(widened["session"]["permissionMode"], "auto");
+        assert_eq!(widened["session"]["mode"], session.mode);
+        // The running turn's next tool call is evaluated under the new mode.
+        assert!(!evaluate(state.clone(), tx.clone()).await["decision"].is_null());
+
+        let narrowed = handle_request(
+            state.clone(),
+            "session.setPermissionMode",
+            json!({ "id": session.id, "permissionMode": "ask" }),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(narrowed["session"]["permissionMode"], "ask");
+        assert!(evaluate(state.clone(), tx.clone()).await["decision"].is_null());
+
+        let invalid = handle_request(
+            state.clone(),
+            "session.setPermissionMode",
+            json!({ "id": session.id, "permissionMode": "everything" }),
+            tx.clone(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(invalid.data.unwrap()["errorCode"], "INVALID_PARAMS");
+        let missing = handle_request(
+            state,
+            "session.setPermissionMode",
+            json!({ "id": "no-such-session", "permissionMode": "ask" }),
+            tx,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(missing.data.unwrap()["errorCode"], "NOT_FOUND");
+    }
+
+    #[tokio::test]
     async fn session_create_rpc_inherits_optional_permission_mode() {
         let data_dir = tempfile::tempdir().unwrap();
         let mut app_state = AppState::open(data_dir.path()).unwrap();
@@ -8599,6 +8710,20 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             configure_error.data.unwrap()["errorCode"],
+            "PLAN_CONFIGURATION_BLOCKED"
+        );
+        // Resolving the approval is what selects the mode, so the
+        // permission-only change waits for it too.
+        let permission_error = handle_request(
+            state.clone(),
+            "session.setPermissionMode",
+            json!({ "id": session.id, "permissionMode": "auto" }),
+            tx.clone(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            permission_error.data.unwrap()["errorCode"],
             "PLAN_CONFIGURATION_BLOCKED"
         );
 

@@ -209,7 +209,9 @@
 46. Plan recovery and shells: **a startup transaction marks prior pending,
     queued, and running Plan work interrupted before serving RPC, with no
     replay; an already-approved interrupted execution leaves the session Agent.
-    Configuration is idle-only and each session has one running turn.
+    Configuration is idle-only and each session has one running turn; the
+    permission mode alone may change while a turn runs and applies from the
+    next tool call (D670).
     The renderer may stage one latest next-turn configuration while a turn is
     running, but it submits that choice only after the host reports idle.
     `defaultCommandShell` selects the platform catalog entry; unavailable

@@ -409,7 +409,8 @@ MCP 工具调用会显示审批卡片，原因为 "MCP server tool requires appr
 
 - 会话值存储在 `sessions.permission_mode` 中
   （`inherit | ask | accept-edits | auto`，默认 `inherit`，架构 v5）和
-  通过 `session.configure` `permissionMode` 设置。
+  空闲时通过 `session.configure` `permissionMode` 设置，或单独通过
+  `session.setPermissionMode` 设置，后者对运行中的回合同样生效（D670）。
 - Plan 的硬拒绝胜过 Write/Edit 以及缺少 `planSafeActions` 的插件
   工具的所有权限模式。 `auto` 无法重新启用隐藏或拒绝的工具。
 - 会话根目录内的低风险工具（`allow-once`/`allow-session`/`deny`）自动允许

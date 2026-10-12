@@ -140,6 +140,8 @@ export const IPC = {
     /** Deterministic first-prompt title for a session that is still untitled. */
     sessionDeriveTitle: "pi-desktop/session/deriveTitle",
     sessionConfigure: "pi-desktop/session/configure",
+    /** Change the permission mode alone; unlike configure it reaches a running turn. */
+    sessionSetPermissionMode: "pi-desktop/session/setPermissionMode",
     sessionImportScan: "pi-desktop/session/importScan",
     sessionImportRun: "pi-desktop/session/importRun",
     modelConfigImportScan: "pi-desktop/modelConfig/importScan",

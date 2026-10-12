@@ -193,6 +193,13 @@ controls editable during a turn, but it queues the latest full configuration
 locally and invokes this channel only after the terminal event; the running
 turn never observes that optimistic next-turn choice.
 
+`pi-desktop/session/setPermissionMode(id, permissionMode)` changes the
+permission mode alone and returns `{ session }` (D670). It is accepted while a
+turn runs, and the running turn's next tool call is evaluated under the new
+mode; only a pending Plan/Goal approval refuses it
+(`PLAN_CONFIGURATION_BLOCKED`). It serves local sessions: a remote or native
+Pi session keeps the staged path above.
+
 Only a changed effective global `defaultCommandShell` is idle-only across all
 affected sessions: any active turn or pending/queued/running Plan/Goal work blocks
 that shell change, while an omitted or idempotent shell field does not.

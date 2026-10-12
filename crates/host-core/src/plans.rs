@@ -22,7 +22,9 @@ mod execution;
 mod model;
 mod repository;
 
-pub use approval::{expire_pending_approvals, gate_session_configure};
+pub use approval::{
+    expire_pending_approvals, gate_session_configure, gate_session_permission_change,
+};
 pub use model::{
     kind_for_mode, normalize_kind, PlanArtifact, PlanExecution, PlanHistoryEntry, PlanManager,
     PlanProposal, PlanResolution, PlanResolveParams, PlanSubmitParams, EXECUTION_COMPLETED,
