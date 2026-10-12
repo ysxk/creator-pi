@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const zhTWEntries: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-10-12",
+    highlights: [
+      "新任務裡選好的權限模式，送出第一則訊息後不再被重設。",
+      "只在你自己的服務裡列出的模型，現在依該服務回報的能力接收圖片、影片、音訊和文件，無需在設定裡重新勾選開關。",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-09",
     highlights: [

@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.1",
+    "date": "2026-10-12",
+    "highlights": [
+      "The permission mode chosen for a new task now stays in effect after its first message is sent.",
+      "A model that only your own service lists now takes images, video, audio and documents as that service reports, without re-ticking the switch in settings."
+    ]
+  },
+  {
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [
