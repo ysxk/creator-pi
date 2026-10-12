@@ -499,7 +499,9 @@ Collapsed (48px):
   64 px 启动画面；ADR 0125）。该组件订阅了
   `document.documentElement[data-theme]` 通过 `MutationObserver` 并交换
   运行时侧边栏和启动画面的源代码，无需重新加载。的
-  空首页英雄区只渲染标题，没有吉祥物或品牌标记（D671）。这
+  空首页英雄使用 100 像素的 `HomeMascotLogo` 静态图（D671）。浅色和深色主题
+  各有一张 PNG。CSS 跟随 `document.documentElement[data-theme]`，
+  无需重新加载；非 `light` 时使用深色稿。吉祥物不会动。这
 expanded/collapsed 侧边栏仍为 20px/18px 且启动画面为 64 像素。
   主目录和线程停靠的输入框提示行不会呈现领先品牌
   图标。

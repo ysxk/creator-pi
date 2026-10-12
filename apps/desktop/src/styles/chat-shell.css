@@ -713,6 +713,42 @@
   width: 100%;
 }
 
+.empty-hero-icon {
+  display: flex;
+  height: 100px;
+  width: 100px;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.home-mascot-logo {
+  display: block;
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.home-mascot-logo img {
+  display: none;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+:root:not([data-theme="light"]) .home-mascot-logo .home-mascot-dark,
+:root[data-theme="light"] .home-mascot-logo .home-mascot-light {
+  display: block;
+}
+
 .empty-hero h1 {
   margin: 0;
   max-width: min(100%, 42rem);

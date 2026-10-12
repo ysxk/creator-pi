@@ -16,6 +16,7 @@ const [
   chatSurface,
   composer,
   styles,
+  mascotLogo,
   rendererLanguage,
 ] = await Promise.all([
     read("../../../packages/i18n/src/locales/en/index.ts"),
@@ -27,6 +28,7 @@ const [
     read("../src/components/ChatSurface.tsx"),
     readComposerSource(),
     loadStyles(),
+    read("../src/components/HomeMascotLogo.tsx"),
     read("../src/lib/renderer-language.ts"),
   ]);
 
@@ -51,24 +53,41 @@ test("app chrome uses the shared brand asset without branding the composer input
   assert.match(brandLogo, /src=\{.*brandLogoUrl/);
   assert.match(icons, /export const IconNewSession/);
   assert.doesNotMatch(icons, /IconCodexHome|IconCompose|IconPiMark|IconPiHome/);
-  // The empty home carries no mascot or brand mark: the title stands alone.
-  for (const asset of [
-    "home-mascot-dark.gif",
-    "home-mascot-light.gif",
-    "home-mascot-still-dark.png",
-    "home-mascot-still-light.png",
-    "home-mascot-groups.png",
-  ]) {
+  // The empty-home mascot is a still image: one PNG per theme, no GIF.
+  await access(new URL("../src/assets/home-mascot-still-dark.png", import.meta.url));
+  await access(new URL("../src/assets/home-mascot-still-light.png", import.meta.url));
+  for (const asset of ["home-mascot-dark.gif", "home-mascot-light.gif", "home-mascot-groups.png"]) {
     await assert.rejects(() => access(new URL(`../src/assets/${asset}`, import.meta.url)));
   }
-  await assert.rejects(() => access(new URL("../src/components/HomeMascotLogo.tsx", import.meta.url)));
-  assert.doesNotMatch(chatSurface, /HomeMascotLogo|empty-hero-icon|home-icon/);
+  assert.match(chatSurface, /<HomeMascotLogo \/>/);
+  assert.match(mascotLogo, /import mascotDarkUrl from\s*"\.\.\/assets\/home-mascot-still-dark\.png"/);
+  assert.match(mascotLogo, /import mascotLightUrl from\s*"\.\.\/assets\/home-mascot-still-light\.png"/);
+  assert.match(mascotLogo, /className="home-mascot-logo"/);
+  assert.match(mascotLogo, /aria-hidden="true"/);
+  assert.match(mascotLogo, /className="home-mascot-dark"/);
+  assert.match(mascotLogo, /className="home-mascot-light"/);
+  assert.doesNotMatch(mascotLogo, /<svg/);
+  assert.doesNotMatch(
+    mascotLogo,
+    /\.gif|home-mascot-motion|home-mascot-groups\.png|home-mascot-orbit|Math\.random\(\)|setTimeout|backgroundPosition|onMouseEnter|onMouseLeave|useState|useEffect|matchMedia/,
+  );
   assert.doesNotMatch(chatSurface, /<BrandLogo/);
-  assert.doesNotMatch(styles, /home-mascot|empty-hero-icon/);
+  assert.match(styles, /\.empty-hero-icon\s*\{[\s\S]*?height:\s*100px;[\s\S]*?width:\s*100px;/);
+  assert.match(
+    styles,
+    /\.home-mascot-logo\s*\{[\s\S]*?display:\s*block;[\s\S]*?width:\s*100px;[\s\S]*?height:\s*100px;/,
+  );
+  assert.match(
+    styles,
+    /:root:not\(\[data-theme="light"\]\) \.home-mascot-logo \.home-mascot-dark,\s*:root\[data-theme="light"\] \.home-mascot-logo \.home-mascot-light \{\s*display:\s*block;/,
+  );
+  // Nothing about the mascot moves, in any motion preference.
+  assert.doesNotMatch(styles, /home-mascot-motion|home-mascot-still/);
   assert.match(
     rendererLanguage,
     /if \(request === languageRequest\)\s*document\.documentElement\.lang = target/,
   );
+  assert.doesNotMatch(styles, /@keyframes home-mascot-orbit|@keyframes home-mascot-breathe|@keyframes home-mascot-blink/);
   assert.doesNotMatch(styles, /background-size:\s*5000px 100px|image-rendering:\s*pixelated/);
   assert.doesNotMatch(composer, /<BrandLogo/);
   assert.doesNotMatch(composer, /composer-thread-mark/);

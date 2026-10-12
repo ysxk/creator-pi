@@ -125,8 +125,10 @@ Codex as a visual reference. The identity contract is deliberately small:
   and NSIS shortcut identity stay aligned so native notifications,
   notification settings, and taskbar groups identify the app as `PI-Desktop`
   rather than Electron.
-- The empty-home hero carries no mascot or brand mark (D671): the title stands
-  alone above the composer, and nothing on the empty home animates.
+- The empty-home hero uses a 100px `HomeMascotLogo` still image (D671): the
+  mascot's resting pose as one PNG per theme. CSS selects it from
+  `document.documentElement[data-theme]`; anything other than `light` uses the
+  dark artwork. The mascot never animates, whatever the motion preference.
   `BrandLogo` remains 20px/18px in the expanded/collapsed sidebar and 64px in
   the startup splash. Composer prompt rows do not render a leading brand icon
   in either home or thread-docked mode.
@@ -789,7 +791,7 @@ are also explicitly suppressed or collapsed to a static state.
 
 - No parallax
 - No continuous background animations (particles, waves), and no looping
-  mascot on the empty home (D671)
+  mascot: the empty-home mascot is a still image (D671)
 - No shimmer/skeleton animations longer than 1s loop — use simple fade-in for loading states
 - No bounce effects
 - No multi-second boot theatrical sequences; splash exits as soon as ready (+ min dwell)
@@ -863,9 +865,9 @@ model):
   controls remain icon-only and use the semantic hover wash
 - Empty hero title uses `var(--ds-text-primary)` (light override `#1a1c1f`);
   never hardcode light ink for shared hero styles
-- Empty-home branding stays quiet: the hero is the title alone, with no
-  mascot and no animated mark (D671), so the composer remains the primary
-  task surface.
+- Empty-home branding stays quiet: the 100px mascot is a still image, one
+  PNG per theme, and nothing on the empty home animates (D671), so the
+  composer remains the primary task surface.
 - Night home composer plate styles are **dark-scoped only** (elevated-primary
   `#212121f5` + standard elevation-prominent)
 - Empty draft row keeps **one visible line / 28px optical minimum** so the

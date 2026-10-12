@@ -3837,12 +3837,14 @@ window; opening a normal panel afterward must still work.
 - **Preconditions**: App running in both English and zh-CN locales, with an
   empty home and a docked transcript available.
 - **Steps**: 1) Inspect the expanded and collapsed sidebar. 2) Inspect the
-  empty-home hero and docked composer. 3) Confirm the empty-home hero shows
-  the title with no mascot, image, or animation above it. 4) Focus the footer Settings and Plugins icons, then each
+  empty-home hero and docked composer. 3) Watch the mascot for several
+  seconds and move the pointer over it; confirm it stays a still image.
+  4) Focus the footer Settings and Plugins icons, then each
   project/Temporary session create control. 5) Open Settings and the composer
   input.
 - **Expected**: Visible shell identity reads `PI-Desktop`; the empty-home hero
-  renders the title alone, with no mascot or animated mark (D671).
+  renders the theme-matching 100px `HomeMascotLogo` still image, which never
+  animates (D671).
   The expanded/collapsed
   sidebar renders the derived `src/assets/brand/logo-*.png` asset through `BrandLogo`
   and the docked composer prompt row has no leading
@@ -6059,7 +6061,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Steps**:
   1. In light mode, open the app shell, an empty chat home, and the expanded sidebar (Windows/Linux) or startup splash.
   2. Inspect the rendered `BrandLogo` source in the sidebar and startup splash,
-     and confirm the empty-home hero shows the title with no mascot.
+     and inspect the light `HomeMascotLogo` still image in the empty-home
+     hero. Verify that it does not animate.
   3. Switch the theme to dark (Settings → General → Appearance, or system appearance change).
   4. Re-inspect the same surfaces without reloading.
   5. Switch back to light and re-inspect.
@@ -6067,9 +6070,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   - Light and dark mode render `src/assets/brand/logo-light.png` /
     `src/assets/brand/logo-dark.png`
     live in the sidebar and startup splash without a window reload.
-  - The empty-home hero shows the title alone in both themes, with no
-    mascot (D671).
-  - Sizes stay stable across theme changes (sidebar 20px, splash
+  - The empty-home hero renders the 100px still mascot for the active theme
+    (`home-mascot-still-light.png` / `home-mascot-still-dark.png`). Switching
+    theme swaps it live without a window reload, and it never animates.
+  - Sizes stay stable across theme changes (sidebar 20px, hero 100px, splash
     64px), and the marks stay decorative with no click, keyboard, or focus
     behavior.
 - **Specs linked**: `04-ux/08-component-spec.md` §3.7, `04-ux/07-ui-design-system.md`
@@ -9945,8 +9949,9 @@ This test plan spec is accepted when:
   row, with no Logo/Home brand or back/forward buttons.
 
 ### US-UI-17 PI-Desktop home hero logo
-- On empty chat home the hero is the title alone: no mascot, image, or
-  animation renders above it (D671).
+- On empty chat home, the 100px `HomeMascotLogo` renders above the title as a
+  still image. Light and dark themes each use a dedicated PNG.
+- The mascot never animates (D671) and remains decorative.
 - Title is 28px / weight 400; active project name uses dotted underline (1px, offset 4px).
 - Composer does not render attachment or appshot controls before their payload
   reaches pi end to end.
