@@ -10,6 +10,7 @@ import {
   proxyHasCredentials,
   redactProxyUrl,
   restoreProxyEnv,
+  settingsForInactiveProxyMode,
   snapshotProxyEnv,
   stripProxyEnv,
   validateNetworkProxy,
@@ -157,6 +158,55 @@ describe("validateNetworkProxy", () => {
         bypass: "localhost,10.8.0.0/24",
       },
     });
+  });
+
+  it("uses the current drafts when switching before blur persistence finishes", () => {
+    expect(
+      settingsForInactiveProxyMode(
+        "system",
+        {
+          mode: "custom",
+          url: "socks5://127.0.0.1:1080",
+          bypass: "localhost",
+        },
+        "socks5://127.0.0.1:7891",
+        "localhost,10.8.0.0/24",
+      ),
+    ).toEqual({
+      mode: "system",
+      url: "socks5://127.0.0.1:7891",
+      bypass: "localhost,10.8.0.0/24",
+    });
+  });
+
+  it("retains the last valid URL when the draft is invalid and uses the default for a cleared bypass", () => {
+    expect(
+      settingsForInactiveProxyMode(
+        "direct",
+        {
+          mode: "custom",
+          url: "http://127.0.0.1:7890",
+          bypass: "localhost,10.8.0.0/24",
+        },
+        "not-a-proxy",
+        "   ",
+      ),
+    ).toEqual({
+      mode: "direct",
+      url: "http://127.0.0.1:7890",
+      bypass: DEFAULT_NETWORK_PROXY_BYPASS,
+    });
+  });
+
+  it("does not add default proxy values to a profile without a saved proxy", () => {
+    expect(
+      settingsForInactiveProxyMode(
+        "direct",
+        { mode: "system" },
+        "",
+        DEFAULT_NETWORK_PROXY_BYPASS,
+      ),
+    ).toEqual({ mode: "direct" });
   });
 });
 

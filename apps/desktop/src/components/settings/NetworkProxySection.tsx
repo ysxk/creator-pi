@@ -11,6 +11,7 @@ import {
   DEFAULT_NETWORK_PROXY_BYPASS,
   isRelaxedNetworkPolicy,
   parseProxyUrl,
+  settingsForInactiveProxyMode,
   validateNetworkProxy,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
@@ -68,10 +69,11 @@ export function NetworkProxySection({
     if (mode === saved.mode) return;
     setTestState("idle");
     if (mode !== "custom") {
-      // Carry the custom URL and bypass across the switch: the mode is what
-      // changes, and picking Custom again must restore the user's own proxy
-      // instead of the built-in default (issue #1541).
-      void persist({ mode, url: saved.url, bypass: saved.bypass });
+      // Blur can start an async save, so read the current drafts here instead
+      // of relying on `saved` to have refreshed before this click completes.
+      void persist(
+        settingsForInactiveProxyMode(mode, saved, urlDraft, bypassDraft),
+      );
       return;
     }
     const parsed = parseProxyUrl(urlDraft);

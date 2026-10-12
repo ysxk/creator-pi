@@ -13296,9 +13296,10 @@ are withdrawn with ADR 0165.
      localhost / 127.0.0.1 / ::1 / `<local>`, and Test. Enter
      `not-a-proxy` and blur. Confirm an inline invalid-URL error and that
      settings are not saved.
-  3. Enter `socks5://127.0.0.1:1080` or `http://127.0.0.1:7890` and blur.
-     Confirm `AppSettings.networkProxy.mode` is `custom` after
-     `settings.get`.
+  3. Enter `socks5://127.0.0.1:1080` or `http://127.0.0.1:7890`, then select
+     System immediately without clicking elsewhere. Confirm `settings.get`
+     retains the URL and Bypass while `mode` is `system`. Select Custom again
+     and confirm both values return to the fields and `mode` is `custom`.
   4. Click Test against a listening proxy. Confirm a Connected status. Click
      Test against a closed port. Confirm a failure status without changing
      the saved URL. Enter `http://user:pass@127.0.0.1:<auth-port>` and

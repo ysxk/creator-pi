@@ -229,6 +229,31 @@ export function validateNetworkProxy(
   return { ok: true, value: next };
 }
 
+/**
+ * Build settings when leaving Custom. The input blur handler may still be
+ * saving when the mode control is clicked, so use the current drafts and keep
+ * the last valid URL if the draft is invalid.
+ */
+export function settingsForInactiveProxyMode(
+  mode: Exclude<NetworkProxyMode, "custom">,
+  saved: NetworkProxySettings,
+  urlDraft: string,
+  bypassDraft: string,
+): NetworkProxySettings {
+  const parsedUrl = parseProxyUrl(urlDraft);
+  const url = parsedUrl.ok ? parsedUrl.value.href : saved.url;
+  const effectiveBypass = bypassDraft.trim() || DEFAULT_NETWORK_PROXY_BYPASS;
+  const savedEffectiveBypass = saved.bypass ?? DEFAULT_NETWORK_PROXY_BYPASS;
+  const bypass =
+    effectiveBypass === savedEffectiveBypass ? saved.bypass : effectiveBypass;
+
+  return {
+    mode,
+    ...(url ? { url } : {}),
+    ...(bypass ? { bypass } : {}),
+  };
+}
+
 export type ChromiumProxyConfig =
   | { mode: "system" }
   | { mode: "direct" }
