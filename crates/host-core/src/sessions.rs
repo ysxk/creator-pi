@@ -2043,12 +2043,23 @@ pub fn auto_title_context(db: &Database, id: &str) -> Result<Option<AutoTitleCon
     if user_prompt.trim().is_empty() {
         return Ok(None);
     }
+    // The reply must belong to the first turn. A stored turn id says so
+    // directly. A first message without one is a permitted persisted state,
+    // and then the next user message is the boundary: a first prompt that got
+    // no reply must not be paired with the reply to a later one.
     let assistant_reply: Option<String> = db
         .conn()
         .query_row(
             "SELECT text FROM messages
              WHERE session_id = ?1 AND role = 'assistant' AND text IS NOT NULL AND seq > ?2
-               AND (?3 IS NULL OR turn_id = ?3)
+               AND (
+                 (?3 IS NOT NULL AND turn_id = ?3)
+                 OR (?3 IS NULL AND NOT EXISTS (
+                   SELECT 1 FROM messages AS later
+                   WHERE later.session_id = ?1 AND later.role = 'user'
+                     AND later.seq > ?2 AND later.seq < messages.seq
+                 ))
+               )
              ORDER BY seq ASC LIMIT 1",
             params![id, user_seq, turn_id],
             |row| row.get(0),
@@ -5000,6 +5011,34 @@ mod tests {
         assert_eq!(context.user_prompt, "p".repeat(1_000));
         assert_eq!(context.assistant_reply, Some("r".repeat(500)));
         assert_eq!(context.model_key.as_deref(), Some("provider/model"));
+    }
+
+    #[test]
+    fn auto_title_context_never_borrows_a_later_turns_reply() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+        // The first prompt is stored without a turn id and got no reply.
+        append_message(
+            &db,
+            &session.id,
+            &user_msg("user-1", "first prompt", "2026-01-01T00:00:01Z"),
+            None,
+        )
+        .unwrap();
+        append_message(
+            &db,
+            &session.id,
+            &user_msg("user-2", "later prompt", "2026-01-01T00:00:02Z"),
+            None,
+        )
+        .unwrap();
+        let mut later_reply = user_msg("assistant-2", "later reply", "2026-01-01T00:00:03Z");
+        later_reply.role = "assistant".into();
+        append_message(&db, &session.id, &later_reply, None).unwrap();
+
+        let context = auto_title_context(&db, &session.id).unwrap().unwrap();
+        assert_eq!(context.user_prompt, "first prompt");
+        assert_eq!(context.assistant_reply, None);
     }
 
     #[test]
