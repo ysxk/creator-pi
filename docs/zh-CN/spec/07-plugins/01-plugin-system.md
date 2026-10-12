@@ -501,6 +501,12 @@ MCP、技能和子代理由设置 > 智能体下的三个独立页面管理，�
 - 恢复失败报告 `UNAVAILABLE`，并沿用现有失败策略（编辑或测试连接后再试），
   而不是每次调用都反复连接。已移除的工具返回 `TOOL_NOT_FOUND`。恢复从不
   重放失败的 `tools/call`，因为那次调用可能已经产生过副作用。
+- 被服务器结束的 Streamable HTTP 会话是唯一的例外（D677）。当服务器对带着它所
+  签发的 `Mcp-Session-Id` 的请求返回 HTTP 404 时，客户端按 MCP 传输规范的要求，
+  用一个不带会话编号的新 `InitializeRequest` 开启新会话，并把这一个请求再发一次：
+  服务器在执行之前就拒绝了它。被同一个已结束会话拦下的多个调用共享一次握手；
+  再次被拒绝则把错误交给调用方；没有带会话编号的请求收到 404 仍是普通的 HTTP 错误。
+  握手进行中到来的调用会等它完成，所以不会有请求早于服务器对 `initialize` 的回答发出。
 
 - Streamable HTTP `202 Accepted` acknowledgements for notifications and client
   responses are not JSON-RPC replies. Any acknowledgement body is discarded,

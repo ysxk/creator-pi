@@ -523,6 +523,15 @@ Rules the control encodes:
   policy (edit or Test connection to retry), rather than repeatedly connecting
   on each call. Removed tools return `TOOL_NOT_FOUND`. Recovery never replays a
   failed `tools/call`, which may already have performed a mutation.
+- An ended Streamable HTTP session is the one exception (D677). When the server
+  answers HTTP 404 to a request that carried the `Mcp-Session-Id` it issued,
+  the client starts a new session with a new `InitializeRequest` that carries
+  no session id, as the MCP transport specification requires, and sends that
+  one request again: the server refused it before running it. Calls caught by
+  the same ended session share one handshake, a second refusal reaches the
+  caller, and a 404 for a request that carried no session id stays an ordinary
+  HTTP error. A caller that arrives while a handshake is in progress waits for
+  it, so no request is sent before the server has answered `initialize`.
 
 - Streamable HTTP `202 Accepted` acknowledgements for notifications and client
   responses are not JSON-RPC replies. Any acknowledgement body is discarded,

@@ -64,6 +64,13 @@ export type McpTransportHandlers = {
 
 type McpError = Error & { code?: string };
 
+/**
+ * The server answered 404 for a session id it had issued: it ended that
+ * session, and the client must start a new one (transport spec, Session
+ * Management). Any other 404 is an ordinary HTTP error.
+ */
+const MCP_SESSION_EXPIRED = "SESSION_EXPIRED";
+
 function mcpError(code: string, message: string): McpError {
   const error = new Error(message) as McpError;
   error.code = code;
@@ -422,6 +429,7 @@ function createHttpTransport(
           const requestHeaders = headersForMcpRequest(options.headers, options.url, url);
           const currentOrigin = new URL(url).origin;
           const initialOrigin = new URL(options.url).origin;
+          const sentSessionId = currentOrigin === initialOrigin ? sessionId : undefined;
           const response = await fetchImpl(url, {
             method: "POST",
             headers: {
@@ -429,9 +437,7 @@ function createHttpTransport(
               "content-type": "application/json",
               accept: "application/json, text/event-stream",
               "mcp-protocol-version": MCP_PROTOCOL_VERSION,
-              ...(currentOrigin === initialOrigin && sessionId
-                ? { "mcp-session-id": sessionId }
-                : {}),
+              ...(sentSessionId ? { "mcp-session-id": sentSessionId } : {}),
             },
             body: JSON.stringify(message),
             redirect: "manual",
@@ -468,6 +474,10 @@ function createHttpTransport(
               await response.body?.cancel();
             } catch {
               // The status is sufficient for the structured MCP error.
+            }
+            if (response.status === 404 && sentSessionId) {
+              if (sessionId === sentSessionId) sessionId = undefined;
+              throw mcpError(MCP_SESSION_EXPIRED, "mcp server ended the session");
             }
             throw mcpError("HTTP_ERROR", `mcp server returned ${response.status}`);
           }
@@ -575,8 +585,11 @@ export class McpServerClient {
   }
 
   async connect(): Promise<McpTool[]> {
-    if (this.transport) return this.tools;
+    // The handshake in progress comes first: its transport is already set, and
+    // a caller that took that for a live connection would send its request
+    // before the server answered `initialize`.
     if (this.connecting) return this.connecting;
+    if (this.transport) return this.tools;
     this.connecting = this.handshake().finally(() => {
       this.connecting = null;
     });
@@ -603,7 +616,7 @@ export class McpServerClient {
     if (signal?.aborted) throw mcpError("TOOL_ABORTED", "mcp tool call aborted");
     const started = Date.now();
     try {
-      const result = (await this.request(
+      const result = (await this.sessionRequest(
         "tools/call",
         { name: toolName, arguments: args ?? {} },
         this.opts.callTimeoutMs ?? MCP_CALL_TIMEOUT_MS,
@@ -622,7 +635,7 @@ export class McpServerClient {
 
   /** Probe a live connection without changing its discovered tool catalog. */
   async ping(timeoutMs = 5_000): Promise<void> {
-    await this.request("ping", {}, timeoutMs);
+    await this.sessionRequest("ping", {}, timeoutMs);
   }
 
   close(): void {
@@ -777,6 +790,45 @@ export class McpServerClient {
       seenCursors.add(next);
       cursor = next;
     }
+  }
+
+  /**
+   * A request on the current session that survives the server ending it.
+   *
+   * A server may end a session at any time and then answers its id with 404;
+   * the client must start a new session with a new `InitializeRequest` that
+   * carries no id. The request that met the 404 was refused before it ran, so
+   * it is sent once more on the new session. A second refusal, or a handshake
+   * that fails, reaches the caller: this never loops.
+   */
+  private async sessionRequest(
+    method: string,
+    params: unknown,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    const transport = this.transport;
+    try {
+      return await this.request(method, params, timeoutMs, signal);
+    } catch (error) {
+      if ((error as McpError).code !== MCP_SESSION_EXPIRED || !transport) throw error;
+      await this.renewSession(transport);
+      return this.request(method, params, timeoutMs, signal);
+    }
+  }
+
+  /**
+   * Replace an ended session. Requests still in flight on it each meet the
+   * same 404 and arrive here as well: the first drops the session and they
+   * all wait on one handshake. The ended transport is left to finish those
+   * requests rather than closed, which would fail them as unavailable.
+   */
+  private renewSession(ended: McpTransport): Promise<McpTool[]> {
+    if (this.transport === ended) {
+      this.transport = null;
+      this.tools = [];
+    }
+    return this.connect();
   }
 
   private request(method: string, params: unknown, timeoutMs: number, signal?: AbortSignal): Promise<unknown> {

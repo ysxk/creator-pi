@@ -964,3 +964,179 @@ test("a refused catalog kills the stdio child instead of leaving it behind", asy
   }
   assert.fail("stdio mcp child survived a refused handshake");
 });
+
+/**
+ * Streamable-HTTP stub with real session management: it issues a fresh id on
+ * each `initialize` and answers 404 for an id it no longer holds, as the
+ * transport spec requires of a server that ended a session.
+ */
+async function startSessionServer(t, { issueSessions = true, alwaysExpired = false } = {}) {
+  const requests = [];
+  const live = new Set();
+  let issued = 0;
+  let toolRuns = 0;
+  const server = createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const message = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      const session = req.headers["mcp-session-id"];
+      requests.push({ method: message.method, session });
+      const reply = (result, headers = {}) => {
+        res.writeHead(200, { "content-type": "application/json", ...headers });
+        res.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }));
+      };
+      if (message.method === "initialize") {
+        const headers = {};
+        if (issueSessions) {
+          const id = `sess-${++issued}`;
+          if (!alwaysExpired) live.add(id);
+          headers["mcp-session-id"] = id;
+        }
+        reply({ protocolVersion: message.params.protocolVersion, capabilities: { tools: {} } }, headers);
+        return;
+      }
+      if (session !== undefined ? !live.has(session) : !issueSessions && message.method === "tools/call") {
+        res.writeHead(404, { "content-type": "text/plain" }).end("Not Found");
+        return;
+      }
+      if (message.method === "notifications/initialized") {
+        res.writeHead(202).end();
+        return;
+      }
+      if (message.method === "tools/list") {
+        reply({ tools: [{ name: "whoami", description: "Session id", inputSchema: { type: "object" } }] });
+        return;
+      }
+      if (message.method === "tools/call") {
+        toolRuns += 1;
+        reply({ content: [{ type: "text", text: String(session) }] });
+        return;
+      }
+      reply({});
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  return {
+    url: `http://127.0.0.1:${server.address().port}/mcp`,
+    requests,
+    /** The server ends every session it holds. */
+    expire: () => live.clear(),
+    toolRuns: () => toolRuns,
+  };
+}
+
+function sessionClient(t, url) {
+  const client = new McpServerClient({
+    pluginId: "com.example.remote",
+    rootPath: mkdtempSync(join(tmpdir(), "pi-mcp-http-")),
+    server: { id: "remote", transport: "http", url },
+    values: {},
+    connectTimeoutMs: 5_000,
+    callTimeoutMs: 5_000,
+  });
+  t.after(() => client.close());
+  return client;
+}
+
+test("a 404 for an ended session starts a new session and the call goes through", async (t) => {
+  const server = await startSessionServer(t);
+  const client = sessionClient(t, server.url);
+  assert.equal(describeMcpContent((await client.callTool("whoami", {})).content), "sess-1");
+
+  server.expire();
+  server.requests.length = 0;
+  const result = await client.callTool("whoami", {});
+
+  assert.equal(describeMcpContent(result.content), "sess-2");
+  assert.deepEqual(server.requests, [
+    { method: "tools/call", session: "sess-1" },
+    // The new InitializeRequest carries no session id.
+    { method: "initialize", session: undefined },
+    { method: "notifications/initialized", session: "sess-2" },
+    { method: "tools/list", session: "sess-2" },
+    { method: "tools/call", session: "sess-2" },
+  ]);
+  // The refused request never ran, so the tool ran once per call.
+  assert.equal(server.toolRuns(), 2);
+  assert.equal(client.isConnected(), true);
+  // The new session stays in use.
+  assert.equal(describeMcpContent((await client.callTool("whoami", {})).content), "sess-2");
+});
+
+test("a ping on an ended session recovers the same way", async (t) => {
+  const server = await startSessionServer(t);
+  const client = sessionClient(t, server.url);
+  await client.connect();
+  server.expire();
+  server.requests.length = 0;
+
+  await client.ping();
+
+  assert.deepEqual(
+    server.requests.map((request) => request.method),
+    ["ping", "initialize", "notifications/initialized", "tools/list", "ping"],
+  );
+  assert.equal(server.requests.at(-1).session, "sess-2");
+});
+
+test("calls caught by the same ended session share one new session", async (t) => {
+  const server = await startSessionServer(t);
+  const client = sessionClient(t, server.url);
+  await client.connect();
+  server.expire();
+  server.requests.length = 0;
+
+  const results = await Promise.all([
+    client.callTool("whoami", {}),
+    client.callTool("whoami", {}),
+    client.callTool("whoami", {}),
+  ]);
+
+  assert.deepEqual(results.map((result) => describeMcpContent(result.content)), ["sess-2", "sess-2", "sess-2"]);
+  assert.equal(server.requests.filter((request) => request.method === "initialize").length, 1);
+  // None of them was sent before the new session's handshake had finished.
+  const listed = server.requests.findIndex((request) => request.method === "tools/list");
+  assert.deepEqual(
+    server.requests.slice(listed + 1),
+    Array.from({ length: 3 }, () => ({ method: "tools/call", session: "sess-2" })),
+  );
+});
+
+test("a call made while the handshake runs waits for it", async (t) => {
+  const server = await startSessionServer(t);
+  const client = sessionClient(t, server.url);
+
+  // Two calls on a client that has never connected: one handshake, and no
+  // request ahead of the server's answer to `initialize`.
+  const results = await Promise.all([client.callTool("whoami", {}), client.callTool("whoami", {})]);
+
+  assert.deepEqual(results.map((result) => describeMcpContent(result.content)), ["sess-1", "sess-1"]);
+  assert.deepEqual(
+    server.requests.map((request) => request.method),
+    ["initialize", "notifications/initialized", "tools/list", "tools/call", "tools/call"],
+  );
+});
+
+test("a server that refuses every session fails the call instead of looping", async (t) => {
+  const server = await startSessionServer(t, { alwaysExpired: true });
+  const client = sessionClient(t, server.url);
+
+  // The handshake itself meets the 404, on `notifications/initialized`.
+  await assert.rejects(client.callTool("whoami", {}), (error) => error.code === "SESSION_EXPIRED");
+  assert.equal(server.requests.filter((request) => request.method === "initialize").length, 1);
+  assert.equal(client.isConnected(), false);
+});
+
+test("a 404 without a session id is an ordinary http error", async (t) => {
+  const server = await startSessionServer(t, { issueSessions: false });
+  const client = sessionClient(t, server.url);
+
+  await assert.rejects(
+    client.callTool("whoami", {}),
+    (error) => error.code === "HTTP_ERROR" && /404/.test(error.message),
+  );
+  // Nothing says the session ended, so no new one is started.
+  assert.equal(server.requests.filter((request) => request.method === "initialize").length, 1);
+});
