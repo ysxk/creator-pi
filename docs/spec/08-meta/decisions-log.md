@@ -66,6 +66,8 @@ This log freezes previously open questions into concrete decisions.
 | D671 | The empty-home mascot is a still image | **Amend D293 and D294 (ADR 0152) in this fork: `HomeMascotLogo` shows the mascot's resting pose as one PNG per theme and never animates, in any motion preference. The two GIFs are removed; the 100px hero slot, theme selection and decorative role stay.** | The user found the looping wave distracting on a screen they see every time they start a task, and wanted the mascot kept as long as it holds still. |
 | D672 | A finished checklist leaves with its turn | **TodoDock hides a checklist whose items are all completed or cancelled once the turn that finished it ends. While that turn runs the finished checklist stays, so the last item is seen being ticked. It does not return in a later turn: during a run it shows only if it was written after the latest prompt (steering excluded). A checklist with open work is unaffected. Renderer-only; the host still stores the checklist and `todos.get` still returns it.** | A finished list stayed above the composer until the agent happened to rewrite or clear it, which could be never, and the user saw a done list hanging there. |
 | D673 | Media a model read never rides the main agent's tool event, and an oversized append cannot stall the outbox | **(1) The main agent strips media bytes from the `tool_end` event it emits, as the delegate and native Pi paths already did (D660, D667); the result the agent loop keeps for the model is untouched. (2) The persistence outbox treats `request line exceeds 64 MiB` as permanent: a tool row is retried once with a note in place of its content and result, and anything still too large, or not a tool row, is dropped with an error log.** | A Read of a clip or recording of about 30 MB put its base64 in the event, the tool row stored it twice (`content` and `toolResult`), the append exceeded the host's request limit, and the outbox kept retrying that head, which blocked persistence for every session and survived a restart. |
+| D674 | The host reports subagent candidates; the capped merge picks between namesakes | **Amend D658: `agents.active` no longer removes a global document because an enabled project document has the same handle. Both travel with their level, and `mergeSubagentDefinitions`, which owns the project cap, gives the project one precedence or falls back to the global one when the project document is past the cap. A switched-off project document still removes the global one in the host and reports its handle.** | The host removed the global document before the runtime applied the cap of eight project documents, so a ninth project document and its global namesake were both unavailable, against the merge's own rule that an over-cap project document does not claim its name. |
+| D675 | Media in a tool result needs the model's image input | **Amend D660 and D667: a clip or recording a model reads is attached to the tool result only when the model takes that medium, the API can carry it, and the model's image input is on. With image input off the result states that nothing was attached and points to attaching the file to a message, and the `Read` description makes no media promise.** | The media rides an image-typed block, and pi-ai replaces every image-typed tool block with a placeholder for a model without image input, so the bytes were dropped while the result claimed they were attached. Declining honestly was chosen over patching three pi-ai gates for a rare configuration. |
 
 ## B. Secondary implementation defaults
 
@@ -7731,3 +7733,20 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - Covered by the event-boundary tests in
   `packages/agent-runtime/src/runtime.test.ts` and the two oversized-row tests
   in `apps/desktop/test/persistence-outbox.test.mjs`.
+
+## 2026-10-12 — Three review findings (D674, D675, auto-title boundary)
+
+- D674: `user_subagents::merge_active_records` keeps the global document
+  beside an enabled project document of the same handle. Covered by
+  `a_project_past_its_cap_leaves_the_global_namesake_to_fall_back_on` and two
+  loader tests in `packages/agent-runtime/src/subagent-definitions.test.ts`.
+  Name precedence is by declared name in the runtime, as it already was for
+  builtins.
+- D675: `tool-result-media.ts` names what blocks delivery (`modality`, `api`,
+  `image-input`) and words the third case on its own. Covered by
+  `tool-result-media.test.ts`.
+- `sessions::auto_title_context`: a first user message stored without a turn
+  id is now bounded by the next user message, so a first prompt with no reply
+  yields no reply instead of a later turn's. This restores the documented
+  first-turn contract of `session.autoTitle`; no decision changes. Covered by
+  `auto_title_context_never_borrows_a_later_turns_reply`.
