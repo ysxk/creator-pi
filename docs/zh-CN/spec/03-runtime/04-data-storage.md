@@ -1363,7 +1363,9 @@ UI投影损失
 `{sessionId}:{id}`；重放原始 id 对该改写行无操作。outbox 将
 `UNIQUE constraint failed: messages.id` 当作确认并继续排空（D444）。带
 `PERMISSION_DENIED:` 前缀的永久拒绝同样丢弃该行以便 FIFO 继续；
-`PLUGIN_PERMISSION_DENIED` 和其他宿主失败仍暂停（D597）。1024 条上限在尝试 flush 后仍满时，
+`PLUGIN_PERMISSION_DENIED` 和其他宿主失败仍暂停（D597）。请求行超过宿主 64 MiB 上限的追加
+同样每次重试都会失败（D673）：工具行会以一条说明代替其内容与结果后再存一次；仍然过大、或不是
+工具行的条目则被丢弃，所以一个过大的队首不会拖住其他会话。1024 条上限在尝试 flush 后仍满时，
 enqueue 会记录被拒 key/session 并 reject，不会谎报已入队；通用外键错误不会被当作确认。
 向已认领的协作投递回合做 steering 是额外的人类输入：必须指向该投递的会话，
 不受投递内容/附件契约约束，不继承投递来源，并清掉客户端带来的

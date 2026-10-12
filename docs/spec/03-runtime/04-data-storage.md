@@ -965,7 +965,10 @@ type Block =
   override): the block's `kind` is `video`, bytes are content-addressed the
   same way, and a non-video or oversized turn keeps the `@path` fallback. A clip
   the model watched by reading a file is not stored at all: the tool row keeps
-  the host's reference and a note in place of the bytes (D660). Audio follows
+  the host's reference and a note in place of the bytes (D660). That holds for
+  the main agent, a delegate and a native Pi session alike: each strips the
+  bytes from the `tool_end` event it emits, while the model's own copy of the
+  result stays whole (D673). Audio follows
   the same contract (D667): the block's `kind` is `audio`, it has its own 100 MB
   inline bound and replay pool, its gate is the published `audio` input modality
   or the binding's `supportsAudio` override, and a recording the model heard by
@@ -1724,7 +1727,11 @@ no-op against that remapped row. The outbox treats
 `UNIQUE constraint failed: messages.id` as an ack and keeps draining (D444).
 A permanently rejected append whose host error carries a `PERMISSION_DENIED:`
 prefix is likewise dropped so the FIFO can continue; `PLUGIN_PERMISSION_DENIED`
-and other host failures still pause (D597). When the 1024-entry cap remains
+and other host failures still pause (D597). An append whose request line
+exceeds the host's 64 MiB limit also fails on every retry (D673): a tool row
+is stored once more with a note in place of its content and result, and a row
+that is still too large, or is not a tool row, is dropped, so one oversized
+head never holds back other sessions. When the 1024-entry cap remains
 full after a flush attempt, enqueue logs the rejected key/session and rejects;
 it does not report that entry as queued. Generic foreign-key errors are not
 treated as acknowledgements. Steering into a claimed collaboration delivery

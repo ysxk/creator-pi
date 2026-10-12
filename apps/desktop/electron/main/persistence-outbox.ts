@@ -120,6 +120,24 @@ export class PersistenceOutbox {
             key: current.key,
             data: String(error),
           });
+        } else if (isOversizedRequestError(error)) {
+          // The request is over the host's line limit and will be on every
+          // retry. The queue is shared by every session, so it must not wait
+          // behind this row: store a tool row without its payload, and drop
+          // anything that is still too large or is not a tool row.
+          const reduced = withoutOversizedPayload(current.message);
+          if (reduced !== undefined && this.entries[0] === current) {
+            this.entries[0] = { ...current, message: reduced };
+            this.logger("error", "session persistence flush stored an oversized tool result without its payload", {
+              key: current.key,
+            });
+            await this.persist();
+            continue;
+          }
+          this.logger("error", "session persistence flush dropped oversized message", {
+            key: current.key,
+            data: String(error),
+          });
         } else {
           // Transient failure (host busy/overloaded/pipe dead). Keep the head
           // and retry on the next enqueue.
@@ -190,6 +208,33 @@ function isDuplicateMessageIdError(error: unknown): boolean {
  */
 function isPoisonMessageError(error: unknown): boolean {
   return /(?<![A-Z_])PERMISSION_DENIED:/i.test(String(error));
+}
+
+/**
+ * The request line is above the host's fixed size limit. The check runs on
+ * the serialized request before anything is sent, so the same entry fails
+ * the same way on every retry.
+ */
+function isOversizedRequestError(error: unknown): boolean {
+  return /request line exceeds/i.test(String(error));
+}
+
+const OVERSIZED_RESULT_NOTE = "[This tool result was too large to store.]";
+
+/**
+ * The same tool row with a note in place of its result, so the transcript
+ * still shows the call as finished. Undefined for any other message, and for
+ * a row already reduced once.
+ */
+function withoutOversizedPayload(message: unknown): unknown | undefined {
+  if (typeof message !== "object" || message === null) return undefined;
+  const row = message as Record<string, unknown>;
+  if (row.role !== "tool" || row.content === OVERSIZED_RESULT_NOTE) return undefined;
+  return {
+    ...row,
+    content: OVERSIZED_RESULT_NOTE,
+    toolResult: { content: [{ type: "text", text: OVERSIZED_RESULT_NOTE }] },
+  };
 }
 
 /**

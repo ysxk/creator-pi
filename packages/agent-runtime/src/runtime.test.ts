@@ -11600,3 +11600,62 @@ describe("inline image placement", () => {
     }
   });
 });
+
+describe("DesktopAgentRuntime tool-result media at the event boundary (D660, D667)", () => {
+  async function endRead(result: unknown) {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const handle = (runtime as any).handleAgentEvent.bind(runtime);
+    try {
+      await handle({
+        type: "tool_execution_start",
+        toolName: "Read",
+        toolCallId: "read-1",
+        args: { path: "memo.wav" },
+      });
+      await handle({
+        type: "tool_execution_end",
+        toolName: "Read",
+        toolCallId: "read-1",
+        result,
+        isError: false,
+      });
+    } finally {
+      await runtime.dispose();
+    }
+    return onEvent.mock.calls
+      .map(([envelope]) => (envelope as any).event)
+      .find((event) => event.type === "tool_end");
+  }
+
+  it("emits a recording the model heard as a note, and leaves the model's copy whole", async () => {
+    const data = "QUJD".repeat(4096);
+    const result = {
+      content: [
+        { type: "text", text: "Audio file memo.wav. The audio is attached to this result." },
+        { type: "image", data, mimeType: "audio/wav" },
+      ],
+      details: { audioAttached: true },
+    };
+
+    const ended = await endRead(result);
+
+    // What feeds the transcript, the renderer and the database has no bytes.
+    expect(JSON.stringify(ended.result)).not.toContain(data);
+    expect(ended.result.content[0]).toEqual(result.content[0]);
+    expect(ended.result.content[1].type).toBe("text");
+    expect(ended.result.content[1].text).toContain("audio/wav");
+    expect(ended.result.details).toEqual({ audioAttached: true });
+    // The result the agent loop holds, which becomes the model's context, is untouched.
+    expect(result.content[1]).toEqual({ type: "image", data, mimeType: "audio/wav" });
+  });
+
+  it("still emits a picture a tool returned", async () => {
+    const picture = { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" };
+    const result = { content: [{ type: "text", text: "Image file shot.png." }, picture] };
+
+    const ended = await endRead(result);
+
+    expect(ended.result).toBe(result);
+  });
+});

@@ -14,7 +14,7 @@ import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
-import { hostMediaReference, loadToolResultMedia, readMediaHint, withoutReadMediaHints, withToolResultMediaPayload } from "./tool-result-media.js";
+import { hostMediaReference, loadToolResultMedia, readMediaHint, toolResultWithoutMediaBytes, withoutReadMediaHints, withToolResultMediaPayload } from "./tool-result-media.js";
 import { withPriorityServiceTier } from "./service-tier.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
@@ -8303,7 +8303,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           this.emit({
             type: "tool_end",
             toolCallId: event.toolCallId,
-            result: event.result,
+            // The model keeps the clip or recording it read; the event that
+            // feeds the transcript and the database carries the note instead.
+            result: toolResultWithoutMediaBytes(event.result),
             isError: event.isError,
             ...(toolUsage ? { toolUsage } : {}),
           }, undefined, endedAt);

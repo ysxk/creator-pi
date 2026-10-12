@@ -252,3 +252,108 @@ test("FOREIGN KEY constraint failed drops the orphaned entry and keeps draining 
     logs.some((row) => row.message === "session persistence flush dropped orphaned message"),
   );
 });
+
+// The host process refuses a request line above its fixed size before sending
+// it, so the same entry fails identically on every retry.
+function sizeLimitedHost(limitBytes, calls) {
+  return mockHost(async (_method, params) => {
+    if (JSON.stringify(params).length > limitBytes) {
+      throw Object.assign(new Error("request line exceeds 64 MiB"), {
+        errorCode: "LIMIT_EXCEEDED",
+        code: 1002,
+      });
+    }
+    calls.push(params);
+  });
+}
+
+test("an oversized tool result is stored without its payload and does not stall other sessions", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-"));
+  const logs = [];
+  const outbox = new PersistenceOutbox(dir, (level, message, data) => {
+    logs.push({ level, message, data });
+  });
+  const calls = [];
+  const host = sizeLimitedHost(2_000, calls);
+  const getHost = () => host;
+  const payload = "QUJD".repeat(2_000);
+  const result = { content: [{ type: "text", text: "Read memo.wav" }, { type: "image", data: payload, mimeType: "audio/wav" }] };
+  await outbox.enqueue(
+    {
+      key: "message:s1:read-1",
+      sessionId: "s1",
+      turnId: "turn-1",
+      // The shape the main process builds for a finished tool call.
+      message: {
+        id: "read-1",
+        role: "tool",
+        content: JSON.stringify(result),
+        toolCallId: "read-1",
+        toolName: "Read",
+        toolArgs: { path: "memo.wav" },
+        toolStatus: "success",
+        toolResult: result,
+        status: "complete",
+      },
+    },
+    () => null,
+  );
+  await outbox.enqueue(
+    {
+      key: "message:s2:assistant-1",
+      sessionId: "s2",
+      message: { id: "assistant-1", role: "assistant", content: "from another session" },
+    },
+    () => null,
+  );
+
+  await outbox.flush(getHost);
+
+  assert.equal(outbox.size(), 0, "nothing is left waiting behind the oversized row");
+  assert.deepEqual(calls.map((call) => call.message.id), ["read-1", "assistant-1"]);
+  const stored = calls[0];
+  assert.equal(stored.sessionId, "s1");
+  assert.equal(stored.turnId, "turn-1");
+  assert.doesNotMatch(JSON.stringify(stored), /QUJDQUJD/);
+  assert.equal(stored.message.content, "[This tool result was too large to store.]");
+  // The call still reads as finished, with its name and arguments.
+  assert.equal(stored.message.toolStatus, "success");
+  assert.equal(stored.message.toolName, "Read");
+  assert.deepEqual(stored.message.toolArgs, { path: "memo.wav" });
+  assert.ok(logs.some((row) => row.level === "error" && /without its payload/.test(row.message)));
+  assert.deepEqual(
+    JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")),
+    [],
+    "the oversized row is gone from the file a restart reloads",
+  );
+});
+
+test("an oversized row that cannot be reduced is dropped so later rows drain", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-"));
+  const logs = [];
+  const outbox = new PersistenceOutbox(dir, (level, message, data) => {
+    logs.push({ level, message, data });
+  });
+  const calls = [];
+  const host = sizeLimitedHost(2_000, calls);
+  const getHost = () => host;
+  const huge = "x".repeat(8_000);
+  for (const entry of [
+    // Not a tool row: there is no payload to set aside.
+    { key: "message:s1:assistant-big", sessionId: "s1", message: { id: "assistant-big", role: "assistant", content: huge } },
+    // A tool row that is too large even without its result.
+    { key: "message:s1:write-1", sessionId: "s1", message: { id: "write-1", role: "tool", content: "ok", toolArgs: { content: huge } } },
+    { key: "message:s2:assistant-1", sessionId: "s2", message: { id: "assistant-1", role: "assistant", content: "kept" } },
+  ]) {
+    await outbox.enqueue(entry, () => null);
+  }
+
+  await outbox.flush(getHost);
+
+  assert.equal(outbox.size(), 0);
+  assert.deepEqual(calls.map((call) => call.message.id), ["assistant-1"]);
+  assert.equal(
+    logs.filter((row) => row.message === "session persistence flush dropped oversized message").length,
+    2,
+  );
+});

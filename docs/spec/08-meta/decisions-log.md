@@ -65,6 +65,7 @@ This log freezes previously open questions into concrete decisions.
 | D670 | A permission-mode change reaches the running turn | **Amend baseline decision 46 ("configuration is idle-only") for one field. Mode, provider, model and thinking level stay idle-only and staged by the renderer. The permission mode alone is written at once: host RPC `session.setPermissionMode({ id, permissionMode })` (IPC `pi-desktop/session/setPermissionMode`) persists it while a turn or a Plan execution runs, and the next tool call is evaluated under it, in both directions. Only a pending Plan/Goal approval refuses it, because resolving the approval is what selects the mode. A permission request already on screen keeps waiting. The toolbar shows the new mode after the host stored it, and a refusal leaves the old one. Remote and native Pi sessions keep the staged next-turn path.** | The host already resolved the mode per tool call, so the staged choice only made the toolbar disagree with the turn: a user who switched a running Auto turn to Ask saw Ask while commands kept running unattended. Mode and model cannot change mid-turn without rebuilding the runtime; the permission mode can. |
 | D671 | The empty-home mascot is a still image | **Amend D293 and D294 (ADR 0152) in this fork: `HomeMascotLogo` shows the mascot's resting pose as one PNG per theme and never animates, in any motion preference. The two GIFs are removed; the 100px hero slot, theme selection and decorative role stay.** | The user found the looping wave distracting on a screen they see every time they start a task, and wanted the mascot kept as long as it holds still. |
 | D672 | A finished checklist leaves with its turn | **TodoDock hides a checklist whose items are all completed or cancelled once the turn that finished it ends. While that turn runs the finished checklist stays, so the last item is seen being ticked. It does not return in a later turn: during a run it shows only if it was written after the latest prompt (steering excluded). A checklist with open work is unaffected. Renderer-only; the host still stores the checklist and `todos.get` still returns it.** | A finished list stayed above the composer until the agent happened to rewrite or clear it, which could be never, and the user saw a done list hanging there. |
+| D673 | Media a model read never rides the main agent's tool event, and an oversized append cannot stall the outbox | **(1) The main agent strips media bytes from the `tool_end` event it emits, as the delegate and native Pi paths already did (D660, D667); the result the agent loop keeps for the model is untouched. (2) The persistence outbox treats `request line exceeds 64 MiB` as permanent: a tool row is retried once with a note in place of its content and result, and anything still too large, or not a tool row, is dropped with an error log.** | A Read of a clip or recording of about 30 MB put its base64 in the event, the tool row stored it twice (`content` and `toolResult`), the append exceeded the host's request limit, and the outbox kept retrying that head, which blocked persistence for every session and survived a restart. |
 
 ## B. Secondary implementation defaults
 
@@ -7715,3 +7716,18 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - Covered by `apps/desktop/test/todo-dock-rendering.test.mjs`; the
   `test:e2e:todos` harness marks the session running for its finished-state
   checks and asserts the dock leaves when the run ends.
+
+## 2026-10-12 — Media bytes stay out of the main agent's tool event (D673)
+
+- Found in code review. `runtime.ts` emitted `tool_end` with the raw result for
+  the main agent; only `subagent.ts` and `native-pi-session.ts` called
+  `toolResultWithoutMediaBytes`. The spec already said a clip read from a file
+  is not stored (D660), so this restores the stated contract.
+- `PersistenceOutbox` gains a third permanent-failure class beside duplicate
+  ids (D444) and provenance rejections (D597): the request-size limit. A tool
+  row is kept, finished, with `[This tool result was too large to store.]`.
+- No protocol, schema, or host change. The user's own outbox was empty when
+  this was fixed, so no stuck entry needed recovering.
+- Covered by the event-boundary tests in
+  `packages/agent-runtime/src/runtime.test.ts` and the two oversized-row tests
+  in `apps/desktop/test/persistence-outbox.test.mjs`.
