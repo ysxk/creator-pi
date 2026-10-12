@@ -5640,6 +5640,7 @@ eleven-tool-round desktop paths are verified by
 | C — 对话和直播（输入法斜杠别名） | E2E-255 |
 | E——工具和权限（Skill 常驻） | E2E-254 |
 | 品质（Skill 常驻与输入法斜杠别名） | E2E-254、E2E-255 |
+| C / E / F / 品质——内置技能启用状态 | E2E-SKILL-builtin-activation |
 | C — 对话和直播（插件会话导入可见性） | E2E-257 |
 | F——持久化（插件会话导入可见性） | E2E-257 |
 | C — 对话和直播（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
@@ -8196,6 +8197,21 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 - **验收**：C（对话与流）、E（工具与权限）、品质
 - **里程碑**：M5
 - **状态**：单元覆盖（`packages/agent-runtime/src/runtime.test.ts`）；渲染桌面旅程为草稿（除非明确要求，不本地运行 E2E）
+
+#### E2E-SKILL-builtin-activation：在设置中管理内置技能
+
+- **前提条件**：使用隔离的桌面配置文件和普通项目工作区。确保另有一项已启用的用户或插件 Skill，使 imagegen 关闭后 `Skill` 工具仍可用。
+- **步骤**：
+  1. 打开「设置 → Agent → Skills」，检查「内置技能」分组，确认 `pi-desktop/imagegen` 和 `pi-desktop/plugin-development` 默认开启。
+  2. 关闭 `pi-desktop/imagegen`，在普通工作区打开新会话，检查技能目录和 Composer 的 `/` 菜单。
+  3. 使用旧的 imagegen id 调用本地 `Skill` 工具。
+  4. 重新开启 imagegen 并打开另一个会话。重启应用后检查设置和新会话目录。
+- **预期**：关闭后的 imagegen 不会出现在提示词技能目录和 `skill:pi-desktop/imagegen` 斜杠条目中。使用旧 id 直接加载时会提示该内置技能已关闭。重新开启后，新会话可再次看到两项入口；设置在重启后仍保留。plugin-development 在设置中始终可见，但只在插件工作区进入会话目录。关联的 Agent 工具保持独立可用。
+- **链接规格**：`07-plugins/01-plugin-system.md`（§12.3）、`03-runtime/01-ipc-protocol.md`（§12b）、`03-runtime/02-agent-runtime.md`（§7.0.0）、`04-ux/04-builtin-commands.md`（§8）
+- **验收**：C（对话和直播）、E（工具和权限）、F（持久化）、品质
+- **覆盖范围**：`settings-inline-import-user-path.test.mjs` 在隔离 Electron 中验证设置开关、持久化 IPC 请求和页面关闭状态；`image-generation.test.mjs`、`composer-mcp.test.mjs` 及 host-core 技能/RPC 测试覆盖目录过滤、旧 id 加载拒绝、持久化和激活协议。重启和完整新会话旅程仍由桌面验收覆盖。
+- **里程碑**：M6+
+- **状态**：桌面交互旅程草稿
 
 #### E2E-255：顿号打开斜杠菜单
 
