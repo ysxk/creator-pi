@@ -838,6 +838,12 @@ screenshot, and CDP calls) are available only while the Browser view is
 visible. Calls made while it is hidden fail with `UNAVAILABLE`; use
 `BrowserPreview` to ask the host to reveal the Browser view before continuing.
 
+Screenshot captures, including raw `Page.captureScreenshot` CDP calls, have a
+30-second host-side deadline. A capture that exceeds it fails with `TIMEOUT`;
+the host detaches the stalled CDP session and releases that page's capture
+queue so a later capture can reattach and proceed. Other CDP methods retain
+their existing timeout behavior.
+
 `getHistory` returns newest-first entries explicitly recorded by the host, with
 text and images interleaved in capture order. Content written through
 `writeText` and content supplied by the Composer's user-initiated `paste` event

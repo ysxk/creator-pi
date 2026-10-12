@@ -1,4 +1,4 @@
-import type { BrowserWindow } from "electron";
+import type { BrowserWindow, WebContents } from "electron";
 import type { BrowserState } from "@pi-desktop/shared";
 import type { BrowserPane } from "./browser-view";
 import { BrowserCdp } from "./browser-cdp";
@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 export const BROWSER_PLUGIN_ID = "pi.browser";
 export const BROWSER_VIEW_ID = "browser";
+const BROWSER_SCREENSHOT_TIMEOUT_MS = 30_000;
 
 export type BrowserRect = {
   x: number;
@@ -81,6 +82,31 @@ type BrowserPage = {
   navigationVersion: number;
   navigating: boolean;
 };
+
+function captureScreenshotWithDeadline<T>(
+  page: BrowserPage,
+  capture: (wc: WebContents) => Promise<T>,
+): Promise<T> {
+  return page.pane.captureScreenshot((wc) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        const error = Object.assign(
+          new Error(`browser screenshot timed out after ${BROWSER_SCREENSHOT_TIMEOUT_MS}ms`),
+          { code: "TIMEOUT" },
+        );
+        reject(error);
+        try {
+          page.cdp.detach(wc);
+        } catch {
+          // Preserve the timeout result if the guest is already shutting down.
+        }
+      }, BROWSER_SCREENSHOT_TIMEOUT_MS);
+    });
+    return Promise.race([Promise.resolve().then(() => capture(wc)), timedOut])
+      .finally(() => { if (timeout) clearTimeout(timeout); });
+  });
+}
 
 /** Host-owned pages, keyed by conversation and resource tab. */
 export class BrowserHost {
@@ -348,7 +374,7 @@ export class BrowserHost {
 
   async screenshot(input: { fullPage?: boolean } = {}, sessionId?: string): Promise<{ mimeType: string; data: string; path?: string }> {
     const page = this.currentPage();
-    const shot = await page.pane.captureScreenshot((wc) => page.cdp.screenshot(wc, input));
+    const shot = await captureScreenshotWithDeadline(page, (wc) => page.cdp.screenshot(wc, input));
     const scratch = this.deps.getScratchDir?.(sessionId ?? page.sessionId);
     if (!scratch) return shot;
     try {
@@ -372,7 +398,7 @@ export class BrowserHost {
   async cdpCommand(method: string, params?: unknown): Promise<unknown> {
     const page = this.currentPage();
     if (method === "Page.captureScreenshot") {
-      return page.pane.captureScreenshot((wc) => page.cdp.send(wc, method, params));
+      return captureScreenshotWithDeadline(page, (wc) => page.cdp.send(wc, method, params));
     }
     return page.cdp.send(this.requireWebContents(), method, params);
   }
