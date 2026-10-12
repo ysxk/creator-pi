@@ -73,8 +73,89 @@ test("TodoDock renders bounded session progress and cancelled state", async () =
         },
       },
     });
+    // A finished checklist is on screen only while its turn runs (D672), so
+    // the cancelled label is read during the run.
+    Object.assign(useAppStore.getInitialState(), {
+      runningSessions: { "session-todo-test": true },
+    });
     assert.match(render(), /Cancelled/);
     assert.doesNotMatch(render(), /0\/0 completed/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("a finished checklist leaves with the turn that finished it", async () => {
+  const server = await createServer({
+    root: fileURLToPath(new URL("..", import.meta.url)),
+    configFile: false,
+    server: { middlewareMode: true, hmr: false, ws: false },
+    esbuild: { jsx: "automatic" },
+    appType: "custom",
+    optimizeDeps: { noDiscovery: true, include: [] },
+  });
+  try {
+    const { TodoDock } = await server.ssrLoadModule("/src/components/TodoDock.tsx");
+    const { useAppStore } = await server.ssrLoadModule("/src/stores/app-store.ts");
+    const i18n = createInstance();
+    await i18n.init({ lng: "en", resources: { en: { translation: catalogs.en } } });
+    const sessionId = "session-finished-todos";
+    const prompt = (createdAt, extra = {}) => ({
+      id: `m-${createdAt}`, role: "user", content: "go", status: "complete", createdAt, ...extra,
+    });
+    const render = (state) => {
+      Object.assign(useAppStore.getInitialState(), {
+        activeSessionId: sessionId,
+        runningSessions: {},
+        messages: [],
+        ...state,
+      });
+      return renderToStaticMarkup(
+        createElement(I18nextProvider, { i18n }, createElement(TodoDock, { sessionId })),
+      );
+    };
+    const checklist = (todos, updatedAt) => ({
+      sessionTodos: { [sessionId]: { sessionId, revision: 7, updatedAt, todos } },
+    });
+    const finishedAt = Date.parse("2026-10-12T08:00:30.000Z");
+    const finished = checklist(
+      [
+        { content: "audit", status: "completed", priority: "medium" },
+        { content: "skipped scan", status: "cancelled", priority: "low" },
+      ],
+      finishedAt,
+    );
+    const promptBefore = prompt("2026-10-12T08:00:00.000Z");
+    const promptAfter = prompt("2026-10-12T08:05:00.000Z");
+
+    // Still running the turn that finished it: the last tick is visible.
+    const live = render({ ...finished, runningSessions: { [sessionId]: true }, messages: [promptBefore] });
+    assert.match(live, /1\/1/);
+    // Steering is input to the same turn, so it does not retire the checklist.
+    assert.notEqual(
+      render({
+        ...finished,
+        runningSessions: { [sessionId]: true },
+        messages: [promptBefore, prompt("2026-10-12T08:01:00.000Z", { steering: true })],
+      }),
+      "",
+    );
+    // The turn ended: nothing is left hanging above the composer.
+    assert.equal(render({ ...finished, messages: [promptBefore] }), "");
+    // The next turn does not bring the old checklist back.
+    assert.equal(
+      render({ ...finished, runningSessions: { [sessionId]: true }, messages: [promptBefore, promptAfter] }),
+      "",
+    );
+    // Work still open stays visible whether or not a turn runs.
+    const open = checklist(
+      [
+        { content: "audit", status: "completed", priority: "medium" },
+        { content: "report", status: "pending", priority: "medium" },
+      ],
+      finishedAt,
+    );
+    assert.match(render({ ...open, messages: [promptBefore, promptAfter] }), /1\/2/);
   } finally {
     await server.close();
   }

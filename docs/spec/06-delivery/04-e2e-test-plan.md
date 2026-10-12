@@ -9619,8 +9619,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   expand it, switch sessions, and confirm the checklist stays session-scoped.
   Expand a checklist longer than the dock's height cap: every row must render
   and the list must scroll inside the dock without growing the Composer stack.
-  Complete and cancel items, confirm the all-cancelled label, then clear the
-  checklist and reload/restart the host.
+  Complete and cancel items while the turn runs, confirm the all-cancelled
+  label, end the turn and confirm the finished checklist leaves, then clear
+  the checklist and reload/restart the host.
   Deliver an out-of-order older `todos.changed` event and confirm it cannot
   replace the newer snapshot. Exercise invalid payload, Plan/Goal, delegated,
   and remote-session paths.
@@ -9629,7 +9630,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   snapshot. Invalid or unauthorized writes do not mutate or emit. TodoDock
   renders plain text, does not take focus, resets expansion on session changes,
   lists every ordered row with the dock's own list as the scrollport,
-  keeps a collapsed dock to its header height,
+  keeps a collapsed dock to its header height, shows a finished checklist
+  only while the turn that finished it runs (D672),
   rejects stale events, and skips local recovery for `remote:` sessions because
   RACP v1 has no Todo snapshot operation.
 - **Specs**: `03-runtime/03-tools-and-permissions.md`,

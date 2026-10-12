@@ -64,6 +64,7 @@ This log freezes previously open questions into concrete decisions.
 | D669 | An unset attachment switch follows the endpoint's own model list where no publisher describes the model | **Amend D656 (1) and D667. For a model no models.dev record matches and no typed operation metadata covers, the runtime's baseline input modalities are the ones the endpoint listed for it, read from host-core's model cache (`providers.listModels`), instead of text only. That is the answer the settings panel's checkboxes already showed for such a row, so a checked box that was never clicked now takes effect. An explicit `supportsImages` / `supportsVideos` / `supportsAudio` / `supportsDocuments` boolean still wins in both directions, and a published record stays the authority for an id the catalog knows. The cache is handed to the catalog when providers are listed, when a session launches, and after a live discovery writes it; a failed read is logged and keeps the previous answer. The settings record itself is still built from publishers plus the row in hand, never from the older cached list.** | The endpoint is the only source that knows what a relay's own model id accepts, and a switch shown as on must be on. |
 | D670 | A permission-mode change reaches the running turn | **Amend baseline decision 46 ("configuration is idle-only") for one field. Mode, provider, model and thinking level stay idle-only and staged by the renderer. The permission mode alone is written at once: host RPC `session.setPermissionMode({ id, permissionMode })` (IPC `pi-desktop/session/setPermissionMode`) persists it while a turn or a Plan execution runs, and the next tool call is evaluated under it, in both directions. Only a pending Plan/Goal approval refuses it, because resolving the approval is what selects the mode. A permission request already on screen keeps waiting. The toolbar shows the new mode after the host stored it, and a refusal leaves the old one. Remote and native Pi sessions keep the staged next-turn path.** | The host already resolved the mode per tool call, so the staged choice only made the toolbar disagree with the turn: a user who switched a running Auto turn to Ask saw Ask while commands kept running unattended. Mode and model cannot change mid-turn without rebuilding the runtime; the permission mode can. |
 | D671 | The empty-home mascot is a still image | **Amend D293 and D294 (ADR 0152) in this fork: `HomeMascotLogo` shows the mascot's resting pose as one PNG per theme and never animates, in any motion preference. The two GIFs are removed; the 100px hero slot, theme selection and decorative role stay.** | The user found the looping wave distracting on a screen they see every time they start a task, and wanted the mascot kept as long as it holds still. |
+| D672 | A finished checklist leaves with its turn | **TodoDock hides a checklist whose items are all completed or cancelled once the turn that finished it ends. While that turn runs the finished checklist stays, so the last item is seen being ticked. It does not return in a later turn: during a run it shows only if it was written after the latest prompt (steering excluded). A checklist with open work is unaffected. Renderer-only; the host still stores the checklist and `todos.get` still returns it.** | A finished list stayed above the composer until the agent happened to rewrite or clear it, which could be never, and the user saw a done list hanging there. |
 
 ## B. Secondary implementation defaults
 
@@ -7701,3 +7702,16 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   fork. No protocol, storage, or runtime change.
 - Covered by `apps/desktop/test/renderer-branding.test.mjs`; E2E-046, the
   theme-switch scenario and US-UI-17 are rewritten for the still image.
+
+## 2026-10-12 — A finished checklist leaves with its turn (D672)
+
+- Before: TodoDock rendered whenever the session had a non-empty checklist, so
+  a list at "3/3 completed" stayed above the composer indefinitely.
+- `features/chat/todos/finished-checklist.ts` holds the rule: finished and not
+  running hides; finished and running shows only when `updatedAt` is not older
+  than the latest non-steering prompt in the transcript.
+- No host, protocol, or storage change; clearing still happens only when the
+  agent writes an empty list.
+- Covered by `apps/desktop/test/todo-dock-rendering.test.mjs`; the
+  `test:e2e:todos` harness marks the session running for its finished-state
+  checks and asserts the dock leaves when the run ends.

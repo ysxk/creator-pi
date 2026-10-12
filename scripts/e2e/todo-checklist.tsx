@@ -113,6 +113,8 @@ window.todoChecklistProbe = async () => {
   await until(() => header()?.textContent?.includes("Task 1") === true, "Returning session restores its checklist");
   checks.push("session-switch-isolation");
 
+  // A finished checklist is on screen only while its turn runs (D672).
+  useAppStore.setState({ runningSessions: { [first]: true } });
   const finished = await write(first, [
     { content: "Done", status: "completed", priority: "high" },
     { content: "Dropped", status: "cancelled", priority: "low" },
@@ -126,9 +128,12 @@ window.todoChecklistProbe = async () => {
   const cancelled = await write(first, [{ content: "Dropped", status: "cancelled", priority: "medium" }]);
   await until(() => snapshot(first)?.revision === cancelled.revision, "Cancellation must reach store");
   assert(header()?.textContent?.toLowerCase().includes("cancelled"), "All-cancelled list must show cancelled status");
+  useAppStore.setState({ runningSessions: { [first]: false } });
+  await until(() => !dock(), "A finished checklist must leave when its turn ends");
   const cleared = await write(first, []);
   await until(() => snapshot(first)?.revision === cleared.revision && !dock(), "Clear must advance revision and hide dock");
   checks.push("complete-cancel-clear-stale-event");
+  checks.push("finished-checklist-leaves-with-its-turn");
 
   await action("suppressEvents", true);
   const durable = await write(first, items(1, "Persisted"));

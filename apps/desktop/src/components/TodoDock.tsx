@@ -3,6 +3,11 @@ import { useTranslation } from "react-i18next";
 import type { SessionTodo, TodoStatus } from "@pi-desktop/shared";
 import { Button } from "./ui";
 import { IconCheck, IconChevronDown, IconChevronUp } from "./icons";
+import {
+  checklistFinished,
+  finishedChecklistVisible,
+  latestPromptTime,
+} from "../features/chat/todos/finished-checklist";
 import { useSessionTodosRecovery } from "../features/chat/todos/useSessionTodosRecovery";
 import { useAppStore } from "../stores/app-store";
 
@@ -20,6 +25,10 @@ function statusSymbol(status: TodoStatus): string {
 export function TodoDock({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation();
   const snapshot = useAppStore((state) => state.sessionTodos[sessionId]);
+  const running = useAppStore((state) => state.runningSessions[sessionId] ?? false);
+  const turnStartedAt = useAppStore((state) =>
+    state.activeSessionId === sessionId ? latestPromptTime(state.messages) : undefined,
+  );
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -28,14 +37,19 @@ export function TodoDock({ sessionId }: { sessionId: string }) {
 
   useSessionTodosRecovery(sessionId);
   if (!snapshot || snapshot.todos.length === 0) return null;
+  const finished = checklistFinished(snapshot);
+  // A finished checklist leaves with the turn that finished it (D672).
+  if (
+    finished &&
+    !finishedChecklistVisible({ running, updatedAt: snapshot.updatedAt, turnStartedAt })
+  ) {
+    return null;
+  }
   const completed = snapshot.todos.filter((todo) => todo.status === "completed").length;
   const cancelled = snapshot.todos.filter((todo) => todo.status === "cancelled").length;
   const denominator = snapshot.todos.length - cancelled;
   const current = snapshot.todos.find((todo) => todo.status === "in_progress");
   const allCancelled = cancelled === snapshot.todos.length;
-  const finished = snapshot.todos.every(
-    (todo) => todo.status === "completed" || todo.status === "cancelled",
-  );
   const statusLabel = allCancelled
     ? t("chat.todo.status.cancelled")
     : finished

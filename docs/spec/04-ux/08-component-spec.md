@@ -2926,6 +2926,12 @@ reasoning-level control.
 - The Composer stack places TodoDock above Plan/Goal approval surfaces when the
   active session has a non-empty host-owned checklist. An empty checklist does
   not reserve layout space.
+- A finished checklist, one whose items are all completed or cancelled, stays
+  only while the turn that finished it is running and leaves when that turn
+  ends (D672). It does not return when a later turn starts: it is shown during
+  a run only if it was written after the latest prompt, and steering does not
+  count as a prompt. A checklist with work still open stays visible whether or
+  not a turn runs. The host keeps the checklist; only the dock steps aside.
 - The collapsed header shows completed/active progress and the current
   `in_progress` content. A checklist whose items are all cancelled has a clear
   cancelled label instead of a misleading `0/0 completed` count.
