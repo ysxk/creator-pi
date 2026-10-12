@@ -414,7 +414,9 @@ shared capability contract:
   otherwise the empty home for that scope opens as an unpersisted draft, with
   no `session.create` call and no sidebar row (D668). The first message, or a
   pasted file that needs a session to attach to, materializes the session,
-  which then appears in the sidebar titled from the prompt. Repeated clicks on
+  which then appears in the sidebar titled from the prompt. The session starts
+  with the draft's toolbar choices, including its permission mode, which is
+  stored before the first turn runs. Repeated clicks on
   the empty home change nothing; New Task from an open conversation starts the
   draft's toolbar from the defaults a new session gets. An existing empty row
   stays until the user deletes or archives it.

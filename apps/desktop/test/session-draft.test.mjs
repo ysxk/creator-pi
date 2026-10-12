@@ -119,3 +119,91 @@ test("new task still reuses the scope's latest empty session instead of stacking
   // Let the selection's follow-up restores settle inside the test.
   await new Promise((resolve) => setTimeout(resolve, 0));
 });
+
+// The host never accepts a permission mode on session.create (ADR 0237), so a
+// realistic double drops it and answers with the `inherit` default.
+function hostLikeCreateSession() {
+  let nextId = 0;
+  return async ({ permissionMode: _ignored, ...config }) => ({
+    session: {
+      ...config,
+      id: `s${++nextId}`,
+      permissionMode: "inherit",
+      messages: [],
+      messageCount: 0,
+    },
+  });
+}
+
+test("the permission mode chosen on a draft survives the first message", async (t) => {
+  await i18n.init({ lng: "en", resources: { en: { translation: en } } });
+  resetStore({ settings: { ...settings, defaultPermissionMode: "ask" } });
+  const calls = [];
+  t.mock.method(api, "createSession", hostLikeCreateSession());
+  const configureSession = t.mock.method(api, "configureSession", async (id, config) => {
+    calls.push("configure");
+    return {
+      session: { id, title: "New task", messages: [], messageCount: 0, ...config },
+    };
+  });
+  t.mock.method(api, "prompt", async () => {
+    calls.push("prompt");
+    return { accepted: true, turnId: "t1" };
+  });
+
+  await useAppStore.getState().newSession({ projectPath: null });
+  await useAppStore.getState().configureActiveSession({
+    mode: "agent",
+    thinkingLevel: "off",
+    permissionMode: "auto",
+  });
+  assert.equal(configureSession.mock.callCount(), 0, "a draft has no session to configure");
+
+  assert.equal(await useAppStore.getState().sendPrompt("hello there"), true);
+  assert.equal(configureSession.mock.callCount(), 1);
+  assert.equal(configureSession.mock.calls[0].arguments[0], "s1");
+  assert.equal(configureSession.mock.calls[0].arguments[1].permissionMode, "auto");
+  assert.deepEqual(calls, ["configure", "prompt"], "the mode is stored before the turn starts");
+  const state = useAppStore.getState();
+  assert.equal(state.activeSessionId, "s1");
+  assert.equal(state.sessions.find((session) => session.id === "s1")?.permissionMode, "auto");
+});
+
+test("a draft left on the default permission mode needs no extra configure call", async (t) => {
+  await i18n.init({ lng: "en", resources: { en: { translation: en } } });
+  resetStore();
+  t.mock.method(api, "createSession", hostLikeCreateSession());
+  const configureSession = t.mock.method(api, "configureSession", async () => {
+    throw new Error("must not be called");
+  });
+  t.mock.method(api, "prompt", async () => ({ accepted: true, turnId: "t1" }));
+
+  await useAppStore.getState().newSession({ projectPath: null });
+  assert.equal(await useAppStore.getState().sendPrompt("hello there"), true);
+  assert.equal(configureSession.mock.callCount(), 0);
+});
+
+test("a first message is not sent when the draft's permission mode cannot be stored", async (t) => {
+  await i18n.init({ lng: "en", resources: { en: { translation: en } } });
+  // Falling back to the global default here would run the turn unattended
+  // although the draft asked for confirmation.
+  resetStore({ settings: { ...settings, defaultPermissionMode: "auto" } });
+  const createSession = t.mock.method(api, "createSession", hostLikeCreateSession());
+  t.mock.method(api, "configureSession", async () => {
+    throw new Error("host unavailable");
+  });
+  const prompt = t.mock.method(api, "prompt", async () => ({ accepted: true, turnId: "t1" }));
+
+  await useAppStore.getState().newSession({ projectPath: null });
+  await useAppStore.getState().configureActiveSession({
+    mode: "agent",
+    thinkingLevel: "off",
+    permissionMode: "ask",
+  });
+  assert.equal(await useAppStore.getState().sendPrompt("hello there"), false);
+  assert.equal(prompt.mock.callCount(), 0);
+  // The created session is kept and selected, so a retry reuses it instead of
+  // stacking empty rows.
+  assert.equal(createSession.mock.callCount(), 1);
+  assert.equal(useAppStore.getState().activeSessionId, "s1");
+});

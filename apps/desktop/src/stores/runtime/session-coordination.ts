@@ -333,7 +333,6 @@ export function createSessionCoordination({
         title: untitledTaskTitle(),
         mode: draftConfig?.mode ?? normalizeMode(settings?.defaultMode),
         thinkingLevel: draftConfig?.thinkingLevel ?? defaultThinkingLevel,
-        permissionMode: draftConfig?.permissionMode,
         providerId: inherited.providerId,
         modelId: inherited.modelId,
         projectPath: projectPath ?? undefined,
@@ -346,12 +345,31 @@ export function createSessionCoordination({
       }
       throw error;
     }
-    const sessionId = created.session.id;
-    if (!runtime.navigationIntentIsCurrent(active)) {
-      commitCreatedEmptySession(created.session, { activate: false });
-      return null;
+    let session = created.session;
+    const sessionId = session.id;
+    // session.create never takes a permission mode (ADR 0237), so the one
+    // chosen on the draft is stored through the configure call the toolbar
+    // uses. A failure keeps the session but stops the caller's send: the turn
+    // must not start under a mode the user did not pick.
+    const draftPermissionMode = draftConfig?.permissionMode;
+    let permissionError: unknown;
+    if (draftPermissionMode && draftPermissionMode !== session.permissionMode) {
+      try {
+        const configured = await api.configureSession(sessionId, {
+          mode: session.mode,
+          providerId: session.providerId,
+          modelId: session.modelId,
+          permissionMode: draftPermissionMode,
+        });
+        session = configured.session;
+      } catch (error) {
+        permissionError = error;
+      }
     }
-    commitCreatedEmptySession(created.session, { activate: true });
+    const activate = runtime.navigationIntentIsCurrent(active);
+    commitCreatedEmptySession(session, { activate });
+    if (permissionError !== undefined) throw permissionError;
+    if (!activate) return null;
     return sessionId;
   }
 
