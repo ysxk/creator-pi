@@ -154,6 +154,7 @@ fn remove_session_files_cleans_up_layout_cache_and_tmp() {
     let layout = transcript.with_extension("jsonl.layout");
     let layout_tmp = transcript.with_extension("jsonl.layout.tmp");
     let legacy_tmp = transcript.with_extension("layout.tmp");
+    fs::create_dir_all(transcript.parent().unwrap()).unwrap();
     fs::write(&transcript, "content").unwrap();
     fs::write(&layout, "layout").unwrap();
     fs::write(&layout_tmp, "tmp").unwrap();
