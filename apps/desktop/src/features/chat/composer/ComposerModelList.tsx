@@ -2,7 +2,7 @@ import { providerDisplayName } from "../../../lib/provider-display";
 import { formatTokenCount, type ModelInfo, type ProviderPublic } from "@pi-desktop/shared";
 import type { TFunction } from "i18next";
 import type { RefObject } from "react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconEye, IconSearch, IconSparkles } from "../../../components/icons";
+import { IconCheck, IconEye, IconSearch, IconSparkles } from "../../../components/icons";
 import {
   composerModelBadges,
   composerModelBinding,
@@ -20,12 +20,9 @@ export type ComposerModelGroup = {
 export function ComposerModelList({
   t, query, setQuery, modelSearchRef, modelListRef, modelGroups,
   modelHighlight, setModelHighlight, selectedProviderId, selectedModelId, selectModel,
-  recentEntries, hasOtherModels, otherModelsExpanded, setOtherModelsExpanded,
+  recentEntries,
 }: {
   recentEntries: Array<{ provider: ProviderPublic; model: ModelInfo }>;
-  hasOtherModels: boolean;
-  otherModelsExpanded: boolean;
-  setOtherModelsExpanded: (expanded: boolean) => void;
   t: TFunction;
   query: string;
   setQuery: (query: string) => void;
@@ -80,14 +77,6 @@ export function ComposerModelList({
                       );
                     })}
                   </div>
-                ) : null}
-                {hasOtherModels ? (
-                  <button type="button" className="composer-menu-entry" role="menuitem"
-                    aria-expanded={otherModelsExpanded}
-                    onClick={() => setOtherModelsExpanded(!otherModelsExpanded)}>
-                    {otherModelsExpanded ? <IconChevronDown size={14} aria-hidden="true" /> : <IconChevronRight size={14} aria-hidden="true" />}
-                    <span className="composer-menu-entry-label">{t("chat.otherModels")}</span>
-                  </button>
                 ) : null}
                 {(() => {
                   let flatIndex = recentEntries.length;

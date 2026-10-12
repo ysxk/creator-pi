@@ -562,7 +562,6 @@ export const de = {
     "assistantMessage": "Assistentennachricht",
     "model": "Modell",
     recentModels: "Zuletzt verwendet",
-    otherModels: "Weitere Modelle",
     "searchModels": "Modelle suchen",
     "noModelResults": "Keine passenden Modelle",
     "modelBadgeReasoning": "Begründung",

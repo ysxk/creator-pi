@@ -571,7 +571,6 @@ export const ko = {
     assistantMessage: "어시스턴트 메시지",
     model: "모델",
     recentModels: "최근 사용",
-    otherModels: "다른 모델",
     searchModels: "모델 검색",
     noModelResults: "일치하는 모델 없음",
     modelBadgeReasoning: "추론",

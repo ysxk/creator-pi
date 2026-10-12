@@ -3944,7 +3944,9 @@ default nor provider configuration. OAuth accounts remain in their separate sect
 
 1. **Model selection** — chat models are selected in the Composer. Its first
    menu has persistent search, up to three recent available provider/model pairs,
-   and an inline Other models disclosure. Without history, it shows all models.
+   and every other model listed below them by provider; nothing is folded away
+   (D676). The list is seven rows tall and scrolls. Without history, it shows
+   the provider groups alone.
    New chats inherit the last actually used available model. Only accepted
    message submission updates that preference; selection and reasoning changes
    alone do not count as usage.

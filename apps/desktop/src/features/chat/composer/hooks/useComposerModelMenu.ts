@@ -1,4 +1,3 @@
-import { sameRecentModel } from "../../../../lib/recent-models";
 import type {
   Mode,
   ProviderPublic,
@@ -13,7 +12,6 @@ import {
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   composerModelBinding,
-  composerModelMatchesQuery,
   composerModelsForProvider,
   sameComposerModelId,
 } from "../../../../lib/composer-models";
@@ -23,6 +21,7 @@ import {
 } from "../../../../lib/provider-display";
 import { providerThinkingLevels } from "../../../../lib/session-thinking";
 import { useAppStore } from "../../../../stores/app-store";
+import { modelMenuSections } from "../model-menu-sections";
 import {
   sessionThinkingMenuLevels,
   thinkingLevelForProvider,
@@ -65,7 +64,6 @@ export function useComposerModelMenu({
   const loadProviderModels = useAppStore((s) => s.loadProviderModels);
   const showToast = useAppStore((s) => s.showToast);
   const [open, setOpen] = useState(false);
-  const [otherModelsExpanded, setOtherModelsExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [modelHighlight, setModelHighlight] = useState(-1);
   const modelSearchRef = useRef<HTMLInputElement>(null);
@@ -140,48 +138,10 @@ export function useComposerModelMenu({
         .filter((group) => group.models.length > 0),
     [providers, providerModels, imageGenerationCandidates],
   );
-  const recentEntries = useMemo(() => {
-    const entries = modelGroups.flatMap(group => group.models.map(model => ({ provider: group.provider, model })));
-    return (recentModels ?? []).flatMap(recent => {
-      const entry = entries.find(entry => sameRecentModel(recent, {
-        providerId: entry.provider.id, modelId: entry.model.modelId,
-      }));
-      return entry ? [entry] : [];
-    }).slice(0, 3);
-  }, [modelGroups, recentModels]);
   const queryNeedle = query.trim().toLowerCase();
-  const filteredModelGroups = useMemo(
-    () =>
-      queryNeedle
-        ? modelGroups
-            .map((group) => ({
-              ...group,
-              models: group.models.filter((model) =>
-                composerModelMatchesQuery(
-                  model,
-                  group.providerSearchText,
-                  queryNeedle,
-                  composerModelBinding(group.provider, model.modelId)?.alias,
-                ),
-              ),
-            }))
-            .filter((group) => group.models.length > 0)
-        : modelGroups,
-    [modelGroups, queryNeedle],
-  );
-  const showRecents = !queryNeedle && recentEntries.length > 0;
-  const remainingGroups = showRecents ? filteredModelGroups.map(group => ({
-    ...group,
-    models: group.models.filter(model => !recentEntries.some(entry =>
-      entry.provider.id === group.provider.id && sameComposerModelId(entry.model.modelId, model.modelId))),
-  })).filter(group => group.models.length > 0) : filteredModelGroups;
-  const visibleGroups = !showRecents || otherModelsExpanded ? remainingGroups : [];
-  const flatModels = useMemo(
-    () =>
-      [...(showRecents ? recentEntries : []), ...visibleGroups.flatMap((group) =>
-        group.models.map((model) => ({ provider: group.provider, model })),
-      )],
-    [visibleGroups, showRecents, recentEntries],
+  const { recentEntries, groups: visibleGroups, flatModels } = useMemo(
+    () => modelMenuSections(modelGroups, recentModels, query),
+    [modelGroups, recentModels, query],
   );
   const flatModelsKey = useMemo(
     () => flatModels.map((entry) => `${entry.provider.id}:${entry.model.modelId}`).join("|"),
@@ -213,7 +173,6 @@ export function useComposerModelMenu({
 
   useEffect(() => {
     if (open) return;
-    setOtherModelsExpanded(false);
     setQuery("");
     setModelHighlight(-1);
   }, [open]);
@@ -279,7 +238,6 @@ export function useComposerModelMenu({
         thinkingLevel: nextThinkingLevel,
       });
       setQuery("");
-      setOtherModelsExpanded(false);
       setModelHighlight(-1);
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), {
@@ -330,8 +288,6 @@ export function useComposerModelMenu({
   return {
     open,
     setOpen,
-    otherModelsExpanded,
-    setOtherModelsExpanded,
     query,
     setQuery,
     modelHighlight,
@@ -339,8 +295,7 @@ export function useComposerModelMenu({
     modelSearchRef,
     modelListRef,
     modelGroups: visibleGroups,
-    recentEntries: showRecents ? recentEntries : [],
-    hasOtherModels: showRecents && remainingGroups.length > 0,
+    recentEntries,
     flatModels,
     thinkingMenuLevels,
     selectModel,

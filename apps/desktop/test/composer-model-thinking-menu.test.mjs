@@ -13,16 +13,17 @@ const listSource = await readComposerModule("ComposerModelList.tsx");
 const composerSource = `${modelMenuSource}\n${pickerSource}\n${sliderSource}\n${listSource}`;
 const stylesSource = await loadStyles();
 
-test("Composer uses one searchable model menu with an inline disclosure", () => {
+test("Composer uses one searchable model menu with nothing folded away", () => {
   assert.doesNotMatch(composerSource, /ComposerMenuView|composer-menu-back|showView/);
-  assert.match(composerSource, /aria-expanded=\{otherModelsExpanded\}/);
+  // Every model is listed and the list scrolls (D676); no disclosure remains.
+  assert.doesNotMatch(composerSource, /otherModelsExpanded|hasOtherModels/);
+  assert.match(modelMenuSource, /modelMenuSections\(modelGroups, recentModels, query\)/);
   assert.match(pickerSource, /<ComposerModelList/);
   assert.match(composerSource, /menuClassName="composer-model-menu composer-model-thinking-menu"/);
 });
 
 test("model selection does not itself record usage", () => {
   assert.doesNotMatch(modelMenuSource, /rememberModel/);
-  assert.match(modelMenuSource, /setOtherModelsExpanded\(false\)/);
 });
 test("switching models adopts the target default without resetting same-model overrides", () => {
   assert.match(modelMenuSource, /const selectedSameModel =\s*activeSessionId &&\s*candidate\.id === provider\?\.id &&\s*sameComposerModelId\(modelId \?\? "", nextModelId\);/);

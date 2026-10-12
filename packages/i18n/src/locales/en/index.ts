@@ -574,7 +574,6 @@ export const en = {
     assistantMessage: "Assistant message",
     model: "Model",
     recentModels: "Recently used",
-    otherModels: "Other models",
     searchModels: "Search models",
     noModelResults: "No matching models",
     modelBadgeReasoning: "reasoning",

@@ -428,9 +428,10 @@ IPC migration is required. Settings has no fixed chat-default picker or service
 
 The combined Composer model menu shows the three most recent available bindings
 first. Each row identifies the provider as well as the model or alias. Search is
-always visible and searches all configured models. Other models expand inline,
-grouped by provider, without duplicating recent entries. With no history, all
-models are visible immediately. The current model is checked; reasoning controls
+always visible and searches all configured models. Every other model follows
+below, grouped by provider, without duplicating recent entries and without a
+disclosure (D676): the list shows seven rows and scrolls for the rest. With no
+history the provider groups are the whole list. The current model is checked; reasoning controls
 remain below the list. Discovery enriches exact
 configured IDs without adding unconfigured choices. Model and reasoning changes
 retain the existing session configuration and permission boundaries.

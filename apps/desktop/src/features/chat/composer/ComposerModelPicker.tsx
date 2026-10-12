@@ -53,9 +53,6 @@ export function ComposerModelPicker({
   const {
     open,
     setOpen,
-    otherModelsExpanded,
-    setOtherModelsExpanded,
-    hasOtherModels,
     query,
     setQuery,
     modelHighlight,
@@ -95,7 +92,6 @@ export function ComposerModelPicker({
           onClick={() => {
             onCloseOtherMenus();
             if (!open) {
-              setOtherModelsExpanded(false);
               setQuery("");
               setModelHighlight(-1);
             }
@@ -130,9 +126,7 @@ export function ComposerModelPicker({
           t={t} query={query} setQuery={setQuery}
           modelSearchRef={modelSearchRef} modelListRef={modelListRef}
           modelGroups={modelGroups} modelHighlight={modelHighlight}
-          recentEntries={recentEntries} hasOtherModels={hasOtherModels}
-          otherModelsExpanded={otherModelsExpanded}
-          setOtherModelsExpanded={setOtherModelsExpanded}
+          recentEntries={recentEntries}
           setModelHighlight={setModelHighlight} selectModel={selectModel}
           selectedProviderId={selectedProviderId} selectedModelId={selectedModelId}
         />

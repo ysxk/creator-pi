@@ -68,6 +68,7 @@ This log freezes previously open questions into concrete decisions.
 | D673 | Media a model read never rides the main agent's tool event, and an oversized append cannot stall the outbox | **(1) The main agent strips media bytes from the `tool_end` event it emits, as the delegate and native Pi paths already did (D660, D667); the result the agent loop keeps for the model is untouched. (2) The persistence outbox treats `request line exceeds 64 MiB` as permanent: a tool row is retried once with a note in place of its content and result, and anything still too large, or not a tool row, is dropped with an error log.** | A Read of a clip or recording of about 30 MB put its base64 in the event, the tool row stored it twice (`content` and `toolResult`), the append exceeded the host's request limit, and the outbox kept retrying that head, which blocked persistence for every session and survived a restart. |
 | D674 | The host reports subagent candidates; the capped merge picks between namesakes | **Amend D658: `agents.active` no longer removes a global document because an enabled project document has the same handle. Both travel with their level, and `mergeSubagentDefinitions`, which owns the project cap, gives the project one precedence or falls back to the global one when the project document is past the cap. A switched-off project document still removes the global one in the host and reports its handle.** | The host removed the global document before the runtime applied the cap of eight project documents, so a ninth project document and its global namesake were both unavailable, against the merge's own rule that an over-cap project document does not claim its name. |
 | D675 | Media in a tool result needs the model's image input | **Amend D660 and D667: a clip or recording a model reads is attached to the tool result only when the model takes that medium, the API can carry it, and the model's image input is on. With image input off the result states that nothing was attached and points to attaching the file to a message, and the `Read` description makes no media promise.** | The media rides an image-typed block, and pi-ai replaces every image-typed tool block with a placeholder for a model without image input, so the bytes were dropped while the result claimed they were attached. Declining honestly was chosen over patching three pi-ai gates for a rare configuration. |
+| D676 | The Composer model list shows seven rows and scrolls; nothing is folded | **The model menu no longer hides models behind an "Other models" disclosure. Up to three recent models still lead, every other model follows by provider, and the list is a seven-row window that scrolls. Search is unchanged: it filters all configured models and drops the recent section. The `chat.otherModels` label is removed from every locale.** | The user had to open a disclosure to reach any model outside the last three used, and asked for a plain scrolling list of seven instead. |
 
 ## B. Secondary implementation defaults
 
@@ -7750,3 +7751,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   yields no reply instead of a later turn's. This restores the documented
   first-turn contract of `session.autoTitle`; no decision changes. Covered by
   `auto_title_context_never_borrows_a_later_turns_reply`.
+
+## 2026-10-12 — The model list scrolls instead of folding (D676)
+
+- `features/chat/composer/model-menu-sections.ts` lays the menu out as a pure
+  function (`modelMenuSections`); `useComposerModelMenu` no longer keeps an
+  expanded flag.
+- `.composer-model-list` is sized from the row height to seven rows plus the
+  two group headings a list with recent models starts with, with
+  `overscroll-behavior: contain`. Measured on a static page with the built
+  styles: seven full 28px rows, and the list scrolls.
+- Covered by `apps/desktop/test/composer-model-menu-sections.test.mjs`; the
+  "Composer recent chat models" scenario is rewritten for the scrolling list.

@@ -17170,11 +17170,13 @@ host-created files. The full app's file-preview viewer is covered separately.
   model menu: exactly the latest three available pairs appear in recency order,
   with provider labels. Select an older recent row: order stays unchanged until
   a message is accepted, at which point that model moves first.
-- Search immediately without expanding Other models; choose using keyboard
-  navigation. Expand Other models inline and verify no duplicate recent rows.
-  Move from the third recent row to Other models, and tab out of search after
-  arrow navigation: no stale keyboard highlight remains on a model row.
-  Without history, all configured models are directly visible. Verify thinking
+- Search immediately; choose using keyboard navigation. With more than seven
+  models configured, verify the list shows seven rows, that every other model
+  is reachable by scrolling it with the wheel, and that no recent row is
+  repeated below (D676). Arrow from the third recent row into the provider
+  groups, and tab out of search after arrow navigation: no stale keyboard
+  highlight remains on a model row.
+  Without history, all configured models are listed by provider. Verify thinking
   defaults still follow the selected binding and manual same-model levels survive.
 - Create a new chat: it inherits the last actually used model. Reload local preferences
   and create another chat: the same binding is restored. An existing chat keeps
