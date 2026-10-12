@@ -16,7 +16,6 @@ const [
   chatSurface,
   composer,
   styles,
-  mascotLogo,
   rendererLanguage,
 ] = await Promise.all([
     read("../../../packages/i18n/src/locales/en/index.ts"),
@@ -28,7 +27,6 @@ const [
     read("../src/components/ChatSurface.tsx"),
     readComposerSource(),
     loadStyles(),
-    read("../src/components/HomeMascotLogo.tsx"),
     read("../src/lib/renderer-language.ts"),
   ]);
 
@@ -53,52 +51,24 @@ test("app chrome uses the shared brand asset without branding the composer input
   assert.match(brandLogo, /src=\{.*brandLogoUrl/);
   assert.match(icons, /export const IconNewSession/);
   assert.doesNotMatch(icons, /IconCodexHome|IconCompose|IconPiMark|IconPiHome/);
-  await access(new URL("../src/assets/home-mascot-dark.gif", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-light.gif", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-still-dark.png", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-still-light.png", import.meta.url));
-  await assert.rejects(
-    () => access(new URL("../src/assets/home-mascot-groups.png", import.meta.url)),
-  );
-  assert.match(chatSurface, /<HomeMascotLogo \/>/);
-  assert.match(mascotLogo, /import mascotMotionDarkUrl from\s*"\.\.\/assets\/home-mascot-dark\.gif"/);
-  assert.match(mascotLogo, /import mascotMotionLightUrl from\s*"\.\.\/assets\/home-mascot-light\.gif"/);
-  assert.match(mascotLogo, /import mascotStillDarkUrl from\s*"\.\.\/assets\/home-mascot-still-dark\.png"/);
-  assert.match(mascotLogo, /import mascotStillLightUrl from\s*"\.\.\/assets\/home-mascot-still-light\.png"/);
-  assert.match(mascotLogo, /className="home-mascot-logo"/);
-  assert.match(mascotLogo, /aria-hidden="true"/);
-  assert.match(mascotLogo, /className="home-mascot-motion home-mascot-dark"/);
-  assert.match(mascotLogo, /className="home-mascot-motion home-mascot-light"/);
-  assert.match(mascotLogo, /className="home-mascot-still home-mascot-dark"/);
-  assert.match(mascotLogo, /className="home-mascot-still home-mascot-light"/);
-  assert.doesNotMatch(mascotLogo, /<svg/);
-  assert.doesNotMatch(
-    mascotLogo,
-    /home-mascot-groups\.png|home-mascot-orbit|Math\.random\(\)|setTimeout|backgroundPosition|onMouseEnter|onMouseLeave|useState|useEffect|matchMedia/,
-  );
+  // The empty home carries no mascot or brand mark: the title stands alone.
+  for (const asset of [
+    "home-mascot-dark.gif",
+    "home-mascot-light.gif",
+    "home-mascot-still-dark.png",
+    "home-mascot-still-light.png",
+    "home-mascot-groups.png",
+  ]) {
+    await assert.rejects(() => access(new URL(`../src/assets/${asset}`, import.meta.url)));
+  }
+  await assert.rejects(() => access(new URL("../src/components/HomeMascotLogo.tsx", import.meta.url)));
+  assert.doesNotMatch(chatSurface, /HomeMascotLogo|empty-hero-icon|home-icon/);
   assert.doesNotMatch(chatSurface, /<BrandLogo/);
-  assert.match(styles, /\.empty-hero-icon\s*\{[\s\S]*?height:\s*100px;[\s\S]*?width:\s*100px;/);
-  assert.match(
-    styles,
-    /\.home-mascot-logo\s*\{[\s\S]*?display:\s*block;[\s\S]*?width:\s*100px;[\s\S]*?height:\s*100px;/,
-  );
-  assert.match(
-    styles,
-    /:root:not\(\[data-theme="light"\]\) \.home-mascot-logo \.home-mascot-motion\.home-mascot-dark/,
-  );
-  assert.match(
-    styles,
-    /:root\[data-theme="light"\] \.home-mascot-logo \.home-mascot-motion\.home-mascot-light/,
-  );
-  assert.match(
-    styles,
-    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.home-mascot-still\.home-mascot-dark,[\s\S]*?\.home-mascot-still\.home-mascot-light[\s\S]*?display:\s*block;/,
-  );
+  assert.doesNotMatch(styles, /home-mascot|empty-hero-icon/);
   assert.match(
     rendererLanguage,
     /if \(request === languageRequest\)\s*document\.documentElement\.lang = target/,
   );
-  assert.doesNotMatch(styles, /@keyframes home-mascot-orbit|@keyframes home-mascot-breathe|@keyframes home-mascot-blink/);
   assert.doesNotMatch(styles, /background-size:\s*5000px 100px|image-rendering:\s*pixelated/);
   assert.doesNotMatch(composer, /<BrandLogo/);
   assert.doesNotMatch(composer, /composer-thread-mark/);

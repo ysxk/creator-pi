@@ -125,14 +125,8 @@ Codex as a visual reference. The identity contract is deliberately small:
   and NSIS shortcut identity stay aligned so native notifications,
   notification settings, and taskbar groups identify the app as `PI-Desktop`
   rather than Electron.
-- The empty-home hero uses a 100px `HomeMascotLogo` GIF: an eight-frame waving
-  mascot compiled from the supplied light and dark action sets, with a short
-  idle hold on the first frame. CSS selects the pair from
-  `document.documentElement[data-theme]`; anything other than `light` uses the
-  dark artwork. Playback is native to the GIF. There is no random pose
-  selection, JavaScript timer, or hover-driven speed change. Reduced motion
-  swaps the GIF for the matching first-frame PNG without changing the 100px
-  slot.
+- The empty-home hero carries no mascot or brand mark (D671): the title stands
+  alone above the composer, and nothing on the empty home animates.
   `BrandLogo` remains 20px/18px in the expanded/collapsed sidebar and 64px in
   the startup splash. Composer prompt rows do not render a leading brand icon
   in either home or thread-docked mode.
@@ -794,8 +788,8 @@ are also explicitly suppressed or collapsed to a static state.
 ### 8.6 Prohibited motion
 
 - No parallax
-- No continuous background animations (particles, waves); the bounded
-  foreground mascot loop is the explicit empty-home exception
+- No continuous background animations (particles, waves), and no looping
+  mascot on the empty home (D671)
 - No shimmer/skeleton animations longer than 1s loop — use simple fade-in for loading states
 - No bounce effects
 - No multi-second boot theatrical sequences; splash exits as soon as ready (+ min dwell)
@@ -869,11 +863,9 @@ model):
   controls remain icon-only and use the semantic hover wash
 - Empty hero title uses `var(--ds-text-primary)` (light override `#1a1c1f`);
   never hardcode light ink for shared hero styles
-- Empty-home branding stays quiet: the 100px eight-frame mascot GIF is the
-  sole animated hero mark. Light and dark themes each use a dedicated asset
-  pair. It loops a short wave with an idle hold so the composer remains the
-  primary task surface. Pointer hover does not change the cadence; reduced
-  motion shows the matching still first frame.
+- Empty-home branding stays quiet: the hero is the title alone, with no
+  mascot and no animated mark (D671), so the composer remains the primary
+  task surface.
 - Night home composer plate styles are **dark-scoped only** (elevated-primary
   `#212121f5` + standard elevation-prominent)
 - Empty draft row keeps **one visible line / 28px optical minimum** so the

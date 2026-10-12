@@ -30,11 +30,6 @@
   color: color-mix(in oklab, var(--ds-text-primary) 78%, transparent);
 }
 
-:root[data-theme="dark"] .empty-hero-icon {
-  color: var(--ds-text-primary);
-  opacity: 1;
-}
-
 .composer-model-thinking {
   position: relative;
   /* Keep the label-sized trigger inside its shrinking toolbar slot. */
