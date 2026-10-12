@@ -90,8 +90,8 @@ async function seedSidebarProjects(hostBinary, dataDir, tempDirs) {
   startOfToday.setHours(0, 0, 0, 0);
   const dayStart = startOfToday.getTime();
   const stamp = (ms) => new Date(ms).toISOString();
-  // `getTimeGroup` buckets on the calendar day, so these offsets are anchored to
-  // local midnight rather than to the current clock time.
+  // Rows that span today, yesterday, the last week and beyond: the group lists
+  // them flat, with no date label between them (D679).
   const alphaRows = [
     ["alpha today b", Date.now() - 120_000],
     ["alpha today a", Date.now() - 60_000],
@@ -1520,8 +1520,8 @@ async function main() {
       JSON.stringify({ alpha, beta, gamma }),
     );
     check(
-      alpha?.rows === 5 && alpha.dateHeaders === 3 && alpha.height > 0,
-      "the seeded multi-row group draws its rows and every date label",
+      alpha?.rows === 5 && alpha.dateHeaders === 0 && alpha.height > 0,
+      "the seeded multi-row group draws its rows flat, with no date label",
       JSON.stringify(alpha),
     );
     check(

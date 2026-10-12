@@ -40,8 +40,9 @@ test("sidebar renders global pins once, outside project folding and history limi
       session("archived-project-pin", "/archived"),
     ];
     const now = Date.now();
+    // A day apart, so the visible rows span today, the last weeks and beyond.
     const normal = Array.from({ length: 11 }, (_, index) =>
-      session(`normal-${String(index).padStart(2, "0")}`, "/open", new Date(now - index * 1_000).toISOString()),
+      session(`normal-${String(index).padStart(2, "0")}`, "/open", new Date(now - index * 86_400_000).toISOString()),
     );
     const meta = Object.fromEntries(pins.map(({ id }) => [id, { pinned: true }]));
     meta["archived-pin"].archived = true;
@@ -146,6 +147,17 @@ test("sidebar renders global pins once, outside project folding and history limi
       /<div class="sidebar-session-group-clip"><div class="sidebar-session-group-list">/,
     );
     assert.ok(rows(openGroup).length > 0, "an expanded group renders its rows");
+
+    // Project history is one flat list in the active sort order: rows days and
+    // years apart sit next to each other with no date label between them (D679).
+    assert.deepEqual(
+      rows(openGroup),
+      normal.slice(0, 10).map(({ id }) => id),
+    );
+    for (const group of [openGroup, collapsedGroup]) {
+      assert.doesNotMatch(group, /sidebar-time-group/);
+      assert.doesNotMatch(group, />(Yesterday|Previous 7 days|Previous 14 days|Older)</);
+    }
 
     // A retained project with no sessions is the empty state, and it has to sit
     // in the same list layer so the fold animates it away too.

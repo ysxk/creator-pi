@@ -71,6 +71,7 @@ This log freezes previously open questions into concrete decisions.
 | D676 | The Composer model list shows seven rows and scrolls; nothing is folded | **The model menu no longer hides models behind an "Other models" disclosure. Up to three recent models still lead, every other model follows by provider, and the list is a seven-row window that scrolls. Search is unchanged: it filters all configured models and drops the recent section. The `chat.otherModels` label is removed from every locale.** | The user had to open a disclosure to reach any model outside the last three used, and asked for a plain scrolling list of seven instead. |
 | D677 | The MCP client starts a new session when the server ends one | **Streamable HTTP, MCP 2025-06-18 Session Management items 3 and 4: an HTTP 404 for a request that carried the issued `Mcp-Session-Id` means the server ended the session. The client drops it, sends a new `InitializeRequest` without a session id, and repeats the refused request once. This is the single case in which a `tools/call` is sent again, because a 404 for the session id is a refusal before execution. Concurrent calls share the new handshake; a second refusal, a failed handshake, and a 404 without a session id are surfaced unchanged. `connect()` now waits for a handshake in progress before treating the transport as connected.** | The client treated that 404 as a plain HTTP error and kept the dead session id, so after a remote server restarted or expired the session every call failed until the user tested the connection, edited the server, or restarted the app. The specification makes re-initialization a MUST. |
 | D678 | A wait on the user is not part of a request's time budget | **Restore D636 in host-core: the per-request wall-clock budget stops counting while a `tools.execute` handler waits for the answer to a permission prompt, and counts again from what was left once the prompt is settled. The fixed 120 s added to the budget for the prompt is removed; the budget for `tools.execute` is the tool's effective timeout plus the 90 s grace. A prompt still ends only by a decision, a cancellation or shutdown.** | The budget (issues #1071 / #1208) wrapped the whole handler, so a Bash prompt left unanswered for the tool timeout plus 210 s failed the call with `HOST_RPC_TIMEOUT`. That is the automatic deadline D636 removed, and it also left the request in `permissions.pending` with no waiter: the card came back when the session was reopened and answering it did nothing. Seen in a 0.16.1 user log: four prompts cut at 220 to 270 s, one of them answered more than two hours later. |
+| D679 | Project sessions are one flat list | *(supersedes the date labels of the 2026-09-16 sidebar rhythm entry)* **A project group in the sidebar lists its sessions flat, in the active sort order. The Yesterday / Previous 7 days / Previous 14 days / Older labels are gone, and so are their catalog keys and the bucketing helper. The ten-row fold, the load-more row, global pins and the sort modes are unchanged. Renderer-only.** | The user asked for it: with a date bucket every few rows, the labels took rows from a short list and split sessions that the chosen sort had already ordered. Under a Name or Created sort the buckets also overrode that sort, regrouping rows by update date. |
 
 ## B. Secondary implementation defaults
 
@@ -6007,6 +6008,7 @@ that was sitting at the bottom — including after the turn had finished.
   rather than a second level of groups: they keep no state, no disclosure, and
   no `aria-expanded`, and their own inset becomes a symmetric 4px instead of 6px
   above and 2px below, so a label no longer outweighs the 1px row gap it sits in.
+  *(D679 removed these labels; the group is now a flat list.)*
 - `space-0.25` (1px) joins the spacing scale as the hairline step for dense list
   rhythms; the settings rail already used 1px between its navigation items. The
   section-gap rule no longer claims the sidebar, which has its own rhythm.
@@ -7810,3 +7812,24 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `budget_counts_again_once_the_user_has_answered` and
   `permission_prompt_outlives_the_request_budget` in `rpc/mod.rs`; the last one
   fails without the guard.
+
+## 2026-10-13 — Project sessions lose their date labels (D679)
+
+- Before: `Sidebar.tsx` passed a project's visible rows through
+  `groupSidebarSessionsByTime`, which put them in today / yesterday / last 7
+  days / last 14 days / older buckets and drew a label above each bucket but
+  today's. The buckets were keyed on `updatedAt`, so under the Name, Created
+  date or Oldest first sort they reordered rows away from the chosen sort.
+- Now the group renders the rows it is given, in the order `compareSessions`
+  produced, followed by the load-more row when the fold hides any.
+- Removed with it: `groupSidebarSessionsByTime` and `getTimeGroup` in
+  `lib/sidebar-session-groups.ts`, `.sidebar-time-group-header`, and the four
+  `nav.timeGroup*` keys in every locale. The search dialog keeps its own date
+  sections (`search.today` and the rest); they are a different surface.
+- Unchanged: the ten-row default and its load-more row, global pins, the
+  standalone Sessions section (which never had labels), and the 1px / 2px /
+  8px rhythm.
+- Covered by `apps/desktop/test/sidebar-pinned-rendering.test.mjs`, whose
+  project rows now sit a day apart and must render in sort order with no
+  label; `scripts/e2e-three-column-layout.mjs` expects zero date labels in
+  the seeded five-row group.

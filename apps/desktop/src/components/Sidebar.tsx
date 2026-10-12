@@ -23,7 +23,6 @@ import { useSessionHoverCard } from "../features/sessions/useSessionHoverCard";
 import { isDefaultSessionTitle, useAppStore } from "../stores/app-store";
 import {
   getGlobalPinnedSessions,
-  groupSidebarSessionsByTime,
   normalizeProjectPath,
   sessionArchived,
   sessionPinned,
@@ -1826,32 +1825,15 @@ export function Sidebar({
     const isMenuOpen = projectMenu === entry.key;
 
     // Show the most recent MAX_VISIBLE_SESSIONS rows by default; the remaining
-    // sessions stay folded behind the same load-more affordance used for the
-    // time-grouped overflow and expand on click.
+    // sessions stay folded behind the load-more row and expand on click.
     const sessionsExpanded = expandedProjectSessions[entry.key] ?? false;
     const history = entry.sessions.filter((session) => !pinnedSessionIds.has(session.id));
     const visibleSessions = sessionsExpanded ? history : history.slice(0, MAX_VISIBLE_SESSIONS);
     const hiddenCount = history.length - visibleSessions.length;
 
-    const renderTimeGroupedSessions = (sessions: SessionSummary[]) => {
-      const result: React.ReactNode[] = [];
-      for (const { group, sessions: groupSessions } of groupSidebarSessionsByTime(sessions)) {
-        // For today, don't show header (as per requirement)
-        if (group !== "today") {
-          const i18nKey =
-            group === "yesterday" ? "nav.timeGroupYesterday" :
-            group === "thisWeek" ? "nav.timeGroupThisWeek" :
-            group === "older14d" ? "nav.timeGroupOlder14d" :
-            "nav.timeGroupArchived";
-          result.push(
-            <div key={`group-header-${group}`} className="sidebar-time-group-header">
-              {t(i18nKey)}
-            </div>
-          );
-        }
-        result.push(...renderSessionRows(groupSessions, { projectPath: entry.path }));
-      }
-      // Add "load more" button if there are hidden sessions
+    // One flat list in the active sort order, with no date labels (D679).
+    const renderProjectSessions = (sessions: SessionSummary[]) => {
+      const result: React.ReactNode[] = renderSessionRows(sessions, { projectPath: entry.path });
       if (hiddenCount > 0) {
         result.push(
           <button
@@ -2008,7 +1990,7 @@ export function Sidebar({
         >
           <div className="sidebar-session-group-clip">
             <div className="sidebar-session-group-list">
-              {entry.sessions.length > 0 ? renderTimeGroupedSessions(visibleSessions) : (
+              {entry.sessions.length > 0 ? renderProjectSessions(visibleSessions) : (
                 <div className="sidebar-session-empty">{t("nav.noProjectSessions")}</div>
               )}
             </div>

@@ -234,7 +234,8 @@ destination, chat as the home surface, tools and permissions inline.
   title. Session `manual` remains a compatibility value.
 - **Conversation list**: each group shows the ten most-recent sessions in the
   active sort order by default; the remainder folds behind a **Load N more…**
-  row that expands the full time-grouped list on click. Pinned rows precede
+  row that expands the full list on click. The list is flat: rows follow the
+  active sort order with no date labels between them. Pinned rows precede
   unpinned rows and are never pushed behind the fold; the expansion state is
   not persisted.
 - **Standalone sessions**: path-less sessions remain in the separate Sessions

@@ -4030,12 +4030,12 @@ window; opening a normal panel afterward must still work.
   the same group before expanding. 4) Restart the app and inspect the group
   again.
 - **Expected**: The group shows exactly ten session rows by default plus a
-  **Load N more…** control (N = remaining session count) styled like the
-  time-grouped overflow; the ten rows are the first rows in the active sort
-  order, so pinned rows are never pushed behind unpinned rows and a Name sort
-  folds everything after the first ten alphabetically; selecting Load more
-  expands the full time-grouped list (Yesterday/Previous 7 days/Previous 14
-  days/Older headers appear as applicable) and the control disappears;
+  **Load N more…** control (N = remaining session count); the ten rows are
+  the first rows in the active sort order, so pinned rows are never pushed
+  behind unpinned rows and a Name sort folds everything after the first ten
+  alphabetically; selecting Load more expands the full list, still flat and
+  in the active sort order with no Yesterday/Previous 7 days/Previous 14
+  days/Older label anywhere in the group, and the control disappears;
   expansion is per group and resets on restart (not persisted); the project
   with ten or fewer sessions shows no fold control.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/09-interaction-patterns.md`
@@ -15452,11 +15452,11 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 #### E2E-LAYOUT-sidebar-project-group-fold
 
 - **Preconditions**: Four retained sidebar project groups, seeded through the
-  host: one holding five sessions across four date buckets, one holding a single
+  host: one holding five sessions updated from today to weeks ago, one holding a single
   session, one holding none, and one holding ten pinned sessions.
   `prefers-reduced-motion` is unset.
 - **Steps**:
-  1. Inspect the groups: body layering, row and date-label counts, the empty
+  1. Inspect the groups: body layering, row count, no date label, the empty
      state, the tail each expanded group contributes to the next one, and the
      non-project lists' budgets.
   2. Collapse the multi-row group with a real pointer click on its directory row —

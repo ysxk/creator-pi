@@ -1346,27 +1346,16 @@ SESSIONS                                      [msg+][↕]
            Session title
 ```
 
-Rows inside a project group are dated. The today bucket draws no header;
-yesterday, the previous 7 days, the previous 14 days, and everything older each
-draw a muted uppercase label above their rows, and only a bucket that holds rows
-draws one:
-
-```text
-[folder] current-project                         [+]
-           YESTERDAY
-           Session title
-           Session title
-```
-
-That label is an ordinary row of the list rhythm — no disclosure, no state, no
-`aria-expanded` — unlike a project header, which is a real collapsible group.
+Rows inside a project group form one flat list in the active sort order. No
+date label separates them (D679): a session from today and one from last month
+are adjacent rows, and the only non-session row is the load-more row.
 
 Spacing ladder in the sidebar lists (`space-0.25` / `space-0.5` / `space-2` per
 `04-ux/07-ui-design-system.md` §6.1):
 
 | Relation | Gap |
 |---|---|
-| Row to row, including a date label and the load-more row | 1px |
+| Row to row, including the load-more row | 1px |
 | Project group header to its first row | 2px |
 | Last row of an expanded group to the next group | 8px |
 | Collapsed group to the next group | 1px |
