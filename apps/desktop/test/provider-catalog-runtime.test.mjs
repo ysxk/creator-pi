@@ -248,3 +248,46 @@ test("a user-pinned context window is never replaced by the catalog number (#117
   }).models;
   assert.equal(inherited[0].contextWindow, 128_000, "a catalog-sourced window follows the published value");
 });
+
+test("listing providers hands the catalog the endpoint's cached model list", async () => {
+  const catalog = new ModelsDevCatalog({ catalogPath });
+  await catalog.ensureLoaded();
+  const provider = {
+    id: "provider-row",
+    name: "Relay",
+    vendorKey: "custom",
+    baseUrl: "https://relay.example/v1beta",
+    models: [{ id: "served-model", contextWindow: 128_000, maxTokens: 8_192, thinkingLevels: [] }],
+  };
+  let cacheReadable = true;
+  const warnings = [];
+  const host = {
+    call: async (method, params) => {
+      if (method === "providers.list") return { providers: [provider] };
+      if (method === "providers.listModels") {
+        assert.deepEqual(params, {}, "one read covers every provider row");
+        if (!cacheReadable) throw new Error("cache locked");
+        return {
+          models: [{ providerId: "provider-row", modelId: "served-model", inputModalities: ["audio"] }],
+        };
+      }
+      throw new Error(`unexpected ${method}`);
+    },
+  };
+  const runtime = createProviderCatalogRuntime({
+    getHost: () => host,
+    modelsDevCatalog: catalog,
+    logger: { app: (...entry) => warnings.push(entry) },
+  });
+  const target = { providerId: "provider-row", vendorKey: "custom", baseUrl: provider.baseUrl, modelId: "served-model" };
+
+  await runtime.listRuntimeProviders();
+  assert.deepEqual(catalog.modelConfigFor(target).modalities.input, ["text", "audio"]);
+
+  // A failed cache read is reported and keeps the last answer.
+  cacheReadable = false;
+  assert.equal((await runtime.listRuntimeProviders()).length, 1);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0][1], "warn");
+  assert.deepEqual(catalog.modelConfigFor(target).modalities.input, ["text", "audio"]);
+});

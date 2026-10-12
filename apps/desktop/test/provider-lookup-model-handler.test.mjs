@@ -87,6 +87,12 @@ function harness(realCatalog) {
     "@pi-desktop/agent-runtime": {},
     "../models-dev-catalog": modelsDev,
     "../host-process": {},
+    "../runtime/discovered-models.ts": {
+      // Only a live discovery refreshes the cached list; a lookup reads nothing.
+      syncDiscoveredModels: async () => {
+        throw new Error("the lookup must not read the model cache");
+      },
+    },
     "../logger": { app: () => {} },
     "./types": {},
   });

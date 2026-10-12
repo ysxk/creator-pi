@@ -40,6 +40,7 @@ import {
   type ModelsDevCatalog,
 } from "../models-dev-catalog";
 import type { Logger } from "../logger";
+import { syncDiscoveredModels } from "./discovered-models.ts";
 import type { PluginRuntime } from "../plugin-runtime";
 import type { UserMcpRuntime } from "../user-mcp";
 import type { RuntimeState } from "./context";
@@ -287,6 +288,7 @@ export function createSessionLaunchRuntime({
       { includeDisabled: false },
     );
     for (const row of providers.providers) modelsDevCatalog.configureAccount(row);
+    await syncDiscoveredModels(runtimeState.host!, modelsDevCatalog, logger);
     const requestedProviderId = overrides.providerId ?? session.providerId;
     const extensionAgentKey = requestedProviderId
       ? trustedExtensionAgentKeyFromProviderId(requestedProviderId)

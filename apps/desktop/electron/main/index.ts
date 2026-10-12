@@ -350,6 +350,7 @@ const {
 const providerCatalogRuntime = createProviderCatalogRuntime({
   getHost,
   modelsDevCatalog,
+  logger,
 });
 const {
   bindingForModel,

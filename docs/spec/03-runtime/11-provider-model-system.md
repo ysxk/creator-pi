@@ -343,7 +343,9 @@ type ModelBinding = {
   defaultThinkingLevel: SessionThinkingLevel | null
   thinkingProtocol?: "legacy" | "adaptive"
   // Three-state attachment overrides; null/absent follows the published
-  // models.dev capability, an explicit boolean is pinned. `supportsVideos`
+  // models.dev capability, or, for a model no publisher describes, the input
+  // modalities the endpoint listed for it (D669); an explicit boolean is
+  // pinned. `supportsVideos`
   // and `supportsAudio` gate inline base64 video and audio transport the
   // same way `supportsImages` gates images; documents stay file references
   // either way.

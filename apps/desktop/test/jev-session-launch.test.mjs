@@ -52,6 +52,7 @@ test("session launch resolves Jev credentials only for opted-in Agent mode", asy
           return { configuredId: "bash", effective: shell, fallback: false, choices: [shell] };
         }
         if (method === "providers.list") return { providers: [provider] };
+        if (method === "providers.listModels") return { models: [] };
         if (method === "providers.getSecret") return { value: "" };
         if (method === "skills.active") return { skills: [] };
         if (method === "mcp.active") return { servers: [] };
@@ -85,6 +86,7 @@ test("session launch resolves Jev credentials only for opted-in Agent mode", asy
       modelsDevCatalog: {
         async ensureLoaded() {},
         configureAccount() {},
+        configureDiscoveredModels() {},
         findModel() { return undefined; },
       },
       getWorkspacePath: () => null,

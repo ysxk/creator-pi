@@ -184,6 +184,68 @@ test("explicit account limits stay pinned over a later models.dev value", async 
   assert.equal(config.source, "models.dev");
 });
 
+test("a model no publisher describes takes the input modalities its endpoint listed", async (t) => {
+  const catalog = await loadFixtureCatalog(t, {
+    google: {
+      name: "Google",
+      api: "https://generativelanguage.googleapis.com/v1beta",
+      models: {
+        "known-flash": {
+          id: "known-flash",
+          modalities: { input: ["text", "image"], output: ["text"] },
+          limit: { context: 1_000_000, output: 8_192 },
+        },
+      },
+    },
+  });
+  const relay = { providerId: "relay", vendorKey: "custom", baseUrl: "https://relay.example/v1beta" };
+  const served = { ...relay, modelId: "known-flash-high" };
+  const binding = { id: "known-flash-high", contextWindow: 1_000_000, maxTokens: 8_192, thinkingLevels: [] };
+  catalog.configureAccount({ id: "relay", vendorKey: "custom", baseUrl: relay.baseUrl, models: [binding] });
+
+  // Nothing is known of the id until the endpoint's own list is handed over.
+  assert.deepEqual(catalog.modelConfigFor(served).modalities.input, ["text"]);
+
+  catalog.configureDiscoveredModels([
+    { providerId: "relay", modelId: "Known-Flash-High", inputModalities: ["image", "audio", "video", "smell"] },
+    { providerId: "relay", modelId: "known-flash", inputModalities: ["audio"] },
+    { providerId: "other", modelId: "known-flash-high", inputModalities: ["pdf"] },
+  ]);
+  const config = catalog.modelConfigFor(served);
+  assert.deepEqual(config.modalities.input, ["text", "image", "audio", "video"]);
+  // The adapter subset carries only what pi-ai encodes as a content block.
+  assert.deepEqual(config.input, ["text", "image"]);
+  assert.equal(config.source, "generic");
+
+  // A published record stays the authority for an id the catalog knows.
+  assert.deepEqual(
+    catalog.modelConfigFor({ ...relay, vendorKey: "google", modelId: "known-flash" }).modalities.input,
+    ["text", "image"],
+  );
+  // The settings record asks for what publishers say, without the cached list.
+  assert.deepEqual(
+    catalog.modelConfigFor({ ...served, publishedOnly: true }).modalities.input,
+    ["text"],
+  );
+
+  // An explicit switch still wins in both directions.
+  catalog.configureAccount({
+    id: "relay",
+    vendorKey: "custom",
+    baseUrl: relay.baseUrl,
+    models: [{ ...binding, supportsAudio: false, supportsDocuments: true }],
+  });
+  assert.deepEqual(
+    [...catalog.modelConfigFor(served).modalities.input].sort(),
+    ["image", "pdf", "text", "video"],
+  );
+
+  // The next cache read replaces the previous one wholesale.
+  catalog.configureDiscoveredModels([]);
+  catalog.configureAccount({ id: "relay", vendorKey: "custom", baseUrl: relay.baseUrl, models: [binding] });
+  assert.deepEqual(catalog.modelConfigFor(served).modalities.input, ["text"]);
+});
+
 function observeModelIdReads(model) {
   const modelId = model.modelId;
   let reads = 0;

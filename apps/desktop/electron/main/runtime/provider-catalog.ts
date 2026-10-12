@@ -18,6 +18,8 @@ import {
 } from "@pi-desktop/agent-runtime";
 import { resolveBindingLimits } from "@pi-desktop/shared";
 import type { HostProcess } from "../host-process";
+import type { Logger } from "../logger";
+import { syncDiscoveredModels } from "./discovered-models.ts";
 import {
   catalogModelConfigFor,
   type ModelsDevCatalog,
@@ -63,11 +65,13 @@ export type SessionCapabilityDefaults = {
 export type ProviderCatalogRuntimeDependencies = {
   getHost: () => HostProcess | null;
   modelsDevCatalog: ModelsDevCatalog;
+  logger?: Pick<Logger, "app">;
 };
 
 export function createProviderCatalogRuntime({
   getHost,
   modelsDevCatalog,
+  logger,
 }: ProviderCatalogRuntimeDependencies) {
   const bindingForModel = (
     provider: Pick<RuntimeProvider, "models">,
@@ -280,6 +284,7 @@ export function createProviderCatalogRuntime({
     );
     await modelsDevCatalog.ensureLoaded();
     for (const provider of result.providers) modelsDevCatalog.configureAccount(provider);
+    await syncDiscoveredModels(host, modelsDevCatalog, logger);
     return result.providers;
   };
 

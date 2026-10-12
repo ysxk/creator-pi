@@ -22,6 +22,7 @@ import {
   type ModelsDevCatalog,
 } from "../models-dev-catalog";
 import type { HostProcess } from "../host-process";
+import { syncDiscoveredModels } from "../runtime/discovered-models.ts";
 import type { Logger } from "../logger";
 import type { IpcRegistrar } from "./types";
 /**
@@ -71,6 +72,7 @@ export type ProviderIpcDependencies = {
     | "findModel"
     | "modelsForProvider"
     | "configureAccount"
+    | "configureDiscoveredModels"
     | "deleteAccount"
     | "modelConfigFor"
     | "settingsMetadataFor"
@@ -438,6 +440,9 @@ export function registerProviderIpc({
           baseUrl: catalogBaseUrl,
           apiStyle: modelApiStyle,
           modelId: model.modelId,
+          // The row in hand is the endpoint's current answer; an older cached
+          // one must not come back through here and be cached again.
+          publishedOnly: true,
         });
         const modelConfig = catalogModelConfig;
         const operationMetadata = modelsDevCatalog.settingsMetadataFor?.({ providerId: provider?.id, vendorKey: catalogVendorKey, baseUrl: catalogBaseUrl, modelId: model.modelId });
@@ -611,6 +616,8 @@ export function registerProviderIpc({
                 reasoningLevels: model.supportedThinkingLevels as string[] | undefined,
               })),
             });
+            // The runtime reads the same answer the panel is about to show.
+            await syncDiscoveredModels(host!, modelsDevCatalog, logger);
           }
         } catch (e) {
           logger.app("provider", "warn", "model cache update failed", {

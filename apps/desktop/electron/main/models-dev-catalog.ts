@@ -139,12 +139,22 @@ export type CatalogAccount = {
   models?: ModelBinding[];
 };
 
+/** A model an endpoint listed itself, as host-core's model cache holds it. */
+export type DiscoveredModelRow = {
+  providerId: string;
+  modelId: string;
+  /** Input modalities the endpoint published; `text` is implied. */
+  inputModalities?: readonly string[];
+};
+
 type CatalogTarget = {
   providerId?: string;
   vendorKey?: string;
   baseUrl?: string;
   apiStyle?: string;
   modelId: string;
+  /** Leave out what the endpoint's cached model list said of this model. */
+  publishedOnly?: boolean;
 };
 
 function asRecord(value: unknown): JsonRecord | null {
@@ -1290,6 +1300,8 @@ export class ModelsDevCatalog {
   private readonly accountModels = new Map<string, MutableModels>();
   private readonly accountRows = new Map<string, CatalogAccount>();
   private readonly removedAccounts = new Set<string>();
+  /** Endpoint-published input modalities, by provider row then lowercased model id. */
+  private discoveredInputs = new Map<string, Map<string, ModelModality[]>>();
 
   constructor(options: ModelsDevCatalogOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -1314,6 +1326,45 @@ export class ModelsDevCatalog {
     this.removedAccounts.add(providerId);
     this.accountModels.delete(providerId);
     this.accountRows.delete(providerId);
+    this.discoveredInputs.delete(providerId);
+  }
+
+  /**
+   * Replace what the endpoints say of their own models with the host's
+   * current model cache. It answers only where no catalog record does, as the
+   * settings panel's checkboxes already assume.
+   */
+  configureDiscoveredModels(rows: readonly DiscoveredModelRow[]): void {
+    const next = new Map<string, Map<string, ModelModality[]>>();
+    for (const row of rows) {
+      const input = (row.inputModalities ?? [])
+        .map(parseModality)
+        .filter((item): item is ModelModality => item !== undefined && item !== "text");
+      if (input.length === 0 || this.removedAccounts.has(row.providerId)) continue;
+      let models = next.get(row.providerId);
+      if (!models) next.set(row.providerId, (models = new Map()));
+      models.set(row.modelId.trim().toLowerCase(), [...new Set(input)]);
+    }
+    this.discoveredInputs = next;
+  }
+
+  /**
+   * The generic shape with the input modalities the endpoint published for
+   * this model, or nothing when it published none. An operation model keeps
+   * its typed metadata, which the settings panel also reads first.
+   */
+  private discoveredConfigFor(input: CatalogTarget): ModelConfig | undefined {
+    if (!input.providerId || input.publishedOnly) return undefined;
+    const published = this.discoveredInputs
+      .get(input.providerId)
+      ?.get(input.modelId.trim().toLowerCase());
+    if (!published || this.settingsMetadataFor(input)) return undefined;
+    const modalities: ModelModalities = { input: ["text", ...published], output: ["text"] };
+    return {
+      ...genericModelConfig(input.modelId, input.baseUrl ?? ""),
+      modalities,
+      input: adapterInput(modalities),
+    };
   }
 
   /** Persisted per-model limits remain user-owned overrides over catalog data. */
@@ -1419,7 +1470,9 @@ export class ModelsDevCatalog {
       : undefined;
     let baseline = model
       ? modelConfigFromModelsDev(model, input.baseUrl)
-      : unpublishedConfig ?? genericModelConfig(input.modelId, input.baseUrl ?? "");
+      : unpublishedConfig ??
+        this.discoveredConfigFor(input) ??
+        genericModelConfig(input.modelId, input.baseUrl ?? "");
     if (!model && !unpublishedConfig && input.apiStyle === "anthropic_messages") {
       const thinking = this.anthropicThinkingFor(input.modelId);
       if (thinking) baseline = { ...baseline, ...thinking };
