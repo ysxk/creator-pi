@@ -66,14 +66,32 @@ describe("parseProxyUrl", () => {
 });
 
 describe("validateNetworkProxy", () => {
-  it("defaults unknown values to system and drops custom URL for non-custom modes", () => {
+  it("defaults unknown values to system and keeps the URL a mode switch restores", () => {
     expect(validateNetworkProxy(undefined)).toEqual({
       ok: true,
       value: { mode: "system" },
     });
-    expect(validateNetworkProxy({ mode: "direct", url: "socks5://127.0.0.1:1080" })).toEqual({
+    // System and Direct remember the custom URL and bypass; only `mode`
+    // decides what is in effect (issue #1541).
+    expect(
+      validateNetworkProxy({
+        mode: "direct",
+        url: "  socks5://127.0.0.1:7891  ",
+        bypass: " localhost ",
+      }),
+    ).toEqual({
       ok: true,
-      value: { mode: "direct" },
+      value: {
+        mode: "direct",
+        url: "socks5://127.0.0.1:7891",
+        bypass: "localhost",
+      },
+    });
+    // A URL that cannot describe a proxy is dropped, not refused: it must not
+    // block the mode switch itself.
+    expect(validateNetworkProxy({ mode: "system", url: "not-a-proxy" })).toEqual({
+      ok: true,
+      value: { mode: "system" },
     });
   });
   it("drops the retired fake-IP key from a stored proxy", () => {
@@ -96,6 +114,48 @@ describe("validateNetworkProxy", () => {
     ).toEqual({
       ok: true,
       value: { mode: "custom", url: "socks5://127.0.0.1:1080" },
+    });
+  });
+
+  it("restores the custom proxy after a detour through system mode", () => {
+    // Every step is what `settings.set` validates, so this is the stored blob.
+    const saved = validateNetworkProxy({
+      mode: "custom",
+      url: "socks5://127.0.0.1:7891",
+      bypass: "localhost,10.8.0.0/24",
+    });
+    if (!saved.ok) throw new Error(saved.error);
+    let stored = saved.value;
+
+    // NetworkProxySection.chooseMode("system") carries the values along.
+    const system = validateNetworkProxy({
+      mode: "system",
+      url: stored.url,
+      bypass: stored.bypass,
+    });
+    if (!system.ok) throw new Error(system.error);
+    stored = system.value;
+    expect(stored).toEqual({
+      mode: "system",
+      url: "socks5://127.0.0.1:7891",
+      bypass: "localhost,10.8.0.0/24",
+    });
+
+    // Choosing Custom again rebuilds it from what the settings still hold,
+    // instead of the built-in default the fields would otherwise fall back to.
+    expect(
+      validateNetworkProxy({
+        mode: "custom",
+        url: stored.url,
+        bypass: stored.bypass,
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        mode: "custom",
+        url: "socks5://127.0.0.1:7891",
+        bypass: "localhost,10.8.0.0/24",
+      },
     });
   });
 });

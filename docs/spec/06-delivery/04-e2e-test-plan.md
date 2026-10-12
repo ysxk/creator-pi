@@ -13317,7 +13317,9 @@ are withdrawn with ADR 0165.
   7. Switch to System. Confirm Chromium returns to `mode: "system"` and send a
      provider request and marketplace refresh. Confirm both follow the OS/PAC
      route selected for each destination, including ordered proxy-to-direct
-     fallback, without restarting the app.
+     fallback, without restarting the app. Select Custom again. Confirm the URL
+     and Bypass entered in step 3 come back from `AppSettings.networkProxy`,
+     which kept them while System was selected.
 - **Expected**: Custom covers model calls, marketplace, updates, plugin
   `net.fetch`, and the in-app browser. System covers provider and marketplace
   requests through Electron's OS/PAC resolver. Workspace Bash `env` does not

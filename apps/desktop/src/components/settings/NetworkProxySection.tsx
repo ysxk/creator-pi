@@ -68,7 +68,10 @@ export function NetworkProxySection({
     if (mode === saved.mode) return;
     setTestState("idle");
     if (mode !== "custom") {
-      void persist({ mode });
+      // Carry the custom URL and bypass across the switch: the mode is what
+      // changes, and picking Custom again must restore the user's own proxy
+      // instead of the built-in default (issue #1541).
+      void persist({ mode, url: saved.url, bypass: saved.bypass });
       return;
     }
     const parsed = parseProxyUrl(urlDraft);
