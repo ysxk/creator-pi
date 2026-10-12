@@ -2,9 +2,9 @@
 
 <img src="docs/image/readme/logo.png" alt="PI-Desktop" width="108" />
 
-# PI-Desktop
+# creator-pi
 
-### 可拆卸的 AI Agent 桌面工作台
+### 基于 PI-Desktop 的 fork，面向自媒体创作者
 
 **把项目、Agent、模型、插件和工作流，装进一个长期可用的桌面环境。**
 
@@ -12,17 +12,14 @@
 
 <br />
 
-[![Release](https://img.shields.io/github/v/release/vastsa/PI-Desktop?label=release)](https://github.com/vastsa/PI-Desktop/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/vastsa/PI-Desktop/total?label=downloads)](https://github.com/vastsa/PI-Desktop/releases)
-[![Stars](https://img.shields.io/github/stars/vastsa/PI-Desktop?style=flat\&label=stars)](https://github.com/vastsa/PI-Desktop/stargazers)
-[![CI](https://github.com/vastsa/PI-Desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/vastsa/PI-Desktop/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/vastsa/PI-Desktop)](LICENSE)
+[![CI](https://github.com/ysxk/creator-pi/actions/workflows/ci.yml/badge.svg)](https://github.com/ysxk/creator-pi/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/ysxk/creator-pi)](LICENSE)
 [![Reddit](https://img.shields.io/badge/Reddit-r%2FAIUO-FF4500?logo=reddit\&logoColor=white)](https://www.reddit.com/r/AIUO/)
 [![QQ 群：点击加入 PI-Desktop 开发者交流群](https://img.shields.io/badge/QQ-%E5%8A%A0%E5%85%A5%E5%BC%80%E5%8F%91%E8%80%85%E4%BA%A4%E6%B5%81%E7%BE%A4-12B7F5?logo=tencentqq&logoColor=white)](https://qm.qq.com/q/iWP8i0XxIc)
 
 <br />
 
-**[立即下载](https://github.com/vastsa/PI-Desktop/releases/latest)** ·
+**[PI-Desktop 发布页](https://github.com/vastsa/PI-Desktop/releases/latest)**（原项目）·
 [使用文档](https://pi-docs.aiuo.net/) ·
 [插件开发](docs/plugin-development.md) ·
 [界面预览](docs/guide/screenshots.md) ·
@@ -106,6 +103,9 @@ Subagent 与 Worker Session 可以承担独立任务并行工作。
 > **PI-Desktop 目前仍处于 Early Preview。** 已可用于真实开发工作流，部分 API、插件接口与桌面能力仍在持续演进。
 
 > **当前发布线：0.18.x（Early Preview）。**
+
+> [!NOTE]
+> **creator-pi 是 [PI-Desktop](https://github.com/vastsa/PI-Desktop) 的 fork，采用 LGPL-3.0 许可。** 方向是面向自媒体创作者的 Agent 工作台。目前代码仍以 PI-Desktop 为主，自媒体相关功能还在开发中；应用本身仍以 PI-Desktop 名称运行。本 fork 暂未发布安装包，请参考下文从源码运行。
 
 ---
 
@@ -566,7 +566,7 @@ Agent / Plan / Goal
 
 <div align="center">
 
-### [下载 PI-Desktop →](https://github.com/vastsa/PI-Desktop/releases/latest)
+### [下载 PI-Desktop（原项目）→](https://github.com/vastsa/PI-Desktop/releases/latest)
 
 **macOS · Windows · Linux**
 
@@ -657,8 +657,8 @@ PI-Desktop 也可以作为开发者构建 Agent 产品的宿主平台。
 #### Start
 
 ```bash
-git clone https://github.com/vastsa/PI-Desktop.git
-cd PI-Desktop
+git clone https://github.com/ysxk/creator-pi.git
+cd creator-pi
 
 pnpm install
 
@@ -702,21 +702,9 @@ pnpm test
 
 让 Core 保持克制，让生态持续生长。
 
-**[提交 Issue](https://github.com/vastsa/PI-Desktop/issues/new/choose)** ·
-[查看 Issues](https://github.com/vastsa/PI-Desktop/issues) ·
+**[提交 Issue](https://github.com/ysxk/creator-pi/issues/new/choose)** ·
+[查看 Issues](https://github.com/ysxk/creator-pi/issues) ·
 [开发插件](docs/plugin-development.md)
-
----
-
-## 项目趋势
-
-<div align="center">
-
-<a href="https://trendshift.io/repositories/178787?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-178787">
-<img src="https://trendshift.io/api/badge/repositories/178787" alt="PI-Desktop on Trendshift" width="230" height="51" />
-</a>
-
-</div>
 
 ---
 
@@ -740,7 +728,7 @@ PI-Desktop 的开发过程中使用了来自多个 Provider 的模型。
 
 ## License
 
-PI-Desktop 使用 **GNU Lesser General Public License v3.0**。
+creator-pi 是 PI-Desktop 的修改版本，原项目使用 **GNU Lesser General Public License v3.0**。原有版权声明予以保留，本仓库中的修改同样以该许可发布。
 
 详见 [LICENSE](LICENSE)。
 
@@ -750,7 +738,7 @@ PI-Desktop 使用 **GNU Lesser General Public License v3.0**。
 
 <img src="docs/image/readme/logo.png" alt="PI-Desktop" width="72" />
 
-## PI-Desktop
+## creator-pi
 
 ### Build your own Agent workspace.
 
@@ -758,7 +746,7 @@ PI-Desktop 使用 **GNU Lesser General Public License v3.0**。
 
 <br />
 
-**[立即下载](https://github.com/vastsa/PI-Desktop/releases/latest)** ·
+**[PI-Desktop 发布页](https://github.com/vastsa/PI-Desktop/releases/latest)**（原项目）·
 [Documentation](https://pi-docs.aiuo.net/) ·
 [Build a Plugin](docs/plugin-development.md)
 

@@ -2,9 +2,9 @@
 
 <img src="docs/image/readme/logo.png" alt="PI-Desktop" width="108" />
 
-# PI-Desktop
+# creator-pi
 
-### A modular desktop workspace for AI agents
+### A fork of PI-Desktop, being shaped for self-media creators
 
 **Bring projects, agents, models, plugins, and workflows into one persistent desktop environment.**
 
@@ -12,16 +12,13 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 
 <br />
 
-[![Release](https://img.shields.io/github/v/release/vastsa/PI-Desktop?label=release)](https://github.com/vastsa/PI-Desktop/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/vastsa/PI-Desktop/total?label=downloads)](https://github.com/vastsa/PI-Desktop/releases)
-[![Stars](https://img.shields.io/github/stars/vastsa/PI-Desktop?style=flat\&label=stars)](https://github.com/vastsa/PI-Desktop/stargazers)
-[![CI](https://github.com/vastsa/PI-Desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/vastsa/PI-Desktop/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/vastsa/PI-Desktop)](LICENSE)
+[![CI](https://github.com/ysxk/creator-pi/actions/workflows/ci.yml/badge.svg)](https://github.com/ysxk/creator-pi/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/ysxk/creator-pi)](LICENSE)
 [![Reddit](https://img.shields.io/badge/Reddit-r%2FAIUO-FF4500?logo=reddit\&logoColor=white)](https://www.reddit.com/r/AIUO/)
 
 <br />
 
-**[Download](https://github.com/vastsa/PI-Desktop/releases/latest)** ·
+**[PI-Desktop Releases](https://github.com/vastsa/PI-Desktop/releases/latest)** (upstream) ·
 [Documentation](https://pi-docs.aiuo.net/) ·
 [Build a Plugin](docs/plugin-development.md) ·
 [Screenshots](docs/guide/screenshots.md) ·
@@ -38,6 +35,9 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 </div>
 
 > **Current release line: 0.18.x (Early Preview).**
+
+> [!NOTE]
+> **creator-pi is a fork of [PI-Desktop](https://github.com/vastsa/PI-Desktop), licensed under LGPL-3.0.** It is being adapted for self-media creators. The code is still largely PI-Desktop's, creator-specific features are in development, and the app still runs under the PI-Desktop name. This fork has no release builds yet, so run it from source (see [Run from source](#run-from-source)).
 
 ---
 
@@ -562,7 +562,7 @@ Agent / Plan / Goal
 
 <div align="center">
 
-### [Download PI-Desktop →](https://github.com/vastsa/PI-Desktop/releases/latest)
+### [Download PI-Desktop (upstream) →](https://github.com/vastsa/PI-Desktop/releases/latest)
 
 **macOS · Windows · Linux**
 
@@ -653,8 +653,8 @@ Plugins can be created and loaded directly as Development Plugins.
 #### Start
 
 ```bash
-git clone https://github.com/vastsa/PI-Desktop.git
-cd PI-Desktop
+git clone https://github.com/ysxk/creator-pi.git
+cd creator-pi
 
 pnpm install
 
@@ -698,21 +698,9 @@ For standalone capabilities, consider one question first:
 
 Keep the Core focused. Let the ecosystem grow.
 
-**[Report an Issue](https://github.com/vastsa/PI-Desktop/issues/new/choose)** ·
-[Open Issues](https://github.com/vastsa/PI-Desktop/issues) ·
+**[Report an Issue](https://github.com/ysxk/creator-pi/issues/new/choose)** ·
+[Open Issues](https://github.com/ysxk/creator-pi/issues) ·
 [Build a Plugin](docs/plugin-development.md)
-
----
-
-## Project Trend
-
-<div align="center">
-
-<a href="https://trendshift.io/repositories/178787?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-178787">
-<img src="https://trendshift.io/api/badge/repositories/178787" alt="PI-Desktop on Trendshift" width="230" height="51" />
-</a>
-
-</div>
 
 ---
 
@@ -736,7 +724,7 @@ Thanks to every human contributor — and every model that helped us build it.
 
 ## License
 
-PI-Desktop is licensed under the **GNU Lesser General Public License v3.0**.
+creator-pi is a modified version of PI-Desktop, which is licensed under the **GNU Lesser General Public License v3.0**. The original copyright notices are kept, and modifications in this repository are released under the same license.
 
 See [LICENSE](LICENSE) for details.
 
@@ -746,7 +734,7 @@ See [LICENSE](LICENSE) for details.
 
 <img src="docs/image/readme/logo.png" alt="PI-Desktop" width="72" />
 
-## PI-Desktop
+## creator-pi
 
 ### Build your own Agent workspace.
 
@@ -754,7 +742,7 @@ See [LICENSE](LICENSE) for details.
 
 <br />
 
-**[Download](https://github.com/vastsa/PI-Desktop/releases/latest)** ·
+**[PI-Desktop Releases](https://github.com/vastsa/PI-Desktop/releases/latest)** (upstream) ·
 [Documentation](https://pi-docs.aiuo.net/) ·
 [Build a Plugin](docs/plugin-development.md)
 
