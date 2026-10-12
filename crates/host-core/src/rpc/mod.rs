@@ -12,7 +12,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tokio::sync::{mpsc, oneshot, Mutex, Semaphore};
+use tokio::sync::{mpsc, oneshot, watch, Mutex, Semaphore};
 
 use crate::agent_capabilities::CapabilityLevel;
 use crate::artifacts;
@@ -500,18 +500,38 @@ const RPC_REQUEST_BUDGET_MS: u64 = 135_000;
 /// the grace covers host-side bookkeeping around the actual execution.
 const RPC_TOOL_BUDGET_GRACE_MS: u64 = 90_000;
 
-/// Cap added to the `tools.execute` budget for the permission prompt. Before
-/// the tool runs, the handler may legitimately wait for the user to answer an
-/// ask prompt for tens of seconds — that wait must not eat the tool's own
-/// execution budget, or "slow approval + full-length Bash" would be killed
-/// mid-execution. Unattended callers reject at their own ask budget (~120s),
-/// so the cap matches that order.
-const RPC_PERMISSION_WAIT_CAP_MS: u64 = 120_000;
+tokio::task_local! {
+    /// Whether the request being served is waiting on the user. The budget of
+    /// that request does not count while this is true.
+    static REQUEST_AWAITS_USER: Arc<watch::Sender<bool>>;
+}
+
+/// Held while a handler waits for the user's answer to a permission prompt. A
+/// local approval has no automatic deadline (D636): it ends by a decision, a
+/// cancellation or shutdown, never by a timer. The wall-clock budget therefore
+/// stops counting for as long as this is held, and counts again once it is
+/// dropped. Before this, a prompt left unanswered past the budget failed the
+/// call with `HOST_RPC_TIMEOUT` and left its request listed as pending with
+/// nobody waiting for the answer. Outside a budgeted request this does nothing.
+struct UserWait;
+
+impl UserWait {
+    fn begin() -> Self {
+        let _ = REQUEST_AWAITS_USER.try_with(|awaits_user| awaits_user.send_replace(true));
+        Self
+    }
+}
+
+impl Drop for UserWait {
+    fn drop(&mut self) {
+        let _ = REQUEST_AWAITS_USER.try_with(|awaits_user| awaits_user.send_replace(false));
+    }
+}
 
 /// Budget for one request. `tools.execute` follows its own effective tool
-/// timeout (plus permission cap and grace); a tool without an effective
-/// timeout keeps the old unbounded behavior. Every other method gets the
-/// fixed budget.
+/// timeout plus grace; a tool without an effective timeout keeps the old
+/// unbounded behavior. Every other method gets the fixed budget. Time spent
+/// under a [`UserWait`] is not part of any of them.
 fn request_budget_ms(method: &str, params: &Value) -> Option<u64> {
     if method != "tools.execute" {
         return Some(RPC_REQUEST_BUDGET_MS);
@@ -531,11 +551,8 @@ fn request_budget_ms(method: &str, params: &Value) -> Option<u64> {
         .get("timeoutMs")
         .or_else(|| params.get("timeout_ms"))
         .and_then(|v| v.as_u64());
-    crate::tools::effective_timeout_ms(tool_name, timeout_ms).map(|timeout| {
-        timeout
-            .saturating_add(RPC_PERMISSION_WAIT_CAP_MS)
-            .saturating_add(RPC_TOOL_BUDGET_GRACE_MS)
-    })
+    crate::tools::effective_timeout_ms(tool_name, timeout_ms)
+        .map(|timeout| timeout.saturating_add(RPC_TOOL_BUDGET_GRACE_MS))
 }
 
 /// Wrap one request's handler future in its wall-clock budget (issue #1071).
@@ -547,6 +564,10 @@ fn request_budget_ms(method: &str, params: &Value) -> Option<u64> {
 /// cut loose with its slot, and that one wedged request can no longer hold
 /// every other caller forever: each waiting request fails with its own
 /// `HOST_RPC_TIMEOUT` instead of piling up until `HOST_OVERLOADED`.
+///
+/// The budget is the handler's own time. While the handler holds a
+/// [`UserWait`] the clock is stopped, so a permission prompt can stay open for
+/// as long as the user needs (D636).
 async fn with_request_budget<F>(budget: Option<u64>, fut: F) -> Result<Value, JsonRpcError>
 where
     F: std::future::Future<Output = Result<Value, JsonRpcError>>,
@@ -554,18 +575,34 @@ where
     let Some(budget) = budget else {
         return fut.await;
     };
-    match tokio::time::timeout(Duration::from_millis(budget), fut).await {
-        Ok(result) => result,
-        Err(_) => {
-            tracing::warn!(
-                budget_ms = budget,
-                "rpc request exceeded its wall-clock budget; slot released"
-            );
-            Err(JsonRpcError {
-                code: -32030,
-                message: format!("host rpc budget of {budget}ms exceeded"),
-                data: Some(json!({ "errorCode": "HOST_RPC_TIMEOUT" })),
-            })
+    // Kept here as well as in the task-local, so the channel stays open for
+    // as long as this function is watching it.
+    let awaits_user = Arc::new(watch::channel(false).0);
+    let mut awaits_user_changed = awaits_user.subscribe();
+    let fut = REQUEST_AWAITS_USER.scope(awaits_user.clone(), fut);
+    tokio::pin!(fut);
+    let mut remaining = Duration::from_millis(budget);
+    loop {
+        let waiting_on_user = *awaits_user_changed.borrow_and_update();
+        let counted_from = tokio::time::Instant::now();
+        tokio::select! {
+            result = &mut fut => return result,
+            _ = awaits_user_changed.changed() => {
+                if !waiting_on_user {
+                    remaining = remaining.saturating_sub(counted_from.elapsed());
+                }
+            }
+            _ = tokio::time::sleep(remaining), if !waiting_on_user => {
+                tracing::warn!(
+                    budget_ms = budget,
+                    "rpc request exceeded its wall-clock budget; slot released"
+                );
+                return Err(JsonRpcError {
+                    code: -32030,
+                    message: format!("host rpc budget of {budget}ms exceeded"),
+                    data: Some(json!({ "errorCode": "HOST_RPC_TIMEOUT" })),
+                });
+            }
         }
     }
 }
@@ -3963,6 +4000,7 @@ async fn handle_request(
                         d
                     }
                 } else if let Some(rx) = pending_rx {
+                    let _user_wait = UserWait::begin();
                     tokio::select! {
                         outcome = rx => match outcome {
                             Ok(d) => d,
@@ -5163,7 +5201,7 @@ mod tests {
         capability_err, handle_request, parse_capability_query, parse_capability_target,
         peek_jsonrpc_id, provider_rpc_err, request_budget_ms, resolve_plan_workspace,
         resolve_tool_workspace, resolve_tool_workspace_for_call, response_for, rpc_err, scope_err,
-        skill_err, with_request_budget, JsonRpcError, RPC_REQUEST_BUDGET_MS,
+        skill_err, with_request_budget, JsonRpcError, UserWait, RPC_REQUEST_BUDGET_MS,
     };
     use crate::agent_capabilities::CapabilityLevel;
     use crate::plans::{PlanResolveParams, PlanSubmitParams};
@@ -5197,13 +5235,13 @@ mod tests {
         let bash = json!({"toolName": "Bash", "timeoutMs": 60000});
         assert_eq!(
             request_budget_ms("tools.execute", &bash),
-            Some(60_000 + 120_000 + 90_000)
+            Some(60_000 + 90_000)
         );
         // Bash without an explicit timeout falls back to the Bash default.
         let bash_default = json!({"toolName": "Bash"});
         assert_eq!(
             request_budget_ms("tools.execute", &bash_default),
-            Some(60_000 + 120_000 + 90_000)
+            Some(60_000 + 90_000)
         );
         // A tool with no effective timeout keeps the old unbounded behavior.
         let read = json!({"toolName": "Read"});
@@ -5219,13 +5257,13 @@ mod tests {
         let six_hours = json!({"toolName": "Bash", "timeoutMs": 21600000});
         assert_eq!(
             request_budget_ms("tools.execute", &six_hours),
-            Some(21_600_000 + 120_000 + 90_000)
+            Some(21_600_000 + 90_000)
         );
         // The snake_case fallback keeps hand-rolled callers honest.
         let snake = json!({"tool_name": "Bash", "timeout_ms": 60000});
         assert_eq!(
             request_budget_ms("tools.execute", &snake),
-            Some(60_000 + 120_000 + 90_000)
+            Some(60_000 + 90_000)
         );
     }
 
@@ -5260,6 +5298,57 @@ mod tests {
         assert!(
             started.elapsed() < Duration::from_secs(2),
             "timeout must fire at the budget, not the inner future's own duration"
+        );
+    }
+
+    #[tokio::test]
+    async fn budget_does_not_count_a_wait_on_the_user() {
+        // D636: a permission prompt has no deadline, so a handler that waits on
+        // the user far past its budget still returns its own result.
+        let result = with_request_budget(Some(50), async {
+            let user_wait = UserWait::begin();
+            tokio::time::sleep(Duration::from_millis(400)).await;
+            drop(user_wait);
+            Ok::<_, JsonRpcError>(json!({ "answered": true }))
+        })
+        .await
+        .expect("a wait on the user must not end the request");
+        assert_eq!(result, json!({ "answered": true }));
+    }
+
+    #[tokio::test]
+    async fn budget_counts_again_once_the_user_has_answered() {
+        // The stopped clock is not an exemption for the rest of the request:
+        // what the handler does after the answer is still bounded, and by what
+        // was left of the budget rather than by a fresh one.
+        let started = std::time::Instant::now();
+        let error = with_request_budget(Some(300), async {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            drop(UserWait::begin());
+            let user_wait = UserWait::begin();
+            tokio::time::sleep(Duration::from_millis(400)).await;
+            drop(user_wait);
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            Ok::<_, JsonRpcError>(json!(null))
+        })
+        .await
+        .expect_err("the handler's own time past the budget must still time out");
+        assert_eq!(
+            error
+                .data
+                .as_ref()
+                .and_then(|d| d.get("errorCode"))
+                .and_then(|c| c.as_str()),
+            Some("HOST_RPC_TIMEOUT")
+        );
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed >= Duration::from_millis(650),
+            "the 400ms wait on the user is not counted: {elapsed:?}"
+        );
+        assert!(
+            elapsed < Duration::from_millis(850),
+            "the 200ms spent before the wait is counted: {elapsed:?}"
         );
     }
 
@@ -5366,7 +5455,7 @@ mod tests {
         let six_hours = json!({"toolName": "Bash", "timeoutMs": 21600000});
         assert_eq!(
             request_budget_ms("tools.execute", &six_hours),
-            Some(21_600_000 + 120_000 + 90_000)
+            Some(21_600_000 + 90_000)
         );
         // A tool without an effective timeout stays unbounded (None), exactly
         // like before this change.
@@ -8358,6 +8447,104 @@ mod tests {
         .await
         .unwrap_err();
         assert_eq!(late_resolution.data.unwrap()["errorCode"], "NOT_FOUND");
+        assert_bash_registry_empty(&state).await;
+    }
+
+    #[tokio::test]
+    async fn permission_prompt_outlives_the_request_budget() {
+        // D636 regression. A Bash prompt left unanswered past the request
+        // budget used to fail the call with HOST_RPC_TIMEOUT and leave its
+        // request in `permissions.pending` with nobody waiting on the answer.
+        let Some(shell_id) = available_test_shell_id() else {
+            return;
+        };
+        let data_dir = tempfile::tempdir().unwrap();
+        let project = data_dir.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let session = sessions::create_session(
+            &app_state.db,
+            Some("Slow approval".into()),
+            Some("agent".into()),
+            None,
+            None,
+            Some(project.to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        sessions::configure_session_with_thinking(
+            &app_state.db,
+            &session.id,
+            "agent",
+            None,
+            None,
+            None,
+            Some("ask"),
+        )
+        .unwrap();
+        let state = Arc::new(Mutex::new(app_state));
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let session_id = session.id.clone();
+        let pending_state = state.clone();
+        const BUDGET: Duration = Duration::from_millis(1_500);
+        let started = std::time::Instant::now();
+        let pending_task = tokio::spawn(with_request_budget(
+            Some(BUDGET.as_millis() as u64),
+            async move {
+                handle_request(
+                    pending_state,
+                    "tools.execute",
+                    json!({
+                        "sessionId": session_id,
+                        "toolCallId": "slow-approval",
+                        "toolName": "Bash",
+                        "args": { "command": sleeping_bash_command() },
+                        "expectedCommandShellId": shell_id,
+                        "expectedCommandShellDialect": crate::tools::shell::dialect_for_id(&shell_id),
+                        "mode": "agent"
+                    }),
+                    tx,
+                )
+                .await
+            },
+        ));
+        let permission = tokio::time::timeout(BUDGET, rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let permission: Value = serde_json::from_str(&permission).unwrap();
+        assert_eq!(permission["method"], "permissions.request");
+        let request_id = permission["params"]["requestId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        tokio::time::sleep((BUDGET * 2).saturating_sub(started.elapsed())).await;
+        assert!(
+            !pending_task.is_finished(),
+            "the prompt must still be waiting on the user past the budget"
+        );
+
+        handle_request(
+            state.clone(),
+            "permissions.resolve",
+            json!({ "requestId": request_id, "decision": "deny" }),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .unwrap();
+        let result = pending_task.await.unwrap().unwrap();
+        assert_eq!(result["errorCode"], "TOOL_DENIED");
+
+        let after = handle_request(
+            state.clone(),
+            "permissions.pending",
+            json!({}),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .unwrap();
+        assert!(after["requests"].as_array().unwrap().is_empty());
         assert_bash_registry_empty(&state).await;
     }
 

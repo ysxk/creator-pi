@@ -1140,7 +1140,10 @@ params: {
 Local permission behavior (**D636 / ADR 0310**): an unresolved request remains
 pending until an explicit decision, cancellation, or host/process shutdown.
 The transport does not apply a deadline to `tools.execute`; tool-specific
-execution budgets still apply after approval.
+execution budgets still apply after approval. Host-core's per-request
+wall-clock budget (for `tools.execute`: the tool's effective timeout plus 90 s
+of grace) does not count the time a request spends waiting for that decision
+(**D678**).
 
 `permissions.pending` returns the open requests as Host state (D374/D375):
 `{ requests: PendingPermission[] }`, oldest first, optionally scoped by

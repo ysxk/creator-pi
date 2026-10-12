@@ -70,6 +70,7 @@ This log freezes previously open questions into concrete decisions.
 | D675 | Media in a tool result needs the model's image input | **Amend D660 and D667: a clip or recording a model reads is attached to the tool result only when the model takes that medium, the API can carry it, and the model's image input is on. With image input off the result states that nothing was attached and points to attaching the file to a message, and the `Read` description makes no media promise.** | The media rides an image-typed block, and pi-ai replaces every image-typed tool block with a placeholder for a model without image input, so the bytes were dropped while the result claimed they were attached. Declining honestly was chosen over patching three pi-ai gates for a rare configuration. |
 | D676 | The Composer model list shows seven rows and scrolls; nothing is folded | **The model menu no longer hides models behind an "Other models" disclosure. Up to three recent models still lead, every other model follows by provider, and the list is a seven-row window that scrolls. Search is unchanged: it filters all configured models and drops the recent section. The `chat.otherModels` label is removed from every locale.** | The user had to open a disclosure to reach any model outside the last three used, and asked for a plain scrolling list of seven instead. |
 | D677 | The MCP client starts a new session when the server ends one | **Streamable HTTP, MCP 2025-06-18 Session Management items 3 and 4: an HTTP 404 for a request that carried the issued `Mcp-Session-Id` means the server ended the session. The client drops it, sends a new `InitializeRequest` without a session id, and repeats the refused request once. This is the single case in which a `tools/call` is sent again, because a 404 for the session id is a refusal before execution. Concurrent calls share the new handshake; a second refusal, a failed handshake, and a 404 without a session id are surfaced unchanged. `connect()` now waits for a handshake in progress before treating the transport as connected.** | The client treated that 404 as a plain HTTP error and kept the dead session id, so after a remote server restarted or expired the session every call failed until the user tested the connection, edited the server, or restarted the app. The specification makes re-initialization a MUST. |
+| D678 | A wait on the user is not part of a request's time budget | **Restore D636 in host-core: the per-request wall-clock budget stops counting while a `tools.execute` handler waits for the answer to a permission prompt, and counts again from what was left once the prompt is settled. The fixed 120 s added to the budget for the prompt is removed; the budget for `tools.execute` is the tool's effective timeout plus the 90 s grace. A prompt still ends only by a decision, a cancellation or shutdown.** | The budget (issues #1071 / #1208) wrapped the whole handler, so a Bash prompt left unanswered for the tool timeout plus 210 s failed the call with `HOST_RPC_TIMEOUT`. That is the automatic deadline D636 removed, and it also left the request in `permissions.pending` with no waiter: the card came back when the session was reopened and answering it did nothing. Seen in a 0.16.1 user log: four prompts cut at 220 to 270 s, one of them answered more than two hours later. |
 
 ## B. Secondary implementation defaults
 
@@ -7787,3 +7788,25 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   bound to the server URL.
 - Covered by six tests in `apps/desktop/test/plugin-mcp.test.mjs` against a
   stub server that ends sessions and answers 404 for them.
+
+## 2026-10-13 — A permission prompt outlives the request budget (D678)
+
+- Found in a user's 0.16.1 log archive. Four Bash calls ended with
+  `rpc request exceeded its wall-clock budget` 220 to 270 s after their
+  `permissions.request`, with no decision in between; one of those requests
+  was then answered 2 h 22 min later, with no effect.
+- `rpc/mod.rs`: `with_request_budget` runs the handler inside a task-local
+  flag and stops its clock while the flag is set. The `tools.execute` handler
+  holds a `UserWait` guard across its wait on the permission channel. The
+  budget no longer adds `RPC_PERMISSION_WAIT_CAP_MS`.
+- Unchanged: the fixed 135 s budget of every other method, the unbounded
+  budget of a tool with no effective timeout, and the Bash timeout itself.
+- Not changed here, from the same log: a Bash call that ran 2 h 17 min until
+  Stop. The log does not record its arguments. A `timeout` between 1000 and
+  21600 is read as seconds (D273 / D329), so a model that means milliseconds
+  gets up to six hours; that reading is consistent with the log but not proven
+  by it.
+- Covered by `budget_does_not_count_a_wait_on_the_user`,
+  `budget_counts_again_once_the_user_has_answered` and
+  `permission_prompt_outlives_the_request_budget` in `rpc/mod.rs`; the last one
+  fails without the guard.
