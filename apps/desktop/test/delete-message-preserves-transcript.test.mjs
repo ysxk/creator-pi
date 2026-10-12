@@ -27,8 +27,8 @@ test("sessionReplaceMessages IPC drops stale pending outbox appends for the sess
 
   assert.match(
     sessionIpcSource,
-    /IPC\.invoke\.sessionReplaceMessages[\s\S]*?await\s+persistenceOutbox\.dropSession\(sessionId\);/,
-    "sessionReplaceMessages must drop stale outbox appends before or during replacement",
+    /IPC\.invoke\.sessionReplaceMessages[\s\S]*?await\s+persistenceOutbox\.prepareSessionReplacement\(sessionId,\s*\(\)\s*=>\s*host\);[\s\S]*?return\s+host\.call\("session\.replaceMessages"/,
+    "sessionReplaceMessages must drain in-flight appends before dropping the queue and replacing the transcript",
   );
 });
 
