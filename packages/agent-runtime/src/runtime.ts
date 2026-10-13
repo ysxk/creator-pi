@@ -1966,6 +1966,8 @@ export class DesktopAgentRuntime {
   private turnEpoch = 0;
   private compactionAbort?: AbortController;
   private compactionInProgress = false;
+  /** Runtime operations that own a durable turn until their async cleanup ends. */
+  private readonly activeTurnSettlements = new Map<string, Promise<void>>();
   /** The in-flight checkpoint was cut short by Stop/dispose, not by a failure. */
   private compactionAborted = false;
   /** Set by the `new_context` tool, consumed at the next turn boundary. */
@@ -8555,7 +8557,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         errorCode: "TURN_NOT_FOUND",
       });
     }
+    return this.trackTurnOperation(durableTurnId, () =>
+      this.executeApprovedPlanTurn(execution, durableTurnId),
+    );
+  }
 
+  private async executeApprovedPlanTurn(
+    execution: PlanExecution,
+    durableTurnId: string,
+  ): Promise<{ turnId: string }> {
     // Keep every new user turn small. A capability loaded for the preceding
     // turn can be searched again when the new task actually needs it.
     this.subagentOverrideProviders = {};
@@ -8666,12 +8676,23 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   ): Promise<{ turnId: string }> {
     if (this.disposed) throw new Error("runtime disposed");
     this.assertNotRunning();
+    const turnId = durableTurnId?.trim() || randomUUID();
+    return this.trackTurnOperation(turnId, () =>
+      this.promptTurn(input, userMessageId, turnId),
+    );
+  }
+
+  private async promptTurn(
+    input: string | RuntimePrompt,
+    userMessageId: string | undefined,
+    durableTurnId: string,
+  ): Promise<{ turnId: string }> {
     const selectedTools = this.selectedMcpTools(input);
     const modelInput = typeof input !== "string" && input.sessionMessage
       ? { ...input, text: formatSessionMessage(input.text, input.sessionMessage), sessionMessage: undefined }
       : input;
     this.retainPendingSteering();
-    const nextTurnId = durableTurnId?.trim() || randomUUID();
+    const nextTurnId = durableTurnId;
     this.turnId = nextTurnId;
     this.acceptingSteering = true;
     this.gracefulStopRequested = false;
@@ -8950,6 +8971,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   }
 
   async abort(): Promise<void> {
+    const turnId = this.turnId;
+    const settlement = turnId
+      ? this.activeTurnSettlements.get(turnId)
+      : undefined;
     this.acceptingSteering = false;
     this.gracefulStopRequested = false;
     this.runCancelled = true;
@@ -8962,6 +8987,34 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.providerRetryAbort?.abort();
     if (this.compactionInProgress) this.compactionAborted = true;
     this.compactionAbort?.abort();
+    await settlement;
+  }
+
+  private trackTurnOperation<T>(
+    turnId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let settle!: () => void;
+    const settlement = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    this.activeTurnSettlements.set(turnId, settlement);
+    let result: Promise<T>;
+    try {
+      result = operation();
+    } catch (error) {
+      if (this.activeTurnSettlements.get(turnId) === settlement) {
+        this.activeTurnSettlements.delete(turnId);
+      }
+      settle();
+      throw error;
+    }
+    return result.finally(() => {
+      if (this.activeTurnSettlements.get(turnId) === settlement) {
+        this.activeTurnSettlements.delete(turnId);
+      }
+      settle();
+    });
   }
 
   /** Ask pi-agent-core to stop after the current assistant/tool turn. */

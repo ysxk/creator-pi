@@ -1652,12 +1652,15 @@ identify the platform validation still needed.
 - **Steps**: 1) Send ordinary text and click Stop immediately, including while
   the prompt is still being admitted. 2) Confirm the user row is undone and
   the text returns to the composer after that first Stop. 3) Send again, wait
-  for partial output, then stop during the stream. 4) Observe the transcript
-  and composer.
+  for partial output, then stop during the stream. 4) Immediately send a new
+  prompt after Stop returns, without waiting for an idle delay. 5) Observe the
+  transcript and composer.
 - **Expected**: The first Stop is honored even if prompt admission is still in
   progress; the unanswered send is undone and its draft restored. The
   streaming send stops with its partial response preserved and no draft
-  restoration or duplicate user turn. The session remains usable.
+  restoration or duplicate user turn. Stop returns after the active runtime
+  operation has settled, and the follow-up starts without `AGENT_BUSY`. The
+  session remains usable.
 - **Specs linked**: `03-runtime/02-agent-runtime.md`
 - **Acceptance**: C (abort)
 - **Milestone**: M2
