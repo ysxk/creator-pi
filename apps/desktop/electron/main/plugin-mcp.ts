@@ -598,22 +598,7 @@ export class McpServerClient {
 
   async callTool(toolName: string, args: unknown, signal?: AbortSignal): Promise<unknown> {
     if (signal?.aborted) throw mcpError("TOOL_ABORTED", "mcp tool call aborted");
-    const connecting = this.connect();
-    if (signal) {
-      let rejectAbort!: (error: Error) => void;
-      const aborted = new Promise<never>((_, reject) => { rejectAbort = reject; });
-      const abort = () => rejectAbort(mcpError("TOOL_ABORTED", "mcp tool call aborted"));
-      signal.addEventListener("abort", abort, { once: true });
-      if (signal.aborted) abort();
-      try {
-        await Promise.race([connecting, aborted]);
-      } finally {
-        signal.removeEventListener("abort", abort);
-      }
-    } else {
-      await connecting;
-    }
-    if (signal?.aborted) throw mcpError("TOOL_ABORTED", "mcp tool call aborted");
+    await this.connected(signal);
     const started = Date.now();
     try {
       const result = (await this.sessionRequest(
@@ -636,6 +621,30 @@ export class McpServerClient {
   /** Probe a live connection without changing its discovered tool catalog. */
   async ping(timeoutMs = 5_000): Promise<void> {
     await this.sessionRequest("ping", {}, timeoutMs);
+  }
+
+  /**
+   * Wait for the connection, joining a handshake other calls may share. An
+   * abort ends this caller's wait only: the handshake runs on for the calls
+   * still waiting on it, and the session it opens stays for the next one.
+   */
+  private async connected(signal?: AbortSignal): Promise<void> {
+    const connecting = this.connect();
+    if (!signal) {
+      await connecting;
+      return;
+    }
+    let rejectAbort!: (error: Error) => void;
+    const aborted = new Promise<never>((_, reject) => { rejectAbort = reject; });
+    const abort = () => rejectAbort(mcpError("TOOL_ABORTED", "mcp tool call aborted"));
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    try {
+      await Promise.race([connecting, aborted]);
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
+    if (signal.aborted) throw mcpError("TOOL_ABORTED", "mcp tool call aborted");
   }
 
   close(): void {
@@ -812,7 +821,7 @@ export class McpServerClient {
       return await this.request(method, params, timeoutMs, signal);
     } catch (error) {
       if ((error as McpError).code !== MCP_SESSION_EXPIRED || !transport) throw error;
-      await this.renewSession(transport);
+      await this.renewSession(transport, signal);
       return this.request(method, params, timeoutMs, signal);
     }
   }
@@ -821,14 +830,15 @@ export class McpServerClient {
    * Replace an ended session. Requests still in flight on it each meet the
    * same 404 and arrive here as well: the first drops the session and they
    * all wait on one handshake. The ended transport is left to finish those
-   * requests rather than closed, which would fail them as unavailable.
+   * requests rather than closed, which would fail them as unavailable. A
+   * caller that aborts stops waiting at once and the others keep the handshake.
    */
-  private renewSession(ended: McpTransport): Promise<McpTool[]> {
+  private renewSession(ended: McpTransport, signal?: AbortSignal): Promise<void> {
     if (this.transport === ended) {
       this.transport = null;
       this.tools = [];
     }
-    return this.connect();
+    return this.connected(signal);
   }
 
   private request(method: string, params: unknown, timeoutMs: number, signal?: AbortSignal): Promise<unknown> {

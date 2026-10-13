@@ -532,6 +532,9 @@ Rules the control encodes:
   caller, and a 404 for a request that carried no session id stays an ordinary
   HTTP error. A caller that arrives while a handshake is in progress waits for
   it, so no request is sent before the server has answered `initialize`.
+  Cancelling a call that waits for the new session ends that call at once with
+  `TOOL_ABORTED`, as it does during the first connection; the handshake keeps
+  running for the other calls that share it and is not closed.
 
 - Streamable HTTP `202 Accepted` acknowledgements for notifications and client
   responses are not JSON-RPC replies. Any acknowledgement body is discarded,

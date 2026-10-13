@@ -975,6 +975,7 @@ async function startSessionServer(t, { issueSessions = true, alwaysExpired = fal
   const live = new Set();
   let issued = 0;
   let toolRuns = 0;
+  let held = null;
   const server = createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
@@ -987,13 +988,18 @@ async function startSessionServer(t, { issueSessions = true, alwaysExpired = fal
         res.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }));
       };
       if (message.method === "initialize") {
-        const headers = {};
-        if (issueSessions) {
-          const id = `sess-${++issued}`;
-          if (!alwaysExpired) live.add(id);
-          headers["mcp-session-id"] = id;
-        }
-        reply({ protocolVersion: message.params.protocolVersion, capabilities: { tools: {} } }, headers);
+        const answer = () => {
+          const headers = {};
+          if (issueSessions) {
+            const id = `sess-${++issued}`;
+            if (!alwaysExpired) live.add(id);
+            headers["mcp-session-id"] = id;
+          }
+          reply({ protocolVersion: message.params.protocolVersion, capabilities: { tools: {} } }, headers);
+        };
+        if (!held) return answer();
+        held.reached();
+        void held.released.then(answer);
         return;
       }
       if (session !== undefined ? !live.has(session) : !issueSessions && message.method === "tools/call") {
@@ -1023,6 +1029,17 @@ async function startSessionServer(t, { issueSessions = true, alwaysExpired = fal
     requests,
     /** The server ends every session it holds. */
     expire: () => live.clear(),
+    /** The next `initialize` is received but not answered until released. */
+    holdInitialize: () => {
+      let reached;
+      let release;
+      const hold = {
+        reached: new Promise((resolve) => { reached = resolve; }),
+        release: () => { held = null; release(); },
+      };
+      held = { reached, released: new Promise((resolve) => { release = resolve; }) };
+      return hold;
+    },
     toolRuns: () => toolRuns,
   };
 }
@@ -1102,6 +1119,64 @@ test("calls caught by the same ended session share one new session", async (t) =
     server.requests.slice(listed + 1),
     Array.from({ length: 3 }, () => ({ method: "tools/call", session: "sess-2" })),
   );
+});
+
+test("aborting a call that waits for a new session ends that call alone", async (t) => {
+  const server = await startSessionServer(t);
+  const client = sessionClient(t, server.url);
+  await client.connect();
+  server.expire();
+  const hold = server.holdInitialize();
+  server.requests.length = 0;
+
+  const controller = new AbortController();
+  const aborted = client.callTool("whoami", {}, controller.signal);
+  const waiting = client.callTool("whoami", {});
+  await hold.reached;
+  // Both calls have met the 404 by now and wait on the one handshake.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  controller.abort();
+
+  // Settles while the server still has not answered `initialize`.
+  await assert.rejects(aborted, { code: "TOOL_ABORTED" });
+  hold.release();
+
+  // The other call keeps the handshake the aborted one was also waiting on.
+  assert.equal(describeMcpContent((await waiting).content), "sess-2");
+  assert.equal(server.requests.filter((request) => request.method === "initialize").length, 1);
+  assert.deepEqual(
+    server.requests.filter((request) => request.session === "sess-2" && request.method === "tools/call"),
+    [{ method: "tools/call", session: "sess-2" }],
+  );
+  assert.equal(client.isConnected(), true);
+});
+
+test("an abort during the new handshake wins over that handshake failing", async (t) => {
+  const server = await startSessionServer(t);
+  const client = new McpServerClient({
+    pluginId: "com.example.remote",
+    rootPath: mkdtempSync(join(tmpdir(), "pi-mcp-http-")),
+    server: { id: "remote", transport: "http", url: server.url },
+    values: {},
+    connectTimeoutMs: 300,
+    callTimeoutMs: 5_000,
+  });
+  t.after(() => client.close());
+  await client.connect();
+  server.expire();
+  const hold = server.holdInitialize();
+  t.after(() => hold.release());
+
+  const controller = new AbortController();
+  const call = client.callTool("whoami", {}, controller.signal);
+  await hold.reached;
+  controller.abort();
+  await assert.rejects(call, { code: "TOOL_ABORTED" });
+
+  // The handshake nobody waits for any more times out without a stray rejection.
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  assert.equal(client.isConnected(), false);
+  assert.equal(server.toolRuns(), 0);
 });
 
 test("a call made while the handshake runs waits for it", async (t) => {

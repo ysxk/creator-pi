@@ -507,6 +507,8 @@ MCP、技能和子代理由设置 > 智能体下的三个独立页面管理，�
   服务器在执行之前就拒绝了它。被同一个已结束会话拦下的多个调用共享一次握手；
   再次被拒绝则把错误交给调用方；没有带会话编号的请求收到 404 仍是普通的 HTTP 错误。
   握手进行中到来的调用会等它完成，所以不会有请求早于服务器对 `initialize` 的回答发出。
+  取消一个正在等待新会话的调用，会让该调用立即以 `TOOL_ABORTED` 结束，与首次连接时
+  一致；握手继续为共享它的其他调用进行，不会被关闭。
 
 - Streamable HTTP `202 Accepted` acknowledgements for notifications and client
   responses are not JSON-RPC replies. Any acknowledgement body is discarded,
