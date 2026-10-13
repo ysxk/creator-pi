@@ -312,7 +312,7 @@ export const tr = {
     queuedPromptEmpty: "Kuyruktaki ileti",
     removeQueuedPrompt: "Kuyruktaki iletiyi kaldır",
     sendNow: "Şimdi gönder",
-    sendNowPending: "Geçerli görevin bitmesi bekleniyor",
+    sendNowPending: "Gönderim bekleniyor",
     queuedPromptStopFailed: "Geçerli görev durdurulamadı. Bu mesaj hâlâ kuyrukta ve iptal edilebilir.",
     queuedPromptAlreadyStarted: "Bu mesaj zaten çalıştırılıyor. Çalışan görevi durdurmak için Durdur düğmesini kullanın.",
     moveQueuedPromptUp: "Yukarı taşı",

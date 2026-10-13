@@ -8,6 +8,37 @@
 
 ## 1. Goals
 
+### E2E-QUEUE-send-now-wakes-subagents
+
+- **Preconditions:** Dedicated request worktree with built workspace packages,
+  compatible reused Host binary, temporary HOME/data/project, and a local SSE
+  model fixture. Production Composer queue service, Main IPC, AgentHost, Rust
+  Host and agent sidecar are used; no installed app or real account is used.
+  The fixture requires Linux/macOS HOME isolation and refuses Windows before
+  Host startup because known-folder lookup does not honor that isolation.
+- **Steps:** Start two background delegates and let the parent enter TaskWait.
+  Submit ordinary FIFO input and a correction, then choose Send now on the
+  correction. Hold both delegate responses until the parent answers the
+  correction. Release both responses and observe report delivery and FIFO drain.
+- **Expected:** The correction reaches the same durable turn, TaskWait returns
+  interrupted, and neither delegate is aborted. The correction appears once
+  in history and leaves the durable queue only after acceptance. Ordinary
+  input remains queued until parent settlement. Both reports reach the parent
+  and the remaining FIFO input runs once. No graceful stop is requested.
+  In rendered Electron, expand the earlier process after the steering reply:
+  both delegate nodes remain running with Stop controls, then become completed
+  after their reports arrive; the ordinary queued row remains until settlement.
+- **Coverage:** `pnpm test:e2e:send-now-subagents` runs the headless process
+  journey; append `-- --auto` to repeat with the session in auto mode.
+  `queue-pending-actions.test.mjs` covers normal send followed by Send
+  now through the production renderer service. AgentHost tests cover click
+  order, concurrent delivery/cancellation, stale targets, and permission-mode
+  preservation; runtime tests cover input before/during TaskWait and existing
+  stop/dispose behavior. `send-now-subagent-rendering.test.mjs` covers the
+  steering transcript path, parent settlement, ordinary-turn boundaries,
+  compaction, and terminal Task snapshots through the real React rendering.
+  The headless command does not replace the rendered Electron check above.
+
 ### E2E-STORAGE-custom-location-and-maintenance
 
 - **Preconditions:** Dedicated request worktree, current remote-main base, shared
@@ -2090,7 +2121,7 @@ identify the platform validation still needed.
   composer. 3) Remove the second queued row and switch to B. 4) Send a prompt
   in B, then return to A before either run completes. 5) Choose Send now on A's
   remaining queued row, then choose Send now on a second row. 6) Observe A
-  through the current tool/reply boundary and then the next turn. 7) Start
+  through the next model request within the same turn. 7) Start
   another run in A, clear the draft to expose the single Stop button, press
   Stop, and inspect the queue. 8) Repeat with two queued prompts, let the active
   turn finish without Send now, and delay its host `session.endTurn` response
@@ -2106,11 +2137,10 @@ identify the platform validation still needed.
   state: disabled Send while idle and empty, enabled Send while running with
   content (which queues the prompt), and Stop while running with an empty
   draft. A's two prompts appear in FIFO order, the removed row never sends,
-  and B's queue remains independent. Send now requests a graceful stop: the
-  current batch completes with a normal `agent_end`/completed turn, then the
-  promoted rows are delivered in the order they were promoted, before any
-  waiting row, without `AGENT_BUSY`: the first starts the turn and the rest join
-  it as adjacent user messages, so the model answers once for the whole block.
+  and B's queue remains independent. Send now delivers promoted input in click
+  order into the current turn without requesting a stop. An active TaskWait
+  yields to the input while delegates keep running. Refused input or input
+  with a different permission mode remains queued for a later turn.
   A promoted row locks move/edit and Send now, but permits removal; promotion is
   one-way. Move up/down swaps only waiting rows, never crosses the promoted
   block, and persists. Edit is refused with a visible message while the input
@@ -2145,14 +2175,14 @@ identify the platform validation still needed.
   least one completed tool batch; three prompts are queued behind it.
   the first queued row. 3) Confirm the promoted block orders third → first, that
   both rows lock their move/edit actions, and that the remaining row is
-  still editable. 4) Let the boundary pass and observe the transcript.
+  still editable. 4) Observe steering delivery at the next model request.
 - **Expected**: The first click is delivered first and the second second — the
   click order is the delivery order, not "last click wins" and not the original
-  queue order. Both rows appear as adjacent user messages in one turn and the
-  model answers once; the queue no longer lists either promoted row. Both
+  queue order. Both rows appear as user messages in the same active turn;
+  the queue no longer lists either accepted promoted row. Both
   promoted rows show as waiting and cannot be edited or reordered. Removal
-  remains available until delivery. A refused or failed graceful stop reports
-  a message and leaves the row cancelable. If cancellation wins admission,
+  remains available until delivery. Refused steering retains the row for the
+  next turn and leaves it cancelable. If cancellation wins admission,
   the input never executes; if delivery wins, cancellation reports that it
   already started. The row disappears only after Host acknowledgement.
   A stalled steering delivery does not block admission or cancellation of other

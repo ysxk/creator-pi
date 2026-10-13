@@ -305,7 +305,7 @@ export const zhCN = {
     queuedPromptEmpty: "待发送消息",
     removeQueuedPrompt: "移除待发送消息",
     sendNow: "立即发送",
-    sendNowPending: "等待当前任务结束",
+    sendNowPending: "等待发送",
     queuedPromptStopFailed: "未能停止当前任务。这条消息仍在排队，可以取消。",
     queuedPromptAlreadyStarted: "这条消息已经开始执行，请使用停止按钮。",
     moveQueuedPromptUp: "上移",

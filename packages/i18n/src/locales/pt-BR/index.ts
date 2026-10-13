@@ -302,7 +302,7 @@ export const ptBR = {
     queuedPromptEmpty: "Mensagem na fila",
     removeQueuedPrompt: "Remover prompt da fila",
     sendNow: "Enviar agora",
-    sendNowPending: "Aguardando a tarefa atual terminar",
+    sendNowPending: "Aguardando envio",
     queuedPromptStopFailed: "Não foi possível parar a tarefa atual. Esta mensagem continua na fila e pode ser cancelada.",
     queuedPromptAlreadyStarted: "Esta mensagem já começou. Use Parar para interromper a tarefa em execução.",
     moveQueuedPromptUp: "Mover para cima",

@@ -303,7 +303,7 @@ export const es = {
     "queuedPromptEmpty": "Mensaje en cola",
     "removeQueuedPrompt": "Eliminar mensaje en cola",
     "sendNow": "Enviar ahora",
-    sendNowPending: "Esperando a que termine la tarea actual",
+    sendNowPending: "En espera de envío",
     queuedPromptStopFailed: "No se pudo detener la tarea actual. Este mensaje sigue en cola y se puede cancelar.",
     queuedPromptAlreadyStarted: "Este mensaje ya se está ejecutando. Usa Detener para detener la tarea actual.",
     "moveQueuedPromptUp": "Subir",

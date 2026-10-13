@@ -8167,6 +8167,70 @@ describe("DesktopAgentRuntime subagents", () => {
     },
   );
 
+  it.each(["during", "before"] as const)("handles steering %s TaskWait while its delegate continues running", async (timing) => {
+    subagentRuns.calls.length = 0;
+    subagentRuns.instances.length = 0;
+    subagentRuns.deferred = true;
+    subagentRuns.result = undefined;
+    let waiting!: () => void;
+    const beganWaiting = new Promise<void>((resolve) => { waiting = resolve; });
+    const runtime = createRuntime({ subagents: [explorer], onEvent: (value) => {
+      const envelope = value as AgentEventEnvelope;
+      if (envelope.event.type === "status" && envelope.event.status.activity?.phase === "waiting-subagents") waiting();
+    } });
+    const correct = () => runtime.steer({ text: "Correct the plan now." }, "active-turn", {
+      id: "correction-user", role: "user", content: "Correct the plan now.",
+      createdAt: "2026-10-13T00:00:00.000Z", steering: true,
+    });
+    const requests: AgentMessage[][] = [];
+    const internals = runtime as unknown as {
+      models: { streamSimple: (model: unknown, context: { messages: AgentMessage[] }) => ReturnType<typeof createAssistantMessageEventStream> };
+    };
+    internals.models = { streamSimple: (_model, context) => {
+      requests.push([...context.messages]);
+      const round = requests.length;
+      const message = assistantMessage({
+        content: round === 1
+          ? [{ type: "toolCall", id: "delegate", name: "Task", arguments: { agent: "explorer", task: "Inspect the fixture." } }]
+          : round === 2
+            ? [{ type: "toolCall", id: "wait", name: "TaskWait", arguments: {} }]
+            : [{ type: "text", text: "I have adjusted the plan." }],
+        stopReason: round <= 2 ? "toolUse" : "stop",
+      }) as unknown as AssistantMessage;
+      const stream = createAssistantMessageEventStream();
+      queueMicrotask(() => {
+        if (round === 2 && timing === "before") correct();
+        stream.push({ type: "start", partial: message });
+        stream.push({ type: "done", reason: round <= 2 ? "toolUse" : "stop", message });
+        stream.end(message);
+      });
+      return stream;
+    } };
+    const running = runtime.prompt("Start the inspection.", "initial-user", "active-turn");
+    try {
+      await beganWaiting;
+      if (timing === "during") {
+        expect(requests).toHaveLength(2);
+        correct();
+      }
+      await vi.waitFor(() => expect(requests.length).toBeGreaterThanOrEqual(3));
+      expect(JSON.stringify(requests[2])).toContain("Correct the plan now.");
+      expect(JSON.stringify(requests[2])).toContain("Interrupted by new user input");
+      const delegate = subagentRuns.calls[0] as { signal: AbortSignal };
+      expect(delegate.signal.aborted).toBe(false);
+      expect(runtime.getStatus().currentTurnId).toBe("active-turn");
+      expect(runtime.getStatus().isRunning).toBe(true);
+      subagentRuns.resolveRun?.({ agentName: "explorer", status: "completed", report: "Fixture inspected.", turns: 1, toolCalls: 0 });
+      await running;
+      expect(JSON.stringify(requests.at(-1))).toContain("Fixture inspected.");
+    } finally {
+      await runtime.abort();
+      await running;
+      await runtime.dispose();
+      subagentRuns.deferred = false;
+    }
+  });
+
   it("converges through TaskWait with reports and statuses", async () => {
     const runtime = createRuntime({ subagents: [explorer] });
     subagentRuns.calls.length = 0;

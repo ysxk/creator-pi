@@ -303,7 +303,7 @@ export const fr = {
     "queuedPromptEmpty": "Message en file d'attente",
     "removeQueuedPrompt": "Supprimer le message en file d'attente",
     "sendNow": "Envoyer maintenant",
-    sendNowPending: "En attente de la fin de la tâche en cours",
+    sendNowPending: "En attente d’envoi",
     queuedPromptStopFailed: "Impossible d’arrêter la tâche en cours. Ce message reste en attente et peut être annulé.",
     queuedPromptAlreadyStarted: "Ce message est déjà en cours d’exécution. Utilisez Arrêter pour arrêter la tâche.",
     "moveQueuedPromptUp": "Monter",

@@ -305,7 +305,7 @@ export const zhTW = {
     queuedPromptEmpty: "待發送訊息",
     removeQueuedPrompt: "移除待發送訊息",
     sendNow: "立即傳送",
-    sendNowPending: "等待目前任務結束",
+    sendNowPending: "等待傳送",
     queuedPromptStopFailed: "無法停止目前任務。這則訊息仍在排隊，可以取消。",
     queuedPromptAlreadyStarted: "這則訊息已經開始執行，請使用停止按鈕。",
     moveQueuedPromptUp: "上移",

@@ -53,6 +53,7 @@ import { slotMessage } from "../../../plugins/renderer-slots/slot-message";
 type AssistantTurnProps = {
   entry: AssistantTurnEntry;
   isActive: boolean;
+  delegationsLive?: boolean;
   runtimeActivity?: AgentActivity;
 };
 
@@ -60,7 +61,7 @@ function assistantTurnPropsEqual(
   previous: AssistantTurnProps,
   next: AssistantTurnProps,
 ) {
-  if (previous.isActive !== next.isActive || previous.runtimeActivity !== next.runtimeActivity) return false;
+  if (previous.isActive !== next.isActive || previous.delegationsLive !== next.delegationsLive || previous.runtimeActivity !== next.runtimeActivity) return false;
   if (previous.entry === next.entry) return true;
   if (
     previous.entry.id !== next.entry.id ||
@@ -130,11 +131,13 @@ export function TranscriptEntryView({
   entry,
   isRunning,
   isActive,
+  delegationsLive,
   runtimeActivity,
 }: {
   entry: TranscriptEntry;
   isRunning: boolean;
   isActive: boolean;
+  delegationsLive?: boolean;
   runtimeActivity?: AgentActivity;
 }) {
   if (entry.kind === "assistant-turn") {
@@ -142,6 +145,7 @@ export function TranscriptEntryView({
       <AssistantTurn
         entry={entry}
         isActive={isActive}
+        delegationsLive={delegationsLive}
         runtimeActivity={runtimeActivity}
       />
     );
@@ -161,6 +165,7 @@ function transcriptEntryKey(entry: TranscriptEntry): string {
 type TranscriptHistoryProps = {
   entries: TranscriptEntry[];
   isRunning: boolean;
+  liveDelegations?: ReadonlyMap<string, true>;
 };
 
 /**
@@ -171,6 +176,7 @@ type TranscriptHistoryProps = {
 export const TranscriptHistory = memo(function TranscriptHistory({
   entries,
   isRunning,
+  liveDelegations,
 }: TranscriptHistoryProps) {
   return (
     <>
@@ -180,6 +186,7 @@ export const TranscriptHistory = memo(function TranscriptHistory({
           entry={entry}
           isRunning={isRunning}
           isActive={false}
+          delegationsLive={entry.kind === "assistant-turn" && liveDelegations?.has(entry.id)}
         />
       ))}
     </>
@@ -187,6 +194,7 @@ export const TranscriptHistory = memo(function TranscriptHistory({
 }, (previous, next) => {
   if (
     previous.isRunning !== next.isRunning ||
+    previous.liveDelegations !== next.liveDelegations ||
     previous.entries.length !== next.entries.length
   ) {
     return false;
@@ -226,6 +234,7 @@ export const TranscriptTail = memo(function TranscriptTail({
 export const AssistantTurn = memo(function AssistantTurn({
   entry,
   isActive,
+  delegationsLive,
   runtimeActivity,
 }: AssistantTurnProps) {
   const { t } = useTranslation();
@@ -288,8 +297,8 @@ export const AssistantTurn = memo(function AssistantTurn({
   // or text and never on a Task's attached child transcript identity.
   const delegationItems = useMemo(() => tools.map((message) => ({ kind: "tool" as const, message })), [tools]);
   const rawDelegationStatuses = useMemo(
-    () => collectDelegationStatuses(delegationItems, { turnLive: isActive }),
-    [delegationItems, isActive],
+    () => collectDelegationStatuses(delegationItems, { turnLive: isActive || delegationsLive === true }),
+    [delegationItems, isActive, delegationsLive],
   );
   const rawDelegationTimings = useMemo(
     () => collectDelegationTimings(delegationItems),

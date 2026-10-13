@@ -308,9 +308,8 @@ finalized as `completed`; the request does not abort the provider stream,
 cancel running tools, or open a second concurrent turn. An idle session returns
 `requested: false`.
 
-The renderer owns the removable, in-memory queued-prompt list per session. It
-calls this channel only for a queued item's **Send now** action and releases
-that item through the ordinary `agent/prompt` flow after the terminal event.
+The Host owns the persisted prompt queue. **Send now** uses queue promotion and
+steering into the active turn; it does not call this graceful-stop channel.
 
 ### 5.2a stop-subagents
 
@@ -595,10 +594,14 @@ entries and `IDEMPOTENCY_CONFLICT` when a key is reused with other input.
 `entries` arrive in delivery order: promoted entries first in ascending
 `priority` (the order they were promoted), then every remaining entry by
 `position`. `prioritize` appends an entry to the end of that priority block
-without touching the running turn, refuses an entry that already carries a
-priority with `CONFLICT`, and refuses a turn that is no longer queued. The
-renderer's "send now" then requests a graceful stop so the entry starts at
-the next boundary. `reorder` swaps one non-promoted entry with its adjacent
+and attempts steering delivery into the active runtime turn, refuses an entry
+that already carries a priority with `CONFLICT`, and refuses a turn that is no
+longer queued. Delivery runs outside the session admission lock, reserves only
+the input being delivered, and never requests stop or abort. A queued input
+with a different effective permission mode stays queued so its own grants are
+preserved. Immediate promotion delivers only the paired caller's own input;
+other principals retain the existing turn-boundary delivery and queue policy.
+`reorder` swaps one non-promoted entry with its adjacent
 non-promoted neighbour and reports `moved: false` for a promoted entry, a
 missing entry, or a block/queue edge; a promoted entry is never a neighbour.
 `remove` cancels an entry that has not started. A restored queue stays held
@@ -606,10 +609,11 @@ until the desktop attaches as the owner, so a reboot never starts work
 unattended.
 
 The promoted block is delivered as adjacent messages rather than as separate
-turns: the first promoted entry starts the turn at the boundary and every later
-promoted entry is injected into that same turn through the steering channel
+turns: promoted entries join the active turn through the steering channel
+when it accepts input. With no active turn, the first promoted entry starts
+the turn and every later promoted entry is injected into that same turn
 (`pi-desktop/agent/steer` with the running turn's id), so the transcript shows
-the user rows one after another and the model answers once. An injected entry
+the user rows in click order within one turn. An injected entry
 leaves the queue and its own turn is canceled because it never runs on its own.
 An entry the runtime refuses to accept stays queued and leaves at the next
 boundary as its own turn.

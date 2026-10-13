@@ -303,7 +303,7 @@ export const de = {
     "queuedPromptEmpty": "Nachricht in der Warteschlange",
     "removeQueuedPrompt": "Nachricht in der Warteschlange entfernen",
     "sendNow": "Jetzt senden",
-    sendNowPending: "Warten auf das Ende der aktuellen Aufgabe",
+    sendNowPending: "Wartet auf Versand",
     queuedPromptStopFailed: "Die aktuelle Aufgabe konnte nicht gestoppt werden. Diese Nachricht wartet noch und kann abgebrochen werden.",
     queuedPromptAlreadyStarted: "Diese Nachricht wird bereits ausgeführt. Verwenden Sie Stopp, um die laufende Aufgabe zu stoppen.",
     "moveQueuedPromptUp": "Nach oben",

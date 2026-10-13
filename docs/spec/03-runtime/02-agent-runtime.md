@@ -88,8 +88,11 @@ when another input arrives before the initial user message has been consumed.
 An admission after pi's last queue poll suppresses the terminal event and
 continues once pi has released the run, with the same turn identity and without
 a second public `agent_start`. Existing context/provider recovery takes
-precedence over that continuation. Steering also wakes a parent that is idle
-waiting for background delegates; it does not cancel those delegates.
+precedence over that continuation. Steering wakes both a parent that is idle
+waiting for background delegates and an active `TaskWait`; it does not cancel
+those delegates. `TaskWait` returns `details.status: "interrupted"`, includes
+the current delegation states, and tells the parent to handle the new user
+input before waiting again. The same durable turn and pending reports remain.
 
 Abort, graceful stop, fatal errors and terminal settlement close admission.
 Accepted but unconsumed input remains transcript/context history and is removed

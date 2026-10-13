@@ -5381,7 +5381,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       name: SUBAGENT_WAIT_TOOL_NAME,
       label: "Task Wait",
       description:
-        "Wait for one or more subagents started by Task and return their reports. `delegationIds` defaults to every running subagent; use mode \"any\" with `minCompleted` to converge as soon as the first (or first N) finish. Settled delegations return immediately, so re-reading a report by id is cheap. A wait timeout is not a failure: unfinished delegates keep working and the runtime delivers their reports when they finish.",
+        "Wait for one or more subagents started by Task and return their reports. `delegationIds` defaults to every running subagent; use mode \"any\" with `minCompleted` to converge as soon as the first (or first N) finish. Settled delegations return immediately, so re-reading a report by id is cheap. New user input interrupts the wait without canceling delegates; handle it before waiting again. A wait timeout is not a failure: unfinished delegates keep working and the runtime delivers their reports when they finish.",
       parameters: Type.Object({
         delegationIds: Type.Optional(
           Type.Array(
@@ -5448,17 +5448,24 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             : Math.min(Math.max(minCompleted, 1), targets.length);
         const deadline = Date.now() + timeoutSeconds * 1000;
         this.beginDelegationWait(targets);
+        const waitAbort = new AbortController();
+        this.steeringWaitAbort = waitAbort;
         let timedOut = false;
         try {
-          timedOut = await this.waitForDelegations(
-            targets,
-            targetCompleted,
-            deadline,
-            signal,
-          );
+          if (!this.pendingSteering.size) {
+            timedOut = await this.waitForDelegations(
+              targets,
+              targetCompleted,
+              deadline,
+              signal ? AbortSignal.any([signal, waitAbort.signal]) : waitAbort.signal,
+            );
+          }
         } finally {
+          if (this.steeringWaitAbort === waitAbort) this.steeringWaitAbort = undefined;
           this.endDelegationWait();
         }
+        const interrupted = this.pendingSteering.size > 0 && !signal?.aborted &&
+          !this.runCancelled && !this.disposed && !this.turnHadError;
         // A settled report included in this bounded result reached the parent;
         // the idle resume must not deliver it a second time. Omitted reports
         // stay pending so the idle resume can deliver them later. Running
@@ -5481,14 +5488,16 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               ? formatDelegationHeartbeat(record)
               : (record.result?.report ?? `(${record.status} without a report)`),
         }));
-        const note = timedOut
-          ? `Still running after ${timeoutSeconds}s: ${results.filter((r) => r.status !== "running").length}/${targets.length} finished. This is not a failure — unfinished delegates keep working and the runtime will deliver their reports when they finish. Call TaskStop only to cancel.\n${targets
-              .filter((record) => record.status === "running")
-              .map(formatDelegationHeartbeat)
-              .join("\n")}`
-          : mode === "any"
-            ? `Converged after ${results.filter((r) => r.status !== "running").length} of ${targets.length} finished.`
-            : undefined;
+        const note = interrupted
+          ? "Interrupted by new user input. Unfinished subagents keep working; handle the user's message before waiting again."
+          : timedOut
+            ? `Still running after ${timeoutSeconds}s: ${results.filter((r) => r.status !== "running").length}/${targets.length} finished. This is not a failure — unfinished delegates keep working and the runtime will deliver their reports when they finish. Call TaskStop only to cancel.\n${targets
+                .filter((record) => record.status === "running")
+                .map(formatDelegationHeartbeat)
+                .join("\n")}`
+            : mode === "any"
+              ? `Converged after ${results.filter((r) => r.status !== "running").length} of ${targets.length} finished.`
+              : undefined;
         const unknownNote =
           unknownIds.length > 0
             ? `Unknown delegation ids (not found in this session): ${unknownIds.join(", ")}.`
@@ -5513,7 +5522,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             },
           ],
           details: {
-            status: timedOut ? "timeout" : "completed",
+            status: interrupted ? "interrupted" : timedOut ? "timeout" : "completed",
             ...(unknownIds.length ? { unknownIds } : {}),
             delegations: results,
           },
@@ -5536,6 +5545,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     const settledCount = () =>
       targets.filter((record) => record.status !== "running").length;
     if (settledCount() >= targetCompleted) return Promise.resolve(false);
+    if (signal?.aborted) return Promise.resolve(true);
     return new Promise<boolean>((resolve) => {
       let done = false;
       const finish = (timedOut: boolean) => {

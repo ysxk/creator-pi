@@ -315,7 +315,7 @@ export const en = {
     queuedPromptEmpty: "Queued message",
     removeQueuedPrompt: "Remove queued message",
     sendNow: "Send now",
-    sendNowPending: "Waiting for the current task to finish",
+    sendNowPending: "Waiting to send",
     queuedPromptStopFailed: "Could not stop the current task. This message is still queued and can be canceled.",
     queuedPromptAlreadyStarted: "This message has already started. Use Stop to stop the running task.",
     moveQueuedPromptUp: "Move up",

@@ -785,13 +785,13 @@ may be retained while exactly one workspace supplies the visible shell context.
   returns a durable id. While admission is pending, row actions are disabled
   with Saving tooltips and a Saving label on Send now; edit/remove leave both
   the queue and composer draft unchanged.
-- Send now moves its row to the head and requests the new `agent/stop` channel.
-  The current assistant response and completed tool batch finish normally;
-  after `agent_end` and durable turn finalization, the promoted row is
-  dispatched through the normal `agent/prompt` flow before the remaining rows.
-  An idle Send now dispatches immediately. While waiting, promoted rows retain
-  Remove and explain that the current task must finish. A refused or failed
-  graceful stop reports an error without losing the queued message. Removal
+- Send now promotes its row in click order and asks the Host to deliver it as
+  steering input into the active turn. It does not request a stop. An active
+  `TaskWait` returns early so the parent handles the new input while its
+  delegates keep working. Other started tools retain their normal boundaries.
+  An idle Send now dispatches immediately. Refused input or an input admitted
+  under a different permission mode stays queued for the next turn. Promoted
+  rows retain Remove until delivery and show Waiting to send. Removal
   waits for Host acknowledgement; if delivery wins the race, report that the
   message has already started and direct the user to Stop.
 - Without Send now, the next FIFO row starts automatically after the active
@@ -1639,8 +1639,9 @@ This does not prevent state changes — it makes them instant.
 1. All keyboard shortcuts in §1 are functional and do not conflict with system shortcuts
 2. Enter sends when Enter-to-send is on; when it is off, Cmd/Ctrl+Enter sends and Enter/Shift+Enter insert a newline
 3. Abort immediately cancels running turn and pending permissions without confirmation dialog
-3a. Send stays enabled while running, queues prompts per session, and Send now
-    finishes the current boundary before releasing its prioritized prompt
+3a. Send stays enabled while running and queues prompts per session. Send now
+    delivers promoted input into the current turn and wakes `TaskWait` without
+    canceling delegates; refused input stays queued.
 4. Long content (>50 lines for messages, >10 for args, >20 for results) is collapsed by default with expand link
 5. Tool results that were cut short show a truncation marker or chip per D306; a filled Read window of a longer file does not
 6. Permission interrupt inserts an inline card, disables the composer, and
