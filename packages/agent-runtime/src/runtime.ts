@@ -2134,6 +2134,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
                       : undefined;
                   },
                 ),
+                this.provider.authKind,
               ),
               onResponse: async (response, responseModel) => {
                 this.providerResponseStatus = response.status;

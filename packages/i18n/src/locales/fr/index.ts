@@ -1411,6 +1411,8 @@ sklm: {
     "copyProviderHint": "Crée un service indépendant. Les clés API, connexions aux comptes et en-têtes personnalisés ne sont pas copiés. Le modèle par défaut reste inchangé.",
     "editProviderTitle": "Modifier le fournisseur d'IA",
     "apiKeyKeepHint": "Laissez vide pour conserver la clé enregistrée.",
+    "noApiKeyRequired": "Aucune clé API requise",
+    "noApiKeyRequiredHint": "Les requêtes n'incluront aucune clé API ni aucun identifiant Authorization. L'enregistrement supprimera toute clé API déjà stockée pour ce fournisseur.",
     "apiStyle": "Format API",
     "apiStyleChatCompletions": "Achèvements de discussion OpenAI",
     "apiStyleOpenCodeGo": "OpenCode Go",

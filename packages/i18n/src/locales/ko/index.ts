@@ -1424,6 +1424,8 @@ sklm: {
     "copyProviderHint": "독립적인 서비스를 만듭니다. API 키, 계정 로그인 및 사용자 지정 헤더는 복사하지 않습니다. 기본 모델은 변경되지 않습니다.",
     editProviderTitle: "AI 프로바이더 편집",
     apiKeyKeepHint: "저장된 키를 유지하려면 비워 두세요.",
+    noApiKeyRequired: "API 키 필요 없음",
+    noApiKeyRequiredHint: "요청에 API 키나 Authorization 자격 증명을 포함하지 않습니다. 저장하면 이 프로바이더에 이미 저장된 API 키가 삭제됩니다.",
     apiStyle: "API 형식",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",

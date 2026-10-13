@@ -1431,6 +1431,8 @@ sklm: {
     "copyProviderHint": "Creates an independent service. API keys, account logins and custom headers are not copied. Your default model stays unchanged.",
     editProviderTitle: "Edit AI provider",
     apiKeyKeepHint: "Leave blank to keep the saved key.",
+    noApiKeyRequired: "No API key required",
+    noApiKeyRequiredHint: "Requests won't include an API-key or Authorization credential. Saving this setting removes any API key already stored for this provider.",
     apiStyle: "API format",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",

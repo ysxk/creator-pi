@@ -1411,6 +1411,8 @@ sklm: {
     "copyProviderHint": "Erstellt einen unabhängigen Dienst. API-Schlüssel, Kontoanmeldungen und benutzerdefinierte Header werden nicht kopiert. Das Standardmodell bleibt unverändert.",
     "editProviderTitle": "AI-Anbieter bearbeiten",
     "apiKeyKeepHint": "Lassen Sie das Feld leer, um den gespeicherten Schlüssel beizubehalten.",
+    "noApiKeyRequired": "Kein API-Schlüssel erforderlich",
+    "noApiKeyRequiredHint": "Anfragen enthalten weder API-Schlüssel noch Authorization-Zugangsdaten. Beim Speichern wird ein bereits für diesen Anbieter gespeicherter API-Schlüssel gelöscht.",
     "apiStyle": "API-Format",
     "apiStyleChatCompletions": "OpenAI-Chat-Abschlüsse",
     "apiStyleOpenCodeGo": "OpenCode Go",

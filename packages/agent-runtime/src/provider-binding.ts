@@ -111,17 +111,44 @@ export function adapterAcceptsCustomFetch(api: Api | undefined): boolean {
   return api !== "google-generative-ai" && api !== "google-vertex";
 }
 
+const NO_AUTH_REQUEST_KEY = "pi-desktop-no-auth";
+
+function withoutNoAuthCredential(fetchFn: FetchFunction): FetchFunction {
+  return (input, init) => {
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined),
+    );
+    for (const [name, value] of headers) {
+      const trimmedValue = value.trim();
+      const bearerValue = trimmedValue.slice(0, 7).toLowerCase() === "bearer "
+        ? trimmedValue.slice(7).trim()
+        : undefined;
+      if (
+        trimmedValue === NO_AUTH_REQUEST_KEY ||
+        (name === "authorization" && bearerValue === NO_AUTH_REQUEST_KEY)
+      ) {
+        headers.delete(name);
+      }
+    }
+    return fetchFn(input, { ...(init ?? {}), headers });
+  };
+}
+
 /**
  * The `fetch` one request may hand to `api`'s adapter: the caller's wrapper
  * where the adapter accepts one, otherwise nothing. Callers keep building the
  * wrapper (response capture, header override); this only decides whether it
- * reaches the adapter.
+ * reaches the adapter. No-auth requests also strip pi-ai's required placeholder
+ * credential before the request leaves the runtime.
  */
 export function providerRequestFetch(
   api: Api | undefined,
   fetchFn: FetchFunction | undefined,
+  authKind?: string,
 ): FetchFunction | undefined {
-  return adapterAcceptsCustomFetch(api) ? fetchFn : undefined;
+  if (!adapterAcceptsCustomFetch(api)) return undefined;
+  if (authKind !== "none") return fetchFn;
+  return withoutNoAuthCredential(fetchFn ?? globalThis.fetch.bind(globalThis));
 }
 
 /** Map a stored provider apiStyle onto a pi-ai wire API. Unknown styles fall
@@ -175,11 +202,11 @@ export function apiBindingForStyle(apiStyle?: string): ApiBinding {
   }
 }
 
-/** The key pi-ai signs requests with; `none` auth still needs a placeholder. */
+/** The API key pi-ai signs requests with; no-auth uses a stripped placeholder. */
 export function providerRequestKey(provider: RuntimeProviderConfig): string {
-  return (
-    provider.apiKey || (provider.authKind === "none" ? "pi-desktop-no-auth" : "")
-  );
+  return provider.authKind === "none"
+    ? NO_AUTH_REQUEST_KEY
+    : provider.apiKey;
 }
 
 /**
@@ -343,6 +370,9 @@ export function buildProviderModel(
   const modelHeaders = {
     ...(copilotDefaults ?? {}),
     ...(catalogModel.headers ?? {}),
+    ...(provider.authKind === "none" && binding.api === "google-generative-ai"
+      ? { "x-goog-api-key": "" }
+      : {}),
   };
   const thinkingProtocolCompat = catalogModel.thinkingProtocol
     ? { forceAdaptiveThinking: catalogModel.thinkingProtocol === "adaptive" }

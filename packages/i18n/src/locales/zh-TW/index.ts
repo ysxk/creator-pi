@@ -1399,6 +1399,8 @@ sklm: {
     "copyProviderHint": "建立獨立的服務設定，不複製 API 金鑰、帳號登入資訊或自訂請求標頭。目前的預設模型保持不變。",
     editProviderTitle: "編輯 AI 服務",
     apiKeyKeepHint: "留空則保留已儲存的金鑰。",
+    noApiKeyRequired: "不需要 API 金鑰",
+    noApiKeyRequiredHint: "請求不會附帶 API 金鑰或 Authorization 憑證。儲存時會刪除此服務已儲存的 API 金鑰。",
     apiStyle: "介面格式",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",

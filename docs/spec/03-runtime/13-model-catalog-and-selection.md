@@ -24,9 +24,13 @@ entitled to it.
 
 `ProviderSetupDialog` is a single form, not a wizard:
 
-- **Name**, **Base URL** and **API Key** are all on screen at once. An empty key
-  when editing means “keep the stored one”; `secretValue` is only sent when the
-  user typed something.
+- **Name**, **Base URL** and the applicable authentication controls are on
+  screen at once. The custom endpoint's **No API key required** checkbox is off
+  by default; checking it saves `authKind: "none"`, sends no `secretValue`, and
+  removes any previously saved API key when editing. Requests from that provider
+  omit API-key and Authorization credentials. Named service presets continue to
+  require their API key. In API-key mode, an empty key when editing means “keep
+  the stored one”; `secretValue` is only sent when the user typed something.
 - The models section lists what the service returned. `useProviderModels`
   debounces edits by 600 ms, guards against out-of-order replies with a
   monotonic request sequence, and needs no API key so local and no-auth

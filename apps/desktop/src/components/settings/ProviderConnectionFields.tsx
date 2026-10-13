@@ -1,6 +1,6 @@
 /**
  * The connection half of the AI service form: which service, its key, and for
- * a custom endpoint the name, URL and API format (D310, D625).
+ * a custom endpoint the name, URL, authentication and API format (D310, D625).
  *
  * The chosen service reads as a settled fact with a Change action rather than
  * an open menu. Whether the service answered is announced by the probe itself
@@ -10,11 +10,13 @@
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { CatalogApiStyle } from "@pi-desktop/shared";
-import { Field, Input } from "../ui";
+import { Checkbox, Field, Input } from "../ui";
 import { SettingsMenuSelect } from "./SettingsMenuSelect";
 import { ServiceMonogram } from "./ServiceMonogram";
 import { endpointLabel } from "./service-catalog";
 import { API_STYLE_LABEL_KEYS, CUSTOM_PROVIDER_API_STYLES } from "./provider-api-style";
+
+export type ProviderAuthKind = "api_key_and_base_url" | "none";
 
 export type ProviderConnectionFieldsProps = {
   named: boolean;
@@ -33,6 +35,8 @@ export type ProviderConnectionFieldsProps = {
   nameRef: RefObject<HTMLInputElement | null>;
   apiKey: string;
   onApiKeyChange: (value: string) => void;
+  authKind: ProviderAuthKind;
+  onAuthKindChange: (value: ProviderAuthKind) => void;
   name: string;
   onNameChange: (value: string) => void;
   baseUrl: string;
@@ -61,6 +65,8 @@ export function ProviderConnectionFields({
   nameRef,
   apiKey,
   onApiKeyChange,
+  authKind,
+  onAuthKindChange,
   name,
   onNameChange,
   baseUrl,
@@ -165,17 +171,33 @@ export function ProviderConnectionFields({
             </div>
           </div>
           <div className="provider-setup-field-row provider-setup-custom-auth-row">
-            <Field label={t("settings.apiKey")} hint={keyHint}>
-              <Input
-                ref={apiKeyRef}
-                type="password"
-                value={apiKey}
-                placeholder="sk-…"
-                className="font-mono text-sm-plus"
-                autoComplete="off"
-                onChange={(event) => onApiKeyChange(event.target.value)}
+            <div className="provider-setup-key">
+              {authKind === "none" ? (
+                <div className="text-sm text-text-secondary">
+                  {t("settings.noApiKeyRequiredHint")}
+                </div>
+              ) : (
+                <Field label={t("settings.apiKey")} hint={keyHint}>
+                  <Input
+                    ref={apiKeyRef}
+                    type="password"
+                    value={apiKey}
+                    placeholder="sk-…"
+                    className="font-mono text-sm-plus"
+                    autoComplete="off"
+                    onChange={(event) => onApiKeyChange(event.target.value)}
+                  />
+                </Field>
+              )}
+              <Checkbox
+                label={t("settings.noApiKeyRequired")}
+                checked={authKind === "none"}
+                disabled={saving}
+                onChange={(event) =>
+                  onAuthKindChange(event.target.checked ? "none" : "api_key_and_base_url")
+                }
               />
-            </Field>
+            </div>
             <Field
               label={t("settings.apiStyle")}
               hint={apiStyleNote ?? (accountOnlyApiStyle ? t(requiresApiStyleChoice

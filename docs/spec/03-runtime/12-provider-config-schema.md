@@ -695,6 +695,11 @@ The canonical DDL lives in [04-data-storage](04-data-storage.md) (D086). Summary
 11. Legacy `supportedThinkingLevels`, when present, must still validate as an
   array of canonical thinking levels but has no runtime effect
 
+User-created custom endpoints may use `authKind=none`. Updating an editable
+provider to this auth kind removes its API-key secret from the secret store and
+clears `secret_ref`; OAuth credentials use their separate lifecycle. The
+runtime sends no API-key or Authorization credential for a `none` provider.
+
 ## 11. Secret ref format
 
 ```text
