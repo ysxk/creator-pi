@@ -3713,8 +3713,9 @@ IPC 请求无法关闭。
   - 每个检查点的摘要请求都携带会话自己的对话身份：在 Responses 形状的提供商
     （`openai-responses`、`openai-codex-responses`）上，出站载荷会像会话的普通
     回合一样把会话 id 作为 `prompt_cache_key` 发出，因此对接 Codex 后端的网关会
-    接受该请求，而不是返回 400 `invalid_responses_request`。其他线协议的提供商
-    保持不变。
+    接受该请求，而不是返回 400 `invalid_responses_request`。其他线协议的提供商，
+    以及位于已发布厂商主机上的行，保持不变；未识别端点在 Chat Completions 上会补
+    上该键，理由见 `E2E-PROVIDER-custom-endpoint-session-identity`。
   - 每个 `turn_end` 在另一个提供商请求之前都会被评估，并且永远不会
     标记整体任务空闲； composer/config 控件保持阻塞状态，直到
     `agent_end`、`error` 或仅手动的 `compaction_end`。
@@ -3774,6 +3775,32 @@ IPC 请求无法关闭。
 - **状态**：部分自动化（`runtime.test.ts`，
   `context-compaction.test.mjs`、`assistant-turns.test.mjs`、host-core
   transcript/session 单元测试）；完整的 provider/UI 旅程草稿
+
+#### E2E-PROVIDER-custom-endpoint-session-identity：自建端点收到会话 id
+
+- **前提**：两个互相独立的会话，各进行若干回合，都绑定到 API 风格为
+  `chat_completions`、base URL 指向本地抓包端点（不是已发布厂商主机）的提供商行。
+  另有一行位于已发布厂商主机，以及一行使用 `anthropic_messages`。
+- **步骤**：1) 在两个会话各发一个回合，抓取两次请求的完整标头与完整请求体。
+  2) 逐字段比对这两个请求。3) 在第一个会话触发一次上下文压缩摘要并抓取。
+  4) 运行一次子智能体回合与一次带会话 id 的插件一次性调用并抓取。
+  5) 在位于已发布厂商主机的那一行上重复第 1 步。6) 在 API 风格为 `opencode_go`
+  的行上重复第 1 步。
+- **预期**：
+  - 两次抓取的请求都携带稳定且逐会话不同的标识：`x-session-affinity` 与
+    `x-client-request-id`，在格式为 `openai` 时还含 `session_id`，请求体中含
+    `prompt_cache_key`，取值都是该会话自己的对话 id，并在该会话的多个回合之间保持
+    不变。
+  - 压缩摘要、子智能体回合与一次性调用携带其所属会话的同一个 id，因此网关会把整个
+    会话固定到同一后端。
+  - 位于已发布厂商主机的行与 OpenCode 行的出网请求与改动前逐字节一致（OpenCode
+    行仍带 `x-opencode-session`）。
+  - 没有会话 id 的一次性调用不会得到 `prompt_cache_key`。
+- **关联规格**：`03-runtime/02-agent-runtime.md`（§6.2、§6.3）、
+  `03-runtime/11-provider-model-system.md`、issue #1634
+- **验收**：C (chat/stream) + 质量
+- **里程碑**：M5
+- **状态**：单元测试覆盖（`session-affinity.test.ts`）；完整网关抓包旅程草稿
 
 #### E2E-AGENTS-001：项目指令链配置代理会话
 
@@ -5630,6 +5657,7 @@ eleven-tool-round desktop paths are verified by
 | A / H / Quality — 渲染器进程崩溃恢复 | E2E-RUNTIME-renderer-crash-recovery |
 | C / F / Quality — 含聊天的项目文件夹安全分离并删除 | E2E-048c |
 | B / F / Security — 提供商复制 | E2E-PROVIDER-copy-config-without-credentials |
+| C / Quality — 自建端点收到会话 id | E2E-PROVIDER-custom-endpoint-session-identity |
 | B / F / Quality — 已选模型顺序 | E2E-MODEL-selected-order-persists |
 | E / F / Quality — MCP 服务器超时覆盖 | E2E-261 |
 | A — 应用程序启动 | E2E-001、E2E-002、E2E-003、E2E-004、E2E-067、E2E-076、E2E-079、E2E-092、E2E-097、E2E-143、E2E-150、E2E-168、E2E-204、E2E-217 |

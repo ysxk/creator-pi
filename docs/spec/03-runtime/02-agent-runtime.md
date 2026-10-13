@@ -1345,8 +1345,40 @@ other turn sends; a gateway fronting a Codex backend rejects such a request with
 `openai-codex-responses` the summary payload therefore carries the session id as
 `prompt_cache_key` (clamped to the adapter's 64-character limit) unless the
 adapter or a caller already set one. Every other wire API keeps its payload
-exactly as the adapter built it, and the key is added on a copy, so a caller's
+exactly as the adapter built it, apart from the unrecognized-endpoint key of
+§6.3, and the key is added on a copy, so a caller's
 payload hook keeps its own object and its return value still wins.
+
+### 6.3 Session identity for endpoints the adapters leave anonymous (issue #1634)
+
+pi-ai supplies a conversation id by itself only where a vendor published one:
+the Responses adapters send it on every request, and the Chat Completions and
+Anthropic Messages adapters send it only while
+`compat.sendSessionAffinityHeaders` is set, which defaults to OpenRouter; the
+Chat Completions body key is narrower still, gated on `api.openai.com`. A
+provider row the user pointed at their own gateway or relay would therefore
+send every session of one credential with nothing to tell them apart, leaving
+that gateway unable to pin a conversation to one backend or to isolate its
+prompt cache.
+
+Agent-runtime stamps that identity itself for a row whose base URL host is not
+a published vendor host (`NAMED_ENDPOINT_PRESETS`), on the `openai-completions`
+and `anthropic-messages` wire APIs, and not on the OpenCode path that already
+carries its own session header (§6.2):
+
+- The built model's `compat` gains `sendSessionAffinityHeaders: true` with
+  `sessionAffinityFormat: "openai"`, so the adapter writes `x-session-affinity`
+  and `x-client-request-id` beside `session_id`. That default is spread under
+  the row's own `compat`, so an explicit catalog entry still wins.
+- A Chat Completions request body that carries no `prompt_cache_key` gains the
+  session id as one, clamped to the adapter's 64-character limit. The key rides
+  a copy of the payload and is appended after every other payload hook, so an
+  extension that rewrites the payload cannot drop it.
+
+The identity reaches session turns, subagent turns, context-compaction
+summaries, and plugin one-shots that were handed a session id. A published
+vendor host keeps its current request bytes, and a caller with no session id
+gains no body key.
 
 
 ## 7. System prompt composition

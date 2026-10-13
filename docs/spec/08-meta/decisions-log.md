@@ -7985,3 +7985,39 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   restart, dead-letter cap, session delete) and
   E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue. See ADR
   0041, `03-runtime/04-data-storage.md`, and `03-runtime/06-host-rpc-protocol.md`.
+
+## 2026-10-13 — Open local files in the embedded Browser (D657)
+
+- D657 amends ADR 0170: explicit absolute paths and `file:` URLs can open any
+  existing regular local file, and local-file pages can follow links to other
+  local files. Relative paths remain workspace-rooted. HTTP(S) pages cannot
+  navigate outside the workspace through a file link.
+- The public `pi.browser.navigate` API follows the same policy under its
+  existing high-risk `browser.cdp` permission. `BrowserPreview` and the sidecar
+  retain workspace-rooted validation.
+- Covered by `apps/desktop/test/browser-pane-navigation.test.mjs`,
+  `apps/desktop/test/browser-local-file-feedback.test.mjs`, and E2E-059. See
+  ADR 0328, `04-ux/08-component-spec.md`, `07-plugins/03-plugin-api.md`, and
+  `05-security/01-security.md`.
+
+## 2026-10-13 — Session identity on endpoints the adapters leave anonymous (D658)
+
+- Agent-runtime stamps a per-session identity onto requests bound for an endpoint
+  the user pointed at themselves — a provider row whose base URL host is not a
+  published vendor host — on the `openai-completions` and `anthropic-messages`
+  wire APIs. The built model gains `compat.sendSessionAffinityHeaders` with
+  `sessionAffinityFormat: "openai"`, so the adapter writes `x-session-affinity`
+  and `x-client-request-id` beside `session_id`, and a Chat Completions payload
+  that carries no `prompt_cache_key` gains the session id as one, clamped to the
+  adapter's 64-character limit. A row's own `compat` still wins, and the key is
+  added on a copy after every other payload hook.
+- Identity reaches session turns, subagent turns, context-compaction summaries,
+  and plugin one-shots handed a session id. A published vendor host (matched by
+  host against `NAMED_ENDPOINT_PRESETS`), the OpenCode path's own
+  `x-opencode-session`, and the Responses adapters' existing behavior keep their
+  current request bytes, so no vendor's published caching semantics move; a
+  caller with no session id gains no body key.
+- Covered by `packages/agent-runtime/src/session-affinity.test.ts` and
+  E2E-PROVIDER-custom-endpoint-session-identity. See issue #1634,
+  `03-runtime/02-agent-runtime.md` §6.3, and
+  `03-runtime/11-provider-model-system.md`.

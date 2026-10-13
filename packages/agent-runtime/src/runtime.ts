@@ -241,6 +241,7 @@ import {
   openCodeEndpointFromProvider,
   withOpenCodeSessionHeaders,
 } from "./opencode-session-headers.js";
+import { withSessionAffinityPayload } from "./session-affinity.js";
 import { withCompactionRequestHeaders } from "./compaction-request.js";
 import type { CompactionRequestShape } from "./compaction-diagnostics.js";
 import {
@@ -2156,7 +2157,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // result carries is put in the shape this wire API delivers it in.
         const hookedOptions = withPriorityServiceTier(
           withToolResultMediaPayload(
-            this.withExtensionProviderHooks(requestOptions, m),
+            withSessionAffinityPayload(
+              this.withExtensionProviderHooks(requestOptions, m),
+              {
+                provider: this.provider,
+                api: m.api,
+                baseUrl: m.baseUrl,
+                sessionId: this.sessionId,
+              },
+            ),
             m.api,
           ),
           m.api,

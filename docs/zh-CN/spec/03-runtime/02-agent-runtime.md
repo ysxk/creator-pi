@@ -944,8 +944,33 @@ agent 运行时的职责，与官方 Pi 编码 agent 的归属层保持一致；
 后端的网关会以 400 `invalid_responses_request` 拒绝这种请求。因此对
 `openai-responses` 与 `openai-codex-responses`，摘要载荷会带上会话 id 作为
 `prompt_cache_key`（按适配器的 64 字符上限截断），除非适配器或调用方已设置过。
-其他线协议的载荷保持适配器构造的原样；该键添加在副本上，因此调用方的载荷钩子仍
-保留自己的对象，其返回值仍然生效。
+其他线协议的载荷保持适配器构造的原样，§6.3 的未识别端点键除外；该键添加在副本
+上，因此调用方的载荷钩子仍保留自己的对象，其返回值仍然生效。
+
+### 6.3 适配器不作标识的端点上的会话身份（issue #1634）
+
+pi-ai 只在厂商自己发布了约定时才自带对话标识：Responses 适配器每个请求都发，而
+Chat Completions 与 Anthropic Messages 适配器只在
+`compat.sendSessionAffinityHeaders` 为真时才发，该默认值仅有 OpenRouter；Chat
+Completions 的请求体键更窄，硬编码在 `api.openai.com` 上。因此，用户把某一提供商行
+指向自己的网关或中转时，同一凭据下的所有会话在出网请求里没有任何字段可以区分，
+该网关既无法把一个会话固定到同一后端，也没有按会话隔离 prompt cache 的依据。
+
+对这种 base URL 主机不属于任何已发布厂商主机（`NAMED_ENDPOINT_PRESETS`）的行，
+agent-runtime 自己补上该身份，覆盖 `openai-completions` 与 `anthropic-messages`
+两种线协议，但不对已经自带会话标头的 OpenCode 线路（§6.2）生效：
+
+- 构造出的模型 `compat` 补上 `sendSessionAffinityHeaders: true` 与
+  `sessionAffinityFormat: "openai"`，适配器据此写出 `x-session-affinity` 与
+  `x-client-request-id`，并在格式为 `openai` 时一并写出 `session_id`。该默认值
+  展开在行自身 `compat` 之下，因此显式的目录项仍然优先。
+- Chat Completions 的请求体若不含 `prompt_cache_key`，补上会话 id 作为该键，按
+  适配器的 64 字符上限截断。该键添加在载荷副本上，且排在其它所有载荷钩子之后，
+  因此重写载荷的扩展无法把它丢掉。
+
+该身份覆盖会话回合、子智能体回合、上下文压缩摘要，以及拿到会话 id 的插件一次性
+调用。属于已发布厂商主机的行保持原有出网字节；没有会话 id 的调用方不会得到请求体
+键。
 
 
 ## 7. 系统提示组成

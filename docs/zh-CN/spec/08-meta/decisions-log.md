@@ -5658,3 +5658,29 @@ Markdown 源码，不是 `text/html` 负载；对禁用行内 HTML 的外部编�
   跨重启保留死信、死信上限、会话删除）与
   E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue 覆盖。见 ADR 0041、
   `03-runtime/04-data-storage.md` 与 `03-runtime/06-host-rpc-protocol.md`。
+
+## 2026-10-13 —— 内置浏览器打开工作区外本地文件（D657）
+
+- D657 修订 ADR 0170：绝对路径与 `file:` URL 可打开任意已存在的本地普通文件，本地文件页面也可
+  跟随链接访问其他本地文件。相对路径仍以工作区为根；HTTP(S) 页面不能通过 file 链接越出工作区。
+- 公开的 `pi.browser.navigate` API 在现有高风险 `browser.cdp` 权限下采用相同策略。
+  `BrowserPreview` 与 sidecar 仍保留工作区范围校验。
+- 由 `apps/desktop/test/browser-pane-navigation.test.mjs`、
+  `apps/desktop/test/browser-local-file-feedback.test.mjs` 与 E2E-059 覆盖。见 ADR 0328、
+  `04-ux/08-component-spec.md`、`07-plugins/03-plugin-api.md` 与 `05-security/01-security.md`。
+
+## 2026-10-13 —— 适配器不作标识的端点上的会话身份（D658）
+
+- 对用户自己指向的端点——base URL 主机不属于任何已发布厂商主机的提供商行——agent-runtime
+  在 `openai-completions` 与 `anthropic-messages` 两种线协议上补上逐会话身份。构造出的模型
+  会带上 `compat.sendSessionAffinityHeaders` 与 `sessionAffinityFormat: "openai"`，适配器据此
+  写出 `x-session-affinity` 与 `x-client-request-id`，并在格式为 `openai` 时一并写出
+  `session_id`；Chat Completions 的载荷若不含 `prompt_cache_key`，则补上会话 id 作为该键，按
+  适配器的 64 字符上限截断。行自身 `compat` 仍然优先，该键添加在副本上且排在其它载荷钩子之后。
+- 该身份覆盖会话回合、子智能体回合、上下文压缩摘要，以及拿到会话 id 的插件一次性调用。属于已发布
+  厂商主机的行（按主机与 `NAMED_ENDPOINT_PRESETS` 比对）、OpenCode 线路自带的
+  `x-opencode-session`，以及 Responses 适配器既有行为都保持原有出网字节，因此不改变任何厂商已发布
+  的缓存语义；没有会话 id 的调用方不会得到请求体键。
+- 由 `packages/agent-runtime/src/session-affinity.test.ts` 与
+  E2E-PROVIDER-custom-endpoint-session-identity 覆盖。见 issue #1634、
+  `03-runtime/02-agent-runtime.md` §6.3 与 `03-runtime/11-provider-model-system.md`。
