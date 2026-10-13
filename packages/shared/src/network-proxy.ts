@@ -41,6 +41,9 @@ export const PROXY_ENV_KEYS = [
   "NODE_USE_ENV_PROXY",
 ] as const;
 
+/** Built-in fallback when entering Custom with nothing saved and no valid draft. */
+export const DEFAULT_CUSTOM_PROXY_URL = "socks5://127.0.0.1:1080";
+
 export type NetworkProxySettings = {
   mode: NetworkProxyMode;
   /**
@@ -252,6 +255,23 @@ export function settingsForInactiveProxyMode(
     ...(url ? { url } : {}),
     ...(bypass ? { bypass } : {}),
   };
+}
+
+/**
+ * Resolve the Custom-mode URL when entering Custom. The URL draft may hold a
+ * stale value the user never fixed, or be empty: a valid draft wins, but an
+ * invalid one loses to the remembered `savedUrl` and only then falls back to
+ * the built-in default — otherwise switching modes erases the proxy the user
+ * configured (issue #1541's promise, broken in #1610). `fromDraft` is false
+ * exactly when the draft was discarded, so the caller can sync the input.
+ */
+export function resolveCustomProxyUrl(
+  urlDraft: string,
+  savedUrl: string | undefined,
+): { url: string; fromDraft: boolean } {
+  const parsed = parseProxyUrl(urlDraft);
+  if (parsed.ok) return { url: parsed.value.href, fromDraft: true };
+  return { url: savedUrl ?? DEFAULT_CUSTOM_PROXY_URL, fromDraft: false };
 }
 
 export type ChromiumProxyConfig =

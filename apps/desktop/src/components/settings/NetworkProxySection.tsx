@@ -11,6 +11,7 @@ import {
   DEFAULT_NETWORK_PROXY_BYPASS,
   isRelaxedNetworkPolicy,
   parseProxyUrl,
+  resolveCustomProxyUrl,
   settingsForInactiveProxyMode,
   validateNetworkProxy,
 } from "@pi-desktop/shared";
@@ -76,12 +77,13 @@ export function NetworkProxySection({
       );
       return;
     }
-    const parsed = parseProxyUrl(urlDraft);
-    const url = parsed.ok ? parsed.value.href : "socks5://127.0.0.1:1080";
-    if (!parsed.ok) setUrlDraft(url);
+    // A stale invalid draft loses to the remembered proxy: restoring the
+    // user's own URL on re-entry is the whole point of remembering it.
+    const resolved = resolveCustomProxyUrl(urlDraft, saved.url);
+    if (!resolved.fromDraft) setUrlDraft(resolved.url);
     void persist({
       mode: "custom",
-      url,
+      url: resolved.url,
       bypass: bypassDraft.trim() || undefined,
     });
   };

@@ -9,6 +9,7 @@ import {
   proxyEnvAssignments,
   proxyHasCredentials,
   redactProxyUrl,
+  resolveCustomProxyUrl,
   restoreProxyEnv,
   settingsForInactiveProxyMode,
   snapshotProxyEnv,
@@ -325,6 +326,34 @@ describe("normalizeNetworkProxy", () => {
       mode: "custom",
       url: "socks5://127.0.0.1:1080",
       bypass: "localhost",
+    });
+  });
+});
+
+describe("resolveCustomProxyUrl", () => {
+  it("a valid draft wins over the saved URL", () => {
+    const resolved = resolveCustomProxyUrl(
+      "http://draft:8080",
+      "http://saved:3128",
+    );
+    expect(resolved).toEqual({ url: "http://draft:8080", fromDraft: true });
+  });
+
+  it("an invalid draft falls back to the remembered proxy, not the built-in default", () => {
+    const resolved = resolveCustomProxyUrl("garbage", "http://saved:3128");
+    expect(resolved).toEqual({ url: "http://saved:3128", fromDraft: false });
+  });
+
+  it("an empty draft restores the remembered proxy across mode round trips", () => {
+    const resolved = resolveCustomProxyUrl("", "socks5://10.0.0.8:1080");
+    expect(resolved).toEqual({ url: "socks5://10.0.0.8:1080", fromDraft: false });
+  });
+
+  it("with nothing saved the built-in default applies", () => {
+    const resolved = resolveCustomProxyUrl("also bad", undefined);
+    expect(resolved).toEqual({
+      url: "socks5://127.0.0.1:1080",
+      fromDraft: false,
     });
   });
 });
