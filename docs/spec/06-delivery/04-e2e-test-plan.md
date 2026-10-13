@@ -13326,6 +13326,10 @@ are withdrawn with ADR 0165.
      System immediately without clicking elsewhere. Confirm `settings.get`
      retains the URL and Bypass while `mode` is `system`. Select Custom again
      and confirm both values return to the fields and `mode` is `custom`.
+     With the valid URL saved, enter `not-a-proxy` and blur so the invalid
+     draft remains visible. Switch to System and back to Custom; confirm the
+     field returns to the remembered valid URL and `settings.get` still holds
+     that URL instead of the built-in default.
   4. Click Test against a listening proxy. Confirm a Connected status. Click
      Test against a closed port. Confirm a failure status without changing
      the saved URL. Enter `http://user:pass@127.0.0.1:<auth-port>` and

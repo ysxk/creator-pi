@@ -209,6 +209,11 @@ test("General Network card persists a custom HTTP or SOCKS5 proxy and the relaxe
     networkProxySource,
     /settingsForInactiveProxyMode\(mode, saved, urlDraft, bypassDraft\)/,
   );
+  assert.match(
+    networkProxySource,
+    /resolveCustomProxyUrl\(urlDraft, saved\.url\)/,
+  );
+  assert.match(networkProxySource, /url: resolved\.url/);
   // Fake-IP tolerance belongs to the network mode now, not to the proxy payload.
   assert.doesNotMatch(networkProxySource, /allowFakeIp/);
   assert.match(settingsSearchSource, /settings\.proxy/);
