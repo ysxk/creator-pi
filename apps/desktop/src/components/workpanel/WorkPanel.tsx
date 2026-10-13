@@ -229,7 +229,6 @@ export function WorkPanel({
   const tabStripRef = useRef<HTMLDivElement | null>(null);
   const suppressedTabClickPointerIdsRef = useRef<Set<number>>(new Set());
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const newTabButtonRef = useRef<HTMLButtonElement | null>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{
     tabId: string;
@@ -570,10 +569,10 @@ export function WorkPanel({
       const index = tabs.findIndex((tab) => tab.id === tabId);
       const nextTab = index >= 0 ? tabs[index + 1] ?? tabs[index - 1] : undefined;
       closeTab(tabId);
-      requestAnimationFrame(() => {
-        if (nextTab) tabButtonRefs.current[nextTab.id]?.focus();
-        else newTabButtonRef.current?.focus();
-      });
+      // No neighbor means the last tab went and the panel is leaving with it
+      // (D680): nothing inside it is worth focusing.
+      if (!nextTab) return;
+      requestAnimationFrame(() => tabButtonRefs.current[nextTab.id]?.focus());
     },
     [closeTab, tabs],
   );
@@ -882,7 +881,6 @@ export function WorkPanel({
           </div>
           <div className="work-panel-actions no-drag">
               <TooltipButton
-                ref={newTabButtonRef}
                 type="button"
                 className="work-panel-new-tab"
                 tooltip={t("panel.new.open")}

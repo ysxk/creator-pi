@@ -395,6 +395,23 @@ export function closeWorkPanelTabState(
 }
 
 /**
+ * Whether the panel stays open after a tab close (D680).
+ *
+ * The panel leaves with its last tab: it was opened to show that resource, so
+ * an empty dock is not left behind. A close that removed nothing, or one that
+ * leaves other tabs, keeps whatever the panel's open state was.
+ */
+export function workPanelOpenAfterTabClose(
+  open: boolean,
+  before: WorkPanelTabsState,
+  after: WorkPanelTabsState,
+): boolean {
+  const removed = after.tabs.length < before.tabs.length;
+  if (removed && !after.tabs.some(isKnownWorkPanelTab)) return false;
+  return open;
+}
+
+/**
  * Display labels for the subagent tabs in strip order.
  *
  * Delegates with the same agent name would otherwise render identical tab

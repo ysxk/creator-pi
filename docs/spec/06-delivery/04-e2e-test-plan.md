@@ -4256,7 +4256,8 @@ window; opening a normal panel afterward must still work.
   confirm that tab opens the native plugin surface without changing its bounds.
   5) Close
   active middle and edge tabs and verify neighbor selection. Close the final
-  tab and confirm the panel remains open on the New launcher. 6) Use the
+  tab and confirm the panel closes with it and MainChat takes the width back;
+  reveal it with the toggle and confirm the New launcher. 6) Use the
   viewport-fixed work-panel toggle and trigger another artifact. 7) In session A,
   leave the panel open with multiple
   tabs and a Browser resource; switch to session B, create a different tab set,
@@ -4303,7 +4304,7 @@ window; opening a normal panel afterward must still work.
   active. `Alt+ArrowLeft`/`Alt+ArrowRight` provides the same reorder path from
   the focused tab. Clicking a launcher row replaces
   that New tab with the destination or activates its existing singleton.
-  Closing the last tab leaves the panel open on New. Collapse
+  Closing the last tab closes the panel (D680). Collapse
   retains runtime tabs but hides the panel until another artifact reopens it.
   Width follows the shared three-column budget with no fixed pixel cap and
   previews its current/minimum/maximum values through the panel separator. The
@@ -11034,14 +11035,15 @@ This test plan spec is accepted when:
   4) Click `+` to create a New launcher tab, activate the same view from its
      body, and confirm it selects the existing tab rather than creating a
      second one.
-  5) Close the view tab and confirm the panel remains open on the New launcher
-     when it was the last tab; press `Cmd/Ctrl + J` again and confirm it hides.
+  5) Close the view tab and confirm the panel closes when it was the last
+     tab; press `Cmd/Ctrl + J` and confirm it returns on the New launcher with
+     no tab, then press it again and confirm it hides.
   6) Repeat step 1 in Chinese and in both light and dark themes, and at the
      244px panel minimum, confirming the copy wraps rather than clipping.
 - **Expected**: `Cmd/Ctrl + J` reveals the panel without creating a tab, and the
   New launcher lists the same Review/plugin-view entries as its `+`-created
   page; a row creates or selects that singleton view. Each `+` click creates a
-  separate closable New tab. Closing the final tab leaves the panel open on New.
+  separate closable New tab. Closing the final tab closes the panel (D680).
   The no-tab empty body is not exposed as a `tabpanel`; explicit New tabs are
   labelled tabpanels. Their rows are buttons in a `role="group"` labelled
   Tools. Panel empty states share the app's empty-state

@@ -544,9 +544,10 @@ may be retained while exactly one workspace supplies the visible shell context.
 - Activating a tool that is already open activates its existing resource instead
   of replacing it, so Browser keeps its URL and Files its selection (D173).
 - Every resource can be closed from its tab. Closing the active resource selects
-  the right neighbor, then the left; closing the final tab keeps the panel open
-  on the New launcher. The viewport-fixed panel toggle hides the panel without
-  deleting tabs.
+  the right neighbor, then the left; closing the final tab closes the panel
+  with it (D680), so a preview that opened the panel does not leave an empty
+  dock behind. The viewport-fixed panel toggle hides the panel without
+  deleting tabs, and reveals the New launcher when there are none.
 - On every platform, opening and collapsing the visible panel change only the
   internal flex allocation; native window bounds remain unchanged. The inner
   divider updates the renderer-owned panel target from 244px upward, capped by

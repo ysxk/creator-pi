@@ -26,6 +26,8 @@ A drag drops before or after the target tab and keeps the active tab unchanged.
 While dragging near either edge, the strip auto-scrolls so off-screen tabs can
 be reached without releasing the pointer.
 Closing the final tab keeps the panel open and shows a New launcher in the body.
+*(Amended by D680, 2026-10-13: closing the final tab closes the panel. The New
+launcher remains the body of a panel revealed with no tabs.)*
 
 The `+` menu has one **Tools & panels** group. Review is the only host-owned
 entry; all other entries come from the current plugin-view metadata returned by

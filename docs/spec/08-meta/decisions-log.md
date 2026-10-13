@@ -72,6 +72,7 @@ This log freezes previously open questions into concrete decisions.
 | D677 | The MCP client starts a new session when the server ends one | **Streamable HTTP, MCP 2025-06-18 Session Management items 3 and 4: an HTTP 404 for a request that carried the issued `Mcp-Session-Id` means the server ended the session. The client drops it, sends a new `InitializeRequest` without a session id, and repeats the refused request once. This is the single case in which a `tools/call` is sent again, because a 404 for the session id is a refusal before execution. Concurrent calls share the new handshake; a second refusal, a failed handshake, and a 404 without a session id are surfaced unchanged. `connect()` now waits for a handshake in progress before treating the transport as connected.** | The client treated that 404 as a plain HTTP error and kept the dead session id, so after a remote server restarted or expired the session every call failed until the user tested the connection, edited the server, or restarted the app. The specification makes re-initialization a MUST. |
 | D678 | A wait on the user is not part of a request's time budget | **Restore D636 in host-core: the per-request wall-clock budget stops counting while a `tools.execute` handler waits for the answer to a permission prompt, and counts again from what was left once the prompt is settled. The fixed 120 s added to the budget for the prompt is removed; the budget for `tools.execute` is the tool's effective timeout plus the 90 s grace. A prompt still ends only by a decision, a cancellation or shutdown.** | The budget (issues #1071 / #1208) wrapped the whole handler, so a Bash prompt left unanswered for the tool timeout plus 210 s failed the call with `HOST_RPC_TIMEOUT`. That is the automatic deadline D636 removed, and it also left the request in `permissions.pending` with no waiter: the card came back when the session was reopened and answering it did nothing. Seen in a 0.16.1 user log: four prompts cut at 220 to 270 s, one of them answered more than two hours later. |
 | D679 | Project sessions are one flat list | *(supersedes the date labels of the 2026-09-16 sidebar rhythm entry)* **A project group in the sidebar lists its sessions flat, in the active sort order. The Yesterday / Previous 7 days / Previous 14 days / Older labels are gone, and so are their catalog keys and the bucketing helper. The ten-row fold, the load-more row, global pins and the sort modes are unchanged. Renderer-only.** | The user asked for it: with a date bucket every few rows, the labels took rows from a short list and split sessions that the chosen sort had already ordered. Under a Name or Created sort the buckets also overrode that sort, regrouping rows by update date. |
+| D680 | The work panel closes with its last tab | *(amends ADR 0224 and the 2026-09-11 tab strip entry)* **Closing the final work-panel tab, an explicit New tab included, closes the panel and records the session's panel context as closed. A close that leaves another tab, or that removes nothing, keeps the panel's open state. The toggle and `Cmd/Ctrl + J` still reveal a tab-less panel on the New launcher. Focus is not moved into the leaving panel. Renderer-only.** | The user reported it: previewing a file opened the panel, and closing that preview left an empty dock holding width beside the chat until it was collapsed by hand. The panel was there for the resource, so it goes with it. |
 
 ## B. Secondary implementation defaults
 
@@ -4968,6 +4969,7 @@ plugin-action opt-in below stays)*
   plugin data rather than a renderer hardcoded list. Shortcut labels are
   conditional on a real binding. The same list is used by the no-tab New
   launcher, so closing the final tab keeps the panel open instead of hiding it.
+  *(D680 reversed this: the final close now closes the panel.)*
 - The viewport-fixed toggle remains the sole collapse control and keeps the
   existing customizable `Mod+J` binding. Its icon has explicit collapsed and
   expanded states, and its localized tooltip/accessibility name includes the
@@ -7833,3 +7835,23 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   project rows now sit a day apart and must render in sort order with no
   label; `scripts/e2e-three-column-layout.mjs` expects zero date labels in
   the seeded five-row group.
+
+## 2026-10-13 — The work panel closes with its last tab (D680)
+
+- Before: `closeWorkPanelTab` kept `workPanelOpen` as it was, so closing the
+  only tab left the panel open on the New launcher (ADR 0224). A file
+  preview opened from the transcript therefore left an empty dock behind.
+- `workPanelOpenAfterTabClose` in `lib/work-panel-tabs.ts` holds the rule: a
+  close that removed a tab and left no tab the panel can draw closes the
+  panel; anything else keeps the open state. The store writes the result to
+  both the visible state and the session's `workPanelContexts` entry, so the
+  empty panel does not come back on a session switch.
+- The shell already runs the exit animation whenever `workPanelOpen` turns
+  false, so no presentation code changed. `WorkPanel.tsx` no longer focuses
+  the `+` button after the last close, since that button is leaving.
+- Unchanged: neighbor selection on other closes, the toggle and `Cmd/Ctrl +
+  J`, the New launcher for a panel revealed without tabs, per-session tab
+  sets, and tabs dropped for other reasons (a disabled plugin view), which
+  still leave the panel as it was.
+- Covered by `apps/desktop/test/work-panel-last-tab-close.test.mjs` (store
+  flow) and `work-panel-tabs.test.mjs` (the rule).

@@ -14,6 +14,7 @@ import {
   sanitizeWorkPanelTabsState,
   subagentWorkPanelTab,
   switchWorkPanelContextState,
+  workPanelOpenAfterTabClose,
   type WorkPanelContext,
   type WorkPanelTab,
 } from "../../lib/work-panel-tabs";
@@ -302,19 +303,18 @@ export function createWorkPanelSlice({
     set((state) => {
       const sessionId = state.activeSessionId;
       if (!sessionId) return {};
-      const next = closeWorkPanelTabState(
-        {
-          tabs: state.workPanelTabs,
-          activeTabId: state.activeWorkPanelTabId,
-        },
-        tabId,
-      );
+      const before = {
+        tabs: state.workPanelTabs,
+        activeTabId: state.activeWorkPanelTabId,
+      };
+      const next = closeWorkPanelTabState(before, tabId);
       const activeTab = next.tabs.find((tab) => tab.id === next.activeTabId);
       const fileRequest = nextFileRequest(activeTab) ?? state.workPanelFileRequest;
+      // Closing the final tab closes the panel with it (D680); the New
+      // launcher is still one toggle away.
+      const open = workPanelOpenAfterTabClose(state.workPanelOpen, before, next);
       const nextContext: WorkPanelContext = {
-        // Closing the final tab leaves the panel open so the user can choose
-        // another tool from the new-tab launcher instead of losing the dock.
-        open: state.workPanelOpen,
+        open,
         tabs: next.tabs,
         activeTabId: next.activeTabId,
         fileRequest,
@@ -322,7 +322,7 @@ export function createWorkPanelSlice({
       return {
         workPanelTabs: next.tabs,
         activeWorkPanelTabId: next.activeTabId,
-        workPanelOpen: state.workPanelOpen,
+        workPanelOpen: open,
         workPanelFileRequest: fileRequest,
         workPanelContexts: {
           ...state.workPanelContexts,

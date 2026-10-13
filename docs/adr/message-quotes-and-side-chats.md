@@ -217,7 +217,7 @@ excerpt and the side-chat target stay PI-Desktop's own contracts (D-LOCAL-messag
 ## Upstream integration amendment (2026-09-14)
 
 Side-chat registrations use the upstream work-panel tab strip and launcher.
-Closing the final tab leaves the launcher open; closing a side chat removes only
+Closing the final tab closes the panel (D680); closing a side chat removes only
 its registration/projection, never its durable child or unrelated tabs. The
 shared upstream delta-aware transcript reducer also feeds docked children.
 Registered transcripts and drafts persist across tab switches in renderer-owned

@@ -24,6 +24,7 @@ const {
   subagentWorkPanelTab,
   switchWorkPanelContextState,
   toolWorkPanelTab,
+  workPanelOpenAfterTabClose,
 } = await import("../src/lib/work-panel-tabs.ts");
 
 test("work panel tabs open on demand and deduplicate by resource", () => {
@@ -127,6 +128,28 @@ test("closing an inactive tab preserves selection and the last close empties sta
 
   assert.equal(inactiveClosed.activeTabId, "review");
   assert.deepEqual(empty, { tabs: [], activeTabId: null });
+
+test("the panel leaves with its last tab and stays for any other close", () => {
+  const two = {
+    tabs: [toolWorkPanelTab("review"), fileWorkPanelTab("src/App.tsx")],
+    activeTabId: "review",
+  };
+  const one = closeWorkPanelTabState(two, "review");
+  const none = closeWorkPanelTabState(one, "file:src/App.tsx");
+
+  assert.equal(workPanelOpenAfterTabClose(true, two, one), true, "a tab is left");
+  assert.equal(workPanelOpenAfterTabClose(true, one, none), false, "the last tab went");
+  // An id that is not in the strip removes nothing, so an empty panel the
+  // user opened on the New launcher stays open.
+  assert.equal(workPanelOpenAfterTabClose(true, none, closeWorkPanelTabState(none, "gone")), true);
+  assert.equal(workPanelOpenAfterTabClose(false, two, one), false, "a closed panel is not opened");
+  // A tab the panel cannot draw does not hold it open.
+  const withUnknown = { tabs: [{ id: "x", kind: "legacy" }, ...one.tabs], activeTabId: one.activeTabId };
+  assert.equal(
+    workPanelOpenAfterTabClose(true, withUnknown, closeWorkPanelTabState(withUnknown, "file:src/App.tsx")),
+    false,
+  );
+});
 });
 
 test("activation ignores stale tab ids", () => {

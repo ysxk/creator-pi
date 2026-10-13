@@ -115,7 +115,8 @@ destination, chat as the home surface, tools and permissions inline.
   and `Cmd/Ctrl + J` both toggle the active session's retained panel context —
   revealing it without creating a resource tab and collapsing it without
   discarding one; the create trigger remains unavailable while the panel is
-  closed. Closing the final tab keeps the panel open and shows the New launcher.
+  closed. Closing the final tab closes the panel with it (D680); the New
+  launcher is what a panel revealed with no tabs shows.
   No agent or tool result opens, activates, or resizes the panel: Review is
   reached only through an explicit user action, so a successful workspace
   Write/Edit leaves the panel exactly as the user left it and shows its

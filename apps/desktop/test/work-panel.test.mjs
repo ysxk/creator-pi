@@ -28,10 +28,11 @@ const panelSource = await readFile(
 const transcriptSource = await readTranscriptSource();
 const storeSource = await readStoreSource();
 const globalStyles = await loadStyles();
-test("closing a tab restores focus to its neighbor or the new-tab action", () => {
+test("closing a tab restores focus to its neighbor; the last close focuses nothing in the leaving panel", () => {
   assert.match(panelSource, /const closeTabAndFocus = useCallback/);
+  assert.match(panelSource, /if \(!nextTab\) return;/);
   assert.match(panelSource, /tabButtonRefs\.current\[nextTab\.id\]\?\.focus/);
-  assert.match(panelSource, /else newTabButtonRef\.current\?\.focus\(\)/);
+  assert.doesNotMatch(panelSource, /newTabButtonRef/);
 });
 
 test("work panel replaces the context panel overlay", async () => {
@@ -343,17 +344,21 @@ test("work panel starts closed with no tabs and persists width only", () => {
   assert.doesNotMatch(persistenceBlock, /workPanelContexts|tabs|open/);
 });
 
-test("closing the final tab keeps the panel open for the New launcher", () => {
+test("closing the final tab closes the panel; the New launcher stays for a manual open", () => {
   const closeBlock = storeSource.slice(
     storeSource.indexOf("closeWorkPanelTab: (tabId) =>"),
     storeSource.indexOf(
-      "openWorkPanelTabForSession:",
+      "collapseWorkPanel: () =>",
       storeSource.indexOf("closeWorkPanelTab: (tabId) =>"),
     ),
   );
-  assert.doesNotMatch(closeBlock, /closePanel/);
-  assert.match(closeBlock, /nextContext[\s\S]*open:\s*state\.workPanelOpen/);
-  assert.match(closeBlock, /workPanelOpen:\s*state\.workPanelOpen/);
+  assert.match(
+    closeBlock,
+    /const open = workPanelOpenAfterTabClose\(state\.workPanelOpen, before, next\);/,
+  );
+  assert.match(closeBlock, /nextContext: WorkPanelContext = \{\s*open,/);
+  assert.match(closeBlock, /workPanelOpen: open,/);
+  assert.doesNotMatch(closeBlock, /open:\s*state\.workPanelOpen/);
   assert.match(panelSource, /panel\.new\.title/);
   assert.match(panelSource, /work-panel-launcher/);
 });
