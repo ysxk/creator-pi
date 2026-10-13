@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.18.2",
+    "date": "2026-10-14",
+    "highlights": [
+      "Changing the permission mode while a turn is running now takes effect from the next tool call.",
+      "The model menu is one scrolling list of every model, recent ones first, instead of hiding most of them behind \"Other models\".",
+      "A project's sessions in the sidebar are one flat list in the order you sort by, without date labels.",
+      "A finished checklist leaves the space above the composer once the turn that finished it ends.",
+      "The work panel closes when its last tab is closed.",
+      "The mascot on the empty home screen is now a still image.",
+      "A permission prompt no longer times out the tool call, however long you take to answer.",
+      "A remote MCP server that ends its session is reconnected automatically, and cancelling a call during the reconnect takes effect at once.",
+      "A model that only your own service lists now compacts by the context window that service reports.",
+      "Reading a large clip or recording no longer blocks conversations from being saved.",
+      "Files clicked in a session with no project open now open."
+    ]
+  },
+  {
     "version": "0.18.1",
     "date": "2026-10-12",
     "highlights": [
