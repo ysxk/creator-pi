@@ -145,7 +145,12 @@ export type DiscoveredModelRow = {
   modelId: string;
   /** Input modalities the endpoint published; `text` is implied. */
   inputModalities?: readonly string[];
+  /** Context window the row was cached with. */
+  contextWindow?: number | null;
 };
+
+/** What a cached row says of a model: extra input modalities and its window. */
+type DiscoveredFacts = { input: ModelModality[]; contextWindow?: number };
 
 type CatalogTarget = {
   providerId?: string;
@@ -1300,8 +1305,8 @@ export class ModelsDevCatalog {
   private readonly accountModels = new Map<string, MutableModels>();
   private readonly accountRows = new Map<string, CatalogAccount>();
   private readonly removedAccounts = new Set<string>();
-  /** Endpoint-published input modalities, by provider row then lowercased model id. */
-  private discoveredInputs = new Map<string, Map<string, ModelModality[]>>();
+  /** Endpoint-published facts, by provider row then lowercased model id. */
+  private discoveredModels = new Map<string, Map<string, DiscoveredFacts>>();
 
   constructor(options: ModelsDevCatalogOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -1326,7 +1331,7 @@ export class ModelsDevCatalog {
     this.removedAccounts.add(providerId);
     this.accountModels.delete(providerId);
     this.accountRows.delete(providerId);
-    this.discoveredInputs.delete(providerId);
+    this.discoveredModels.delete(providerId);
   }
 
   /**
@@ -1335,35 +1340,52 @@ export class ModelsDevCatalog {
    * settings panel's checkboxes already assume.
    */
   configureDiscoveredModels(rows: readonly DiscoveredModelRow[]): void {
-    const next = new Map<string, Map<string, ModelModality[]>>();
+    const next = new Map<string, Map<string, DiscoveredFacts>>();
     for (const row of rows) {
       const input = (row.inputModalities ?? [])
         .map(parseModality)
         .filter((item): item is ModelModality => item !== undefined && item !== "text");
-      if (input.length === 0 || this.removedAccounts.has(row.providerId)) continue;
+      const contextWindow = positiveInteger(row.contextWindow);
+      if (input.length === 0 && contextWindow === undefined) continue;
+      if (this.removedAccounts.has(row.providerId)) continue;
       let models = next.get(row.providerId);
       if (!models) next.set(row.providerId, (models = new Map()));
-      models.set(row.modelId.trim().toLowerCase(), [...new Set(input)]);
+      models.set(row.modelId.trim().toLowerCase(), {
+        input: [...new Set(input)],
+        ...(contextWindow !== undefined ? { contextWindow } : {}),
+      });
     }
-    this.discoveredInputs = next;
+    this.discoveredModels = next;
   }
 
   /**
-   * The generic shape with the input modalities the endpoint published for
-   * this model, or nothing when it published none. An operation model keeps
-   * its typed metadata, which the settings panel also reads first.
+   * The generic shape with what the endpoint published for this model — its
+   * input modalities and its context window — or nothing when it published
+   * neither. An operation model keeps its typed metadata, which the settings
+   * panel also reads first.
    */
   private discoveredConfigFor(input: CatalogTarget): ModelConfig | undefined {
     if (!input.providerId || input.publishedOnly) return undefined;
-    const published = this.discoveredInputs
+    const published = this.discoveredModels
       .get(input.providerId)
       ?.get(input.modelId.trim().toLowerCase());
     if (!published || this.settingsMetadataFor(input)) return undefined;
-    const modalities: ModelModalities = { input: ["text", ...published], output: ["text"] };
+    const generic = genericModelConfig(input.modelId, input.baseUrl ?? "");
+    const modalities: ModelModalities = { input: ["text", ...published.input], output: ["text"] };
+    const contextWindow = published.contextWindow;
     return {
-      ...genericModelConfig(input.modelId, input.baseUrl ?? ""),
+      ...generic,
       modalities,
       input: adapterInput(modalities),
+      // The window the model list shows for this row is the one the runtime
+      // budgets with; a binding the user set by hand still replaces it.
+      ...(contextWindow !== undefined
+        ? {
+            contextWindow,
+            endpointContextWindow: contextWindow,
+            limit: { ...generic.limit, context: contextWindow, input: contextWindow },
+          }
+        : {}),
     };
   }
 

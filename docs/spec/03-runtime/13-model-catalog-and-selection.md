@@ -363,6 +363,12 @@ cap, including 128,000 and 8,192, because old records cannot distinguish generic
 seeds from user choices. Only explicit `catalog` provenance follows later
 corrections. Unknown models use conservative
 128k / 8.2k runtime limits and are never promoted from an ID pattern alone.
+The one exception is a window the serving endpoint listed for the model, held
+in host-core's model cache (D681): for an id no record describes it takes the
+place of the published window, so a `catalog` binding and an unbound discovered
+model run with it, while a `user` or unmarked binding keeps its stored value.
+It is not a published ceiling for the safety rule below, and the endpoint's
+list carries no output cap.
 Settings shows an em dash for an unpublished limit unless the user explicitly
 configured that value; the Advanced inputs retain the conservative runtime
 limits until the user edits them. Both markers are optional, so old configs

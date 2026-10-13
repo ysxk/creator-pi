@@ -154,6 +154,18 @@ describe("main-supplied model capabilities", () => {
     expect(unknown.reasoning).toBe(true);
     expect(unknown.supportedThinkingLevels).toEqual(["high"]);
 
+    // An endpoint-listed window is followed by a catalog-sourced binding and
+    // is no ceiling for the user's own number.
+    const listed = { ...genericModelConfig("relay-model"), contextWindow: 32_000, endpointContextWindow: 32_000 };
+    const seed = { contextWindow: 128_000, maxTokens: 8_192, thinkingLevels: [] };
+    const followed = modelConfigWithBinding(listed, { ...seed, contextWindowSource: "catalog" });
+    expect(followed.contextWindow).toBe(32_000);
+    expect(followed.limit?.context).toBe(32_000);
+    const pinned = modelConfigWithBinding(listed, { ...seed, contextWindow: 200_000, contextWindowSource: "user" });
+    expect(pinned.contextWindow).toBe(200_000);
+    expect(pinned.catalogContextWindow).toBeUndefined();
+    expect(modelConfigWithBinding(listed, seed).contextWindow).toBe(128_000);
+
     const cataloguedNonReasoning = modelConfigWithBinding(
       {
         ...genericModelConfig("catalogued-chat"),

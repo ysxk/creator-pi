@@ -176,8 +176,10 @@ export function modelConfigWithBinding(
       thinkingLevelMap[level] = level;
     }
   }
+  // The generic shape publishes nothing itself; what the endpoint listed for
+  // the model, when it did, stands in for the published window.
   const publishedContextWindow = model.source === "generic"
-    ? undefined
+    ? model.endpointContextWindow
     : model.contextWindow;
   const contextWindow =
     effectiveContextWindow(

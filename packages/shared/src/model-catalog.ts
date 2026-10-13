@@ -196,6 +196,14 @@ function positiveTokenCount(value?: number | null): number | undefined {
   return Math.round(value);
 }
 
+/** Baseline fields the limits resolver reads and rewrites. */
+type BindingLimitsBaseline = {
+  contextWindow?: number | null;
+  maxTokens?: number | null;
+  source?: string;
+  endpointContextWindow?: number | null;
+};
+
 /** Binding fields the limits resolver reads and rewrites. */
 type BindingLimits = Pick<ModelBinding, "contextWindow"> &
   Partial<Pick<ModelBinding, "maxTokens" | "contextWindowSource" | "maxTokensSource">>;
@@ -216,17 +224,20 @@ type BindingLimits = Pick<ModelBinding, "contextWindow"> &
  *
  * A `generic` baseline is the fallback for a lookup that found no record, not
  * a published limit, so it never replaces a saved limit: a catalog snapshot
- * taken while the record still resolved stays in force.
+ * taken while the record still resolved stays in force. The one number such a
+ * baseline can publish is `endpointContextWindow`, the window the serving
+ * endpoint listed for the model: a catalog-sourced binding follows it, and a
+ * user's own window is kept.
  */
 export function resolveBindingLimits<
-  C extends { contextWindow?: number | null; maxTokens?: number | null; source?: string },
+  C extends BindingLimitsBaseline,
   B extends BindingLimits,
 >(catalogConfig: C, binding: B): {
   catalogConfig: C;
   binding: B & Partial<Pick<ModelBinding, "contextWindowSource" | "maxTokensSource">>;
 };
 export function resolveBindingLimits<
-  C extends { contextWindow?: number | null; maxTokens?: number | null; source?: string },
+  C extends BindingLimitsBaseline,
   B extends BindingLimits,
 >(
   catalogConfig: C,
@@ -236,17 +247,17 @@ export function resolveBindingLimits<
   binding: (B & Partial<Pick<ModelBinding, "contextWindowSource" | "maxTokensSource">>) | null | undefined;
 };
 export function resolveBindingLimits(
-  catalogConfig: { contextWindow?: number | null; maxTokens?: number | null; source?: string },
+  catalogConfig: BindingLimitsBaseline,
   binding: BindingLimits | null | undefined,
 ): {
-  catalogConfig: { contextWindow?: number | null; maxTokens?: number | null; source?: string };
+  catalogConfig: BindingLimitsBaseline;
   binding: BindingLimits | null | undefined;
 } {
   if (!binding) return { catalogConfig, binding };
   const publishedRecord = catalogConfig.source !== "generic";
-  const published = publishedRecord
-    ? positiveTokenCount(catalogConfig.contextWindow)
-    : undefined;
+  const published = positiveTokenCount(
+    publishedRecord ? catalogConfig.contextWindow : catalogConfig.endpointContextWindow,
+  );
   const publishedMax = publishedRecord
     ? positiveTokenCount(catalogConfig.maxTokens)
     : undefined;

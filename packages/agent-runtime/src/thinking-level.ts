@@ -65,6 +65,12 @@ export type ModelConfig = {
   input: Array<"text" | "image">;
   /** Published context window retained as a safety ceiling for user overrides. */
   catalogContextWindow?: number;
+  /**
+   * Window the serving endpoint listed for a model no catalog record
+   * describes. A catalog-sourced binding follows it as it follows a published
+   * limit; it is no ceiling, so the user's own number still wins.
+   */
+  endpointContextWindow?: number;
   contextWindow: number;
   maxTokens: number;
   /**

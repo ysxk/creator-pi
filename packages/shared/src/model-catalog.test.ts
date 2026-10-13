@@ -126,6 +126,24 @@ describe("binding context-window provenance", () => {
     expect(resolved.binding.contextWindowSource).toBe("catalog");
   });
 
+  it("follows the window an endpoint listed for a model no record describes", () => {
+    const listed = { source: "generic", contextWindow: 32_000, endpointContextWindow: 32_000, maxTokens: 8_192 };
+    const seeded = { ...bindingForCustomModel("relay-model"), maxTokens: 4_000 };
+    const followed = resolveBindingLimits(listed, seeded);
+    expect(followed.catalogConfig.contextWindow).toBe(32_000);
+    expect(followed.binding.contextWindow).toBe(32_000);
+    expect(followed.binding.contextWindowSource).toBe("catalog");
+    // The endpoint lists no output cap, so the stored one is untouched.
+    expect(followed.binding.maxTokens).toBe(4_000);
+
+    const pinned = resolveBindingLimits(listed, { ...seeded, contextWindow: 200_000, contextWindowSource: "user" as const });
+    expect(pinned.catalogConfig.contextWindow).toBe(200_000);
+    expect(pinned.binding.contextWindowSource).toBe("user");
+
+    const legacy = resolveBindingLimits(listed, { contextWindow: 128_000, maxTokens: 8_192 });
+    expect(legacy.catalogConfig.contextWindow).toBe(128_000);
+  });
+
   it("still follows a published record for a catalog-sourced window", () => {
     const binding = { contextWindow: 1_000_000, contextWindowSource: "catalog" as const };
     const published = { source: "models.dev", contextWindow: 1_048_576 };

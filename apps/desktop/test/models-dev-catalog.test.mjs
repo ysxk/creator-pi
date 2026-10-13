@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createModels, InMemoryModelsStore } from "@earendil-works/pi-ai";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
+import { modelConfigWithBinding } from "../../../packages/agent-runtime/dist/model-capabilities.js";
 import { buildProviderModel } from "../../../packages/agent-runtime/dist/provider-binding.js";
 import {
   apiStyleForAdapter,
@@ -244,6 +245,81 @@ test("a model no publisher describes takes the input modalities its endpoint lis
   catalog.configureDiscoveredModels([]);
   catalog.configureAccount({ id: "relay", vendorKey: "custom", baseUrl: relay.baseUrl, models: [binding] });
   assert.deepEqual(catalog.modelConfigFor(served).modalities.input, ["text"]);
+});
+
+test("a model no publisher describes runs with the context window its endpoint listed", async (t) => {
+  const catalog = await loadFixtureCatalog(t, {
+    google: {
+      name: "Google",
+      api: "https://generativelanguage.googleapis.com/v1beta",
+      models: { "known-flash": { id: "known-flash", limit: { context: 1_000_000, output: 8_192 } } },
+    },
+  });
+  const relay = { providerId: "relay", vendorKey: "custom", baseUrl: "https://relay.example/v1" };
+  const served = { ...relay, modelId: "relay-small" };
+  const account = (models) =>
+    catalog.configureAccount({ id: "relay", vendorKey: "custom", baseUrl: relay.baseUrl, models });
+  const seeded = {
+    id: "relay-small",
+    contextWindow: 128_000,
+    contextWindowSource: "catalog",
+    maxTokens: 4_000,
+    maxTokensSource: "catalog",
+    thinkingLevels: [],
+  };
+  const listed = [
+    { providerId: "relay", modelId: "Relay-Small", contextWindow: 32_000 },
+    { providerId: "relay", modelId: "known-flash", contextWindow: 32_000 },
+    { providerId: "relay", modelId: "relay-unsized", contextWindow: null },
+    { providerId: "other", modelId: "relay-small", contextWindow: 64_000 },
+  ];
+
+  // A discovered model nobody saved a binding for.
+  assert.equal(catalog.modelConfigFor(served).contextWindow, 128_000);
+  catalog.configureDiscoveredModels(listed);
+  const unbound = catalog.modelConfigFor(served);
+  assert.equal(unbound.contextWindow, 32_000);
+  assert.equal(unbound.limit.context, 32_000);
+  assert.equal(unbound.source, "generic");
+  assert.deepEqual(unbound.modalities.input, ["text"]);
+  assert.equal(catalog.modelConfigFor({ ...relay, modelId: "relay-unsized" }).contextWindow, 128_000);
+
+  // A binding seeded before the endpoint listed a window follows the list,
+  // and stays there when a launch path applies the stored binding once more.
+  account([seeded]);
+  const followed = catalog.modelConfigFor(served);
+  assert.equal(followed.contextWindow, 32_000);
+  assert.equal(followed.limit.context, 32_000);
+  assert.equal(followed.maxTokens, 4_000);
+  assert.equal(modelConfigWithBinding(followed, seeded).contextWindow, 32_000);
+
+  // The user's own number wins in both directions; an unmarked one is kept.
+  for (const contextWindow of [8_000, 200_000]) {
+    const pinned = { ...seeded, contextWindow, contextWindowSource: "user" };
+    account([pinned]);
+    const config = catalog.modelConfigFor(served);
+    assert.equal(config.contextWindow, contextWindow);
+    assert.equal(modelConfigWithBinding(config, pinned).contextWindow, contextWindow);
+  }
+  const { contextWindowSource: _source, ...legacy } = seeded;
+  account([legacy]);
+  assert.equal(catalog.modelConfigFor(served).contextWindow, 128_000);
+
+  // A published record stays the authority for an id the catalog knows.
+  account([]);
+  assert.equal(
+    catalog.modelConfigFor({ ...relay, vendorKey: "google", modelId: "known-flash" }).contextWindow,
+    1_000_000,
+  );
+  // The settings record asks for what publishers say, without the cached list.
+  assert.equal(catalog.modelConfigFor({ ...served, publishedOnly: true }).contextWindow, 128_000);
+
+  // A refreshed list is what the next request budgets with.
+  account([seeded]);
+  catalog.configureDiscoveredModels([{ ...listed[0], contextWindow: 64_000 }]);
+  assert.equal(catalog.modelConfigFor(served).contextWindow, 64_000);
+  catalog.configureDiscoveredModels([]);
+  assert.equal(catalog.modelConfigFor(served).contextWindow, 128_000);
 });
 
 function observeModelIdReads(model) {
