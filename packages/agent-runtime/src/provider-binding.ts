@@ -112,21 +112,24 @@ export function adapterAcceptsCustomFetch(api: Api | undefined): boolean {
 }
 
 const NO_AUTH_REQUEST_KEY = "pi-desktop-no-auth";
+const API_KEY_HEADERS = new Set(["api-key", "x-api-key", "x-goog-api-key"]);
 
 function withoutNoAuthCredential(fetchFn: FetchFunction): FetchFunction {
   return (input, init) => {
     const headers = new Headers(
       init?.headers ?? (input instanceof Request ? input.headers : undefined),
     );
-    for (const [name, value] of headers) {
+    for (const [name, value] of [...headers]) {
+      const normalizedName = name.toLowerCase();
       const trimmedValue = value.trim();
       const bearerValue = trimmedValue.slice(0, 7).toLowerCase() === "bearer "
         ? trimmedValue.slice(7).trim()
         : undefined;
-      if (
-        trimmedValue === NO_AUTH_REQUEST_KEY ||
-        (name === "authorization" && bearerValue === NO_AUTH_REQUEST_KEY)
-      ) {
+      const isPlaceholderApiKey = API_KEY_HEADERS.has(normalizedName)
+        && trimmedValue === NO_AUTH_REQUEST_KEY;
+      const isPlaceholderAuthorization = normalizedName === "authorization"
+        && (trimmedValue === NO_AUTH_REQUEST_KEY || bearerValue === NO_AUTH_REQUEST_KEY);
+      if (isPlaceholderApiKey || isPlaceholderAuthorization) {
         headers.delete(name);
       }
     }

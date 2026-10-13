@@ -123,9 +123,9 @@ globalThis.providerApiStyleProbe = async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   };
-  const labeledCheckbox = (label: string) =>
-    [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
-      .find((input) => input.closest("label")?.textContent?.trim() === label);
+  const labeledSwitch = (label: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>('[role="switch"]')]
+      .find((button) => button.getAttribute("aria-label") === label);
   /* A Field explains itself through the help icon's accessible name, so read the
      row's explanations from the affordance that carries them. */
   const rowHints = () => [...document.querySelectorAll<HTMLElement>(
@@ -277,8 +277,8 @@ globalThis.providerApiStyleProbe = async () => {
           `${locale}: new custom form offers the account format ${style}`);
       }
       await closeApiStyleMenu();
-      const noKeyControl = labeledCheckbox(i18n.t("settings.noApiKeyRequired"));
-      assert(noKeyControl && !noKeyControl.checked,
+      const noKeyControl = labeledSwitch(i18n.t("settings.noApiKeyRequired"));
+      assert(noKeyControl && noKeyControl.getAttribute("aria-checked") === "false",
         `${locale}: custom endpoint must default to API-key authentication`);
       const identityInputs = [...document.querySelectorAll<HTMLInputElement>(
         ".provider-setup-custom-identity-row input",
@@ -287,10 +287,12 @@ globalThis.providerApiStyleProbe = async () => {
       setValue(identityInputs[0]!, "Local Ollama");
       setValue(identityInputs[1]!, "http://127.0.0.1:11434/v1");
       click(noKeyControl);
-      assert(noKeyControl.checked, `${locale}: no-API-key mode did not turn on`);
-      assert(!document.querySelector('input[type="password"]'),
-        `${locale}: no-API-key mode left an API key input visible`);
-      assert(document.documentElement.innerText.includes(i18n.t("settings.noApiKeyRequiredHint")),
+      assert(noKeyControl.getAttribute("aria-checked") === "true",
+        `${locale}: no-API-key mode did not turn on`);
+      const disabledKeyInput = document.querySelector<HTMLInputElement>('input[type="password"]');
+      assert(disabledKeyInput?.disabled && disabledKeyInput.value === "",
+        `${locale}: no-API-key mode did not clear and disable the API-key input`);
+      assert(document.documentElement.innerText.includes(i18n.t("settings.noApiKeyHint")),
         `${locale}: no-API-key behavior was not explained`);
       const beforeLocalDiscovery = discoveries.length;
       await until(() => discoveries.length > beforeLocalDiscovery, "local no-auth discovery");
@@ -330,12 +332,13 @@ globalThis.providerApiStyleProbe = async () => {
         baseUrl: "http://127.0.0.1:9000/v1",
       };
       render({ provider: editableKeyProvider });
-      const editNoKeyControl = labeledCheckbox(i18n.t("settings.noApiKeyRequired"));
-      assert(editNoKeyControl && !editNoKeyControl.checked,
+      const editNoKeyControl = labeledSwitch(i18n.t("settings.noApiKeyRequired"));
+      assert(editNoKeyControl && editNoKeyControl.getAttribute("aria-checked") === "false",
         `${locale}: API-key provider edit opened in the wrong mode`);
       click(editNoKeyControl);
-      assert(!document.querySelector('input[type="password"]'),
-        `${locale}: switched no-auth edit still shows an API-key field`);
+      const disabledEditKeyInput = document.querySelector<HTMLInputElement>('input[type="password"]');
+      assert(disabledEditKeyInput?.disabled,
+        `${locale}: switched no-auth edit did not disable the API-key field`);
       const beforeNoAuthUpdate = updates.length;
       click(control("settings.saveProvider"));
       await until(() => updates.length === beforeNoAuthUpdate + 1, "provider changed to no-auth");

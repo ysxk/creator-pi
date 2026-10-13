@@ -238,6 +238,7 @@ describe("Anthropic runtime endpoint", () => {
     expect(result.stopReason).toBe("error");
     expect(request).toBeDefined();
     if (!request) throw new Error("Expected the no-auth request to reach fetch");
+    expect(request.url).not.toContain("pi-desktop-no-auth");
     expect(request.headers.get("x-api-key")).toBeNull();
     expect(request.headers.get("Authorization")).toBeNull();
   });
@@ -282,6 +283,7 @@ describe("Anthropic runtime endpoint", () => {
 
     expect(request).toBeDefined();
     if (!request) throw new Error("Expected the no-auth Google request to reach fetch");
+    expect(request.url).not.toContain("pi-desktop-no-auth");
     expect(request.headers.get("x-goog-api-key")).toBe("");
     expect(request.headers.get("Authorization")).toBeNull();
   });
