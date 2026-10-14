@@ -239,6 +239,11 @@ pub fn read_tool_call(
     Ok(None)
 }
 
+/// Read one line from the reader into `line_buf`, tolerating mid-append torn UTF-8 bytes.
+/// If `raw_buf` contains valid UTF-8, it is preserved verbatim. If torn/corrupt
+/// bytes are encountered, they are decoded lossily via `String::from_utf8_lossy`
+/// so that the downstream JSON / sniffing parser can safely discard the corrupted record
+/// rather than aborting whole transcript reads with `InvalidData`.
 pub(crate) fn read_line_tolerant(
     reader: &mut BufReader<File>,
     raw_buf: &mut Vec<u8>,
@@ -749,7 +754,7 @@ fn append_line(path: &Path, header: Option<String>, line: String) -> Result<()> 
             buf.push('\n');
         }
     } else if !ends_with_newline(path)? {
-        // A crash mid-append left a torn tail. `scan_layout` tolerates it on
+        // A crash mid-append left a torn tail. `read_transcript_window` tolerates it on
         // read, but appending straight after it would fuse the torn bytes and
         // this record into one invalid line and lose both. Terminate the torn
         // line first so this record starts on its own line.
@@ -1840,6 +1845,22 @@ mod tests {
         assert_eq!(loaded_final[2].id, "m3");
 
         assert!(transcript_contains_id(dir.path(), "s1", "m3").unwrap());
+
+        // A line with mid-string invalid UTF-8 bytes is lossily decoded with U+FFFD
+        // so corrupt records do not abort reading the surrounding intact history.
+        raw = fs::read(&path).unwrap();
+        raw.extend_from_slice(b"{\"type\":\"message\",\"id\":\"m4\",\"role\":\"user\",\"blocks\":[{\"type\":\"text\",\"text\":\"hello");
+        raw.extend_from_slice(&[0xE6, 0x92]);
+        raw.extend_from_slice(b"world\"}],\"createdAt\":\"2026-07-26T00:00:00Z\"}\n");
+        fs::write(&path, &raw).unwrap();
+
+        let loaded_lossy = read_transcript(dir.path(), "s1").unwrap();
+        assert_eq!(loaded_lossy.len(), 4);
+        assert_eq!(loaded_lossy[3].id, "m4");
+        assert!(loaded_lossy[3].blocks[0]["text"]
+            .as_str()
+            .unwrap()
+            .contains('\u{FFFD}'));
     }
 
     #[test]

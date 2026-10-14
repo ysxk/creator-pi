@@ -308,6 +308,28 @@ fn real_invalid_utf8_is_reported_without_changing_transcript_bytes() {
 }
 
 #[test]
+fn torn_invalid_utf8_tail_is_excluded_from_layout_without_error() {
+    let dir = tempdir().unwrap();
+    let path = transcript_path(dir.path(), "layout-regression").unwrap();
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut bytes =
+        b"{\"type\":\"session\"}\n{\"type\":\"message\",\"id\":\"m1\",\"role\":\"user\",\"blocks\":[],\"createdAt\":\"2026-07-26T00:00:00Z\"}\n"
+            .to_vec();
+    // Torn incomplete UTF-8 bytes at EOF (without trailing newline)
+    bytes.extend_from_slice(&[0xE6, 0x92]);
+    fs::write(&path, &bytes).unwrap();
+
+    let layout =
+        refresh_layout(dir.path(), "layout-regression", TranscriptLayout::default()).unwrap();
+    assert_eq!(layout.message_count(), 1);
+    let read =
+        read_transcript_window_with_layout(dir.path(), "layout-regression", &layout, 0, None)
+            .unwrap();
+    assert_eq!(read.messages.len(), 1);
+    assert_eq!(read.messages[0].id, "m1");
+}
+
+#[test]
 fn a_reliable_identity_persists_a_layout() {
     let dir = tempdir().unwrap();
     let messages = vec![message("m1", &"x".repeat(LAYOUT_CACHE_MIN_LEN as usize))];
