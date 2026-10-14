@@ -217,7 +217,7 @@ export function ComposerAutocomplete({
     return (
       <button
         {...commonProps}
-        aria-label={`${displayName} — ${item.entry.path}`}
+        aria-label={item.entry.path}
         title={item.entry.path}
       >
         <span className="composer-ac-icon">
@@ -228,6 +228,7 @@ export function ComposerAutocomplete({
           )}
         </span>
         <span className="composer-ac-name">{displayName}</span>
+        <span className="composer-ac-path">{item.entry.path}</span>
       </button>
     );
   };

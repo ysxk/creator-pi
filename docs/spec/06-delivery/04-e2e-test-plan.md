@@ -8492,7 +8492,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Status**: Unit-covered (`apps/desktop/test/composer-drag-drop.test.mjs`);
   full desktop gesture journey Draft (run only in a capable environment when this surface changes)
 
-#### E2E-102a: Composer file reference results use compact leaf names
+#### E2E-102a: Composer file reference results show leaf names with full relative paths
 
 - **Preconditions**: The app is running with an Agent session in a workspace
   containing nested files, duplicate leaf names in different directories, and
@@ -8505,8 +8505,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   and continue to a child file. 4) Send the completed references and inspect
   the persisted user message.
 - **Expected**:
-  - Each result persistently renders only its leaf name; directories retain a
-    trailing `/`, and no parent path consumes horizontal row space.
+  - Each result persistently renders its leaf name followed by the entry's
+    complete workspace-relative path in a de-emphasized span; directories
+    retain a trailing `/` on the leaf name, the span carries the raw
+    `entry.path`, and it ellipsizes before the leaf name can while the row
+    never overflows the menu.
   - The tooltip and accessible name retain the complete relative path so
     duplicate leaf names remain distinguishable.
   - Enter/Tab/click on a file replaces the `@` token with an inline chip that
@@ -8517,12 +8520,13 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     the agent can read both selected files normally.
 - **Specs linked**: `04-ux/08-component-spec.md` §11.8,
   `04-ux/09-interaction-patterns.md` §8a, `03-runtime/01-ipc-protocol.md` §13c,
-  `08-meta/decisions-log.md` (D124, D209, D362), ADR 0024, ADR 0070
+  `08-meta/decisions-log.md` (D124, D209, D362, D658), ADR 0024, ADR 0070
 - **Acceptance**: C (conversation & stream), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered
-  (`apps/desktop/test/composer-file-reference-display.test.mjs`); full UI
-  journey Draft (run only in a capable environment when this surface changes)
+  (`apps/desktop/test/composer-file-reference-display.test.mjs`); file-mode row
+  layout covered by `scripts/e2e-composer-autocomplete.mjs`; full UI journey
+  Draft (run only in a capable environment when this surface changes)
 
 #### E2E-102b: Unanswered Stop restores compact file-reference drafts
 

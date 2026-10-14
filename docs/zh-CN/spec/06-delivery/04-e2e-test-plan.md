@@ -5190,7 +5190,7 @@ eleven-tool-round desktop paths are verified by
   及完整提供商发送仍需人工验证。应在更新后的任务候选版本运行并记录修订；随后
   按权威 `AGENTS.md` 工作流验证 PR 集成候选，无需先合入本地 main。
 
-#### E2E-102a：Composer 文件引用结果使用紧凑的叶名称
+#### E2E-102a：Composer 文件引用结果显示叶名称与完整相对路径
 
 - **先决条件**：应用程序正在工作区中使用 Agent 会话运行
   包含嵌套文件、不同目录中的重复叶名称，以及
@@ -5202,8 +5202,9 @@ eleven-tool-round desktop paths are verified by
   接受目录结果并继续子文件。 4) 发送完整的引用并检查持久化的用户
   消息。
 - **预期**：
-  - 每个结果持久地仅呈现其叶名称；目录保留一个
-    尾随 `/`，并且没有父路径消耗水平行空间。
+  - 每个结果持久地呈现其叶名称，并在其后以弱化样式显示条目完整的
+    工作区相对路径；目录叶名保留尾随 `/`，该 span 携带原始
+    `entry.path`，并先于叶名截断，行永不溢出菜单。
   - 工具提示和可访问名称保留完整的相对路径，以便
     重复的叶子名称仍然可以区分。
   - 对文件按 Enter/Tab/点击会把 `@` 标记替换为留在草稿中的行内芯片；
@@ -5213,11 +5214,12 @@ eleven-tool-round desktop paths are verified by
     空格引用，代理可以正常读取两个选定的文件。
 - **链接规格**：`04-ux/08-component-spec.md` §11.8，
   `04-ux/09-interaction-patterns.md` §8a、`03-runtime/01-ipc-protocol.md` §13c、
-  `08-meta/decisions-log.md`（D124、D209、D362）、ADR 0024、ADR 0070
+  `08-meta/decisions-log.md`（D124、D209、D362、D658）、ADR 0024、ADR 0070
 - **接受**：C（对话和直播），质量
 - **里程碑**：M5
 - **状态**：单位覆盖
-  （`apps/desktop/test/composer-file-reference-display.test.mjs`）；完整的用户界面
+  （`apps/desktop/test/composer-file-reference-display.test.mjs`）；文件模式行
+  布局由 `scripts/e2e-composer-autocomplete.mjs` 覆盖；完整的用户界面
   旅程草稿（适用变更合入前需在具备条件的环境中运行 E2E）
 
 #### E2E-102b：未答复的停止恢复紧凑的文件参考草稿

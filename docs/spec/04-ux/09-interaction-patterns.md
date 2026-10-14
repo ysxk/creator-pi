@@ -1263,9 +1263,10 @@ Project drag/drop follows these patterns:
   token (`@"…`) is treated as one token until the closing quote.
 - Pasting text never opens a menu unless the caret lands inside a valid
   trigger token.
-- File results keep each row compact by rendering only the leaf name (with a
-  trailing `/` for directories). The full relative path remains available as
-  the row tooltip and accessible name. Accepting a file (Enter/Tab/click)
+- File results render the leaf name (with a trailing `/` for directories)
+  followed by the entry's complete workspace-relative path in a de-emphasized
+  span that ellipsizes before the leaf name can. The full relative path also
+  remains the row tooltip and accessible name. Accepting a file (Enter/Tab/click)
   replaces the `@` token with an inline sentinel-backed leaf-name chip at the
   caret, backed by the full `entry.path`; that confirmation does not send.
   Accepting a directory keeps the full literal path in the draft so deeper

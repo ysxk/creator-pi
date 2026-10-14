@@ -3413,9 +3413,13 @@ Anatomy:
   hints can still truncate when they themselves exceed the available row width;
   neither command rows nor file rows overflow the menu.
 - File mode (`@` token at cursor, boundary-preceded): rows persistently show
-  only the leaf file or directory name; directories get a trailing `/` and
-  continue completion on accept. The complete relative path remains available
-  through the row tooltip and accessible name. Accepting a completed file
+  the leaf file or directory name followed by the entry's complete
+  workspace-relative path in a de-emphasized mono span; directories keep a
+  trailing `/` on the leaf name and continue completion on accept, and the
+  path span renders the raw `entry.path` without a trailing slash. The path
+  span takes the row's remaining width and ellipsizes before the leaf name
+  can, while the row tooltip and accessible name still carry the complete
+  relative path. Accepting a completed file
   (Enter, Tab, or click) replaces the `@` token with an inline leaf-name chip
   at the caret — the same sentinel-backed chip as a pasted file — whose
   canonical value is the original `entry.path`; the menu closes and that Enter
