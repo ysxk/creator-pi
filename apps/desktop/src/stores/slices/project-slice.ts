@@ -1,3 +1,4 @@
+import { forgetTranscriptReadingState } from "../../lib/transcript-reading-position";
 import i18n from "i18next";
 import type { ProjectWorkspace } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
@@ -150,6 +151,7 @@ function clearLocalSessionState(
   >,
   id: string,
 ): void {
+  forgetTranscriptReadingState(id);
   runtime.pendingSessionConfigurations.delete(id);
   runtime.sessionTranscriptCache.delete(id);
   runtime.sessionHistoryCache.delete(id);
