@@ -313,7 +313,11 @@ export function createProjectSlice({
         name: workspace.name || workspace.path,
         branch: workspace.branch,
       });
-      persistCurrentSidebar(get);
+      if (projectIsArchived(workspace.path, get().projectMeta)) {
+        get().restoreProject(workspace.path);
+      } else {
+        persistCurrentSidebar(get);
+      }
       return workspace;
     },
 

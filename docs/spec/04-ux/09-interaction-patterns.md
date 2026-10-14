@@ -223,8 +223,11 @@ may be retained while exactly one workspace supplies the visible shell context.
 
 #### Project tab lifecycle
 
-1. **Open** — selecting a project from Settings → Project archive or the picker adds its
-   normalized path to the retained set and activates it. Existing tabs remain.
+1. **Open** — activating a project from Settings → Project archive or the
+   picker adds its normalized path to the retained set and activates it.
+   Activation clears that path's archived presentation state so the project
+   appears in the home sidebar; selecting an inspector row without activating
+   it does not restore the project. Existing tabs remain.
 2. **Activate** — selecting a different group calls the existing `project.set`
    bridge. Its path then drives topbar identity, active workspace state, and
    new-task scope.
