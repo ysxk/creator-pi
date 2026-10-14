@@ -838,6 +838,10 @@ screenshot, and CDP calls) are available only while the Browser view is
 visible. Calls made while it is hidden fail with `UNAVAILABLE`; use
 `BrowserPreview` to ask the host to reveal the Browser view before continuing.
 
+Full-page `screenshot` captures are proportionally scaled to no more than
+1280×2048 output pixels. Viewport screenshots and raw `Page.captureScreenshot`
+CDP calls retain their existing dimensions.
+
 Screenshot captures, including raw `Page.captureScreenshot` CDP calls, have a
 30-second host-side deadline. A capture that exceeds it fails with `TIMEOUT`;
 the host detaches the stalled CDP session and releases that page's capture
