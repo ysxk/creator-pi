@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { Model, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import { streamSimple } from "@earendil-works/pi-ai/api/anthropic-messages";
 import { streamSimple as completionsStreamSimple } from "@earendil-works/pi-ai/api/openai-completions";
+import { streamSimple as responsesStreamSimple } from "@earendil-works/pi-ai/api/openai-responses";
 import {
   providerUsesSessionAffinity,
   sessionAffinityCompat,
-  withSessionAffinityPayload,
+  withSessionAffinityOptions,
   withSessionPromptCacheKey,
   type SessionAffinityProvider,
 } from "./session-affinity.js";
@@ -56,9 +57,17 @@ describe("providerUsesSessionAffinity", () => {
     );
   });
 
+  it("stamps custom Responses endpoints with a proxy-safe affinity header", () => {
+    expect(providerUsesSessionAffinity(ownGateway, "openai-responses", GATEWAY)).toBe(
+      true,
+    );
+    expect(
+      providerUsesSessionAffinity(ownGateway, "openai-responses", "https://api.openai.com/v1"),
+    ).toBe(false);
+  });
+
   it("leaves every other wire API on the adapter's own behavior", () => {
     for (const api of [
-      "openai-responses",
       "openai-codex-responses",
       "google-generative-ai",
       "google-vertex",
@@ -269,7 +278,7 @@ describe("withSessionPromptCacheKey", () => {
   });
 });
 
-describe("withSessionAffinityPayload", () => {
+describe("withSessionAffinityOptions", () => {
   const input = (
     overrides: Partial<{
       provider: SessionAffinityProvider;
@@ -288,7 +297,7 @@ describe("withSessionAffinityPayload", () => {
   it("returns the caller's own options object for a row it does not stamp", () => {
     const options: SimpleStreamOptions = { temperature: 0 };
     expect(
-      withSessionAffinityPayload(options, {
+      withSessionAffinityOptions(options, {
         provider: ownGateway,
         api: "openai-completions",
         baseUrl: "https://api.openai.com/v1",
@@ -296,27 +305,59 @@ describe("withSessionAffinityPayload", () => {
       }),
     ).toBe(options);
     expect(
-      withSessionAffinityPayload(options, input({ api: "openai-responses" })),
+      withSessionAffinityOptions(
+        options,
+        input({ api: "openai-responses", baseUrl: "https://api.openai.com/v1" }),
+      ),
     ).toBe(options);
     expect(
-      withSessionAffinityPayload(options, input({ provider: openCodeGoRow })),
+      withSessionAffinityOptions(options, input({ provider: openCodeGoRow })),
     ).toBe(options);
   });
 
   it("keeps the caller's other options while adding its own hook", () => {
     const options: SimpleStreamOptions = { temperature: 0, sessionId: "session-7" };
-    const result = withSessionAffinityPayload(options, input());
+    const result = withSessionAffinityOptions(options, input());
     expect(result).not.toBe(options);
     expect(result.temperature).toBe(0);
     expect(result.sessionId).toBe("session-7");
     expect(result.onPayload).toEqual(expect.any(Function));
   });
 
+  it("adds a stable hyphenated affinity header to custom Responses options", () => {
+    const options: SimpleStreamOptions = {
+      temperature: 0,
+      sessionId: "session-7",
+      headers: { "X-Gateway": "keep" },
+    };
+    const result = withSessionAffinityOptions(
+      options,
+      input({ api: "openai-responses" }),
+    );
+
+    expect(result).not.toBe(options);
+    expect(result.headers).toEqual({
+      "X-Gateway": "keep",
+      "x-session-affinity": "session-7",
+    });
+    expect(result.temperature).toBe(0);
+  });
+
+  it("does not add a Responses affinity header when the caller has no session id", () => {
+    const options: SimpleStreamOptions = { temperature: 0 };
+    expect(
+      withSessionAffinityOptions(
+        options,
+        input({ api: "openai-responses", sessionId: undefined }),
+      ),
+    ).toBe(options);
+  });
+
   it("keys the adapter payload and still runs the caller's payload hook first", async () => {
     const previous = vi.fn(async (payload: unknown) => payload);
     const options: SimpleStreamOptions = { onPayload: previous };
     const adapterPayload = { model: "gateway-model-1", stream: true };
-    const result = withSessionAffinityPayload(options, input());
+    const result = withSessionAffinityOptions(options, input());
 
     const payload = await result.onPayload?.(adapterPayload, completionsModel);
 
@@ -332,7 +373,7 @@ describe("withSessionAffinityPayload", () => {
   it("adds the key to whatever the caller's hook returned, not to the adapter payload", async () => {
     const replacement = { model: "rewritten", extra: true };
     const options: SimpleStreamOptions = { onPayload: async () => replacement };
-    const result = withSessionAffinityPayload(options, input());
+    const result = withSessionAffinityOptions(options, input());
 
     const payload = await result.onPayload?.(
       { model: "gateway-model-1", stream: true },
@@ -347,7 +388,7 @@ describe("withSessionAffinityPayload", () => {
     const options: SimpleStreamOptions = {
       onPayload: async () => ({ model: "rewritten", prompt_cache_key: "caller-set" }),
     };
-    const result = withSessionAffinityPayload(options, input());
+    const result = withSessionAffinityOptions(options, input());
 
     expect(
       await result.onPayload?.({ model: "gateway-model-1" }, completionsModel),
@@ -356,7 +397,7 @@ describe("withSessionAffinityPayload", () => {
 
   it("adds no key for a caller with no session id", async () => {
     const adapterPayload = { model: "gateway-model-1", stream: true };
-    const result = withSessionAffinityPayload({}, input({ sessionId: undefined }));
+    const result = withSessionAffinityOptions({}, input({ sessionId: undefined }));
 
     const payload = await result.onPayload?.(adapterPayload, completionsModel);
 
@@ -367,7 +408,7 @@ describe("withSessionAffinityPayload", () => {
 
   it("leaves the adapter's payload as the caller's hook returned it when nothing is added", async () => {
     const replacement = { model: "rewritten", stream: true };
-    const result = withSessionAffinityPayload(
+    const result = withSessionAffinityOptions(
       { onPayload: async () => replacement },
       input({ sessionId: undefined }),
     );
@@ -406,7 +447,7 @@ describe("the pi-ai Completions adapter's session identity", () => {
         baseUrl,
         compat: sessionAffinityCompat(provider, "openai-completions", baseUrl),
       } as Model<"openai-completions">;
-      const options = withSessionAffinityPayload(
+      const options = withSessionAffinityOptions(
         { apiKey: "sk-test", sessionId: "session-42", fetch: fetchStub },
         { provider, api: "openai-completions", baseUrl, sessionId: "session-42" },
       );
@@ -462,7 +503,7 @@ describe("the pi-ai Anthropic adapter's session identity", () => {
         headers: { "content-type": "text/event-stream" },
       });
     };
-    const options = withSessionAffinityPayload(
+    const options = withSessionAffinityOptions(
       { apiKey: "sk-test", sessionId: "session-42", maxTokens: 16, fetch: fetchStub },
       {
         provider: ownAnthropicRelay,
@@ -485,5 +526,41 @@ describe("the pi-ai Anthropic adapter's session identity", () => {
     expect(sent[0].headers.get("x-session-id")).toBeNull();
     // The body key is the Chat Completions channel only.
     expect(sent[0].body.prompt_cache_key).toBeUndefined();
+  });
+});
+
+describe("the pi-ai Responses adapter's proxy-safe session identity", () => {
+  it("sends x-session-affinity alongside its existing session headers", async () => {
+    const model = {
+      ...completionsModel,
+      api: "openai-responses",
+      baseUrl: GATEWAY,
+    } as Model<"openai-responses">;
+    const sent: Array<{ headers: Headers; body: Record<string, unknown> }> = [];
+    const fetchStub: typeof globalThis.fetch = async (_url, init) => {
+      sent.push({
+        headers: new Headers(init?.headers),
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      });
+      return new Response(JSON.stringify({ error: { message: "fixture response" } }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const options = withSessionAffinityOptions(
+      { apiKey: "sk-test", sessionId: "session-42", fetch: fetchStub },
+      { provider: ownGateway, api: "openai-responses", baseUrl: GATEWAY, sessionId: "session-42" },
+    );
+
+    await responsesStreamSimple(
+      model,
+      { messages: [{ role: "user", content: "hi", timestamp: 1 }] } as never,
+      options,
+    ).result();
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0].headers.get("session_id")).toBe("session-42");
+    expect(sent[0].headers.get("x-client-request-id")).toBe("session-42");
+    expect(sent[0].headers.get("x-session-affinity")).toBe("session-42");
   });
 });

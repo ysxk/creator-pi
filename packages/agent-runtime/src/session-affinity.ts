@@ -27,10 +27,22 @@ import { clampOpenAIPromptCacheKey } from "@earendil-works/pi-ai/api/openai-prom
 import { isOpenCodeEndpoint } from "./opencode-session-headers.js";
 import type { RuntimeProviderConfig } from "./provider-binding.js";
 
-/** Wire APIs whose adapter emits the session headers from `compat`. */
+/** Wire APIs where PI-Desktop preserves session identity for custom endpoints. */
 const SESSION_AFFINITY_APIS: ReadonlySet<string> = new Set([
   "openai-completions",
   "anthropic-messages",
+  "openai-responses",
+]);
+
+/** Wire APIs whose adapter reads session headers from `compat`. */
+const SESSION_AFFINITY_COMPAT_APIS: ReadonlySet<string> = new Set([
+  "openai-completions",
+  "anthropic-messages",
+]);
+
+/** Responses has native session headers, but needs this proxy-safe alias. */
+const SESSION_AFFINITY_OPTION_HEADER_APIS: ReadonlySet<string> = new Set([
+  "openai-responses",
 ]);
 
 /** Wire APIs that carry the conversation key in the request body. */
@@ -85,7 +97,8 @@ export function sessionAffinityCompat(
   api: string,
   baseUrl: string | undefined,
 ): SessionAffinityCompat | undefined {
-  return providerUsesSessionAffinity(provider, api, baseUrl)
+  return SESSION_AFFINITY_COMPAT_APIS.has(api) &&
+      providerUsesSessionAffinity(provider, api, baseUrl)
     ? { sendSessionAffinityHeaders: true, sessionAffinityFormat: "openai" }
     : undefined;
 }
@@ -118,8 +131,11 @@ export function withSessionPromptCacheKey(input: {
 }
 
 /**
- * `options` with the conversation body key appended after every other
- * `onPayload` hook, so a payload-rewriting extension cannot drop it.
+ * `options` with session identity appended at the request boundary. Responses
+ * already emits `session_id`, but common reverse proxies drop underscore
+ * headers; add the stable hyphenated alias for custom endpoints. Completions
+ * gets its missing body key after every other `onPayload` hook, so a
+ * payload-rewriting extension cannot drop it.
  *
  * An endpoint that is not stamped, or a wire API with no body channel, gets
  * its options back unchanged — no hook is installed and the request object
@@ -127,7 +143,7 @@ export function withSessionPromptCacheKey(input: {
  * caller with no session id; there the hook adds nothing and the adapter keeps
  * its own payload.
  */
-export function withSessionAffinityPayload(
+export function withSessionAffinityOptions(
   options: SimpleStreamOptions,
   input: {
     provider: SessionAffinityProvider;
@@ -137,17 +153,32 @@ export function withSessionAffinityPayload(
   },
 ): SimpleStreamOptions {
   const enabled = providerUsesSessionAffinity(input.provider, input.api, input.baseUrl);
-  if (!enabled || !SESSION_AFFINITY_BODY_APIS.has(input.api)) return options;
-  const previous = options.onPayload;
+  if (!enabled) return options;
+
+  const sessionId = input.sessionId?.trim();
+  let nextOptions = options;
+  if (sessionId && SESSION_AFFINITY_OPTION_HEADER_APIS.has(input.api)) {
+    const headers = { ...(options.headers ?? {}) };
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === "x-session-affinity") delete headers[key];
+    }
+    nextOptions = {
+      ...options,
+      headers: { ...headers, "x-session-affinity": sessionId },
+    };
+  }
+
+  if (!SESSION_AFFINITY_BODY_APIS.has(input.api)) return nextOptions;
+  const previous = nextOptions.onPayload;
   return {
-    ...options,
+    ...nextOptions,
     onPayload: async (payload, model) => {
       const replacement = await previous?.(payload, model);
       const base = replacement === undefined ? payload : replacement;
       const keyed = withSessionPromptCacheKey({
         payload: base,
         api: model.api,
-        sessionId: input.sessionId,
+        sessionId,
         enabled,
       });
       // Nothing to change keeps the hook's own return value, so an untouched

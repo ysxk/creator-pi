@@ -8004,19 +8004,24 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 
 - Agent-runtime stamps a per-session identity onto requests bound for an endpoint
   the user pointed at themselves — a provider row whose base URL host is not a
-  published vendor host — on the `openai-completions` and `anthropic-messages`
-  wire APIs. The built model gains `compat.sendSessionAffinityHeaders` with
+  published vendor host — on the `openai-completions`, `anthropic-messages`,
+  and `openai-responses` wire APIs. On Completions and Anthropic, the built model gains
+  `compat.sendSessionAffinityHeaders` with
   `sessionAffinityFormat: "openai"`, so the adapter writes `x-session-affinity`
   and `x-client-request-id` beside `session_id`, and a Chat Completions payload
   that carries no `prompt_cache_key` gains the session id as one, clamped to the
   adapter's 64-character limit. A row's own `compat` still wins, and the key is
   added on a copy after every other payload hook.
+- A custom Responses row keeps its existing `session_id`, `x-client-request-id`,
+  and cache key, and also gets the stable `x-session-affinity` alias so reverse
+  proxies that discard underscore headers can route the session.
 - Identity reaches session turns, subagent turns, context-compaction summaries,
   and plugin one-shots handed a session id. A published vendor host (matched by
   host against `NAMED_ENDPOINT_PRESETS`), the OpenCode path's own
-  `x-opencode-session`, and the Responses adapters' existing behavior keep their
-  current request bytes, so no vendor's published caching semantics move; a
-  caller with no session id gains no body key.
+  `x-opencode-session`, and the Responses adapters' existing behavior on
+  published vendor hosts keep their current request bytes, so no vendor's
+  published caching semantics move; a caller with no session id gains no body
+  key or `x-session-affinity` header.
 - Covered by `packages/agent-runtime/src/session-affinity.test.ts` and
   E2E-PROVIDER-custom-endpoint-session-identity. See issue #1634,
   `03-runtime/02-agent-runtime.md` §6.3, and

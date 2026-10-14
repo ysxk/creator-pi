@@ -30,7 +30,11 @@ import {
   type RuntimeProviderConfig,
 } from "./provider-binding.js";
 import { mergeProviderHeaders, withProviderHeaders } from "./provider-headers.js";
-import { providerUsesSessionAffinity, withSessionPromptCacheKey } from "./session-affinity.js";
+import {
+  providerUsesSessionAffinity,
+  withSessionAffinityOptions,
+  withSessionPromptCacheKey,
+} from "./session-affinity.js";
 import { compactionRequestShape, type CompactionRequestShape } from "./compaction-diagnostics.js";
 
 /**
@@ -48,16 +52,19 @@ export function compactionRequestOptions(input: {
   options?: ModelsSimpleStreamOptions;
 }): ModelsSimpleStreamOptions {
   const { provider, sessionId, model, context, options } = input;
-  return withProviderHeaders(
-    withOpenCodeSessionHeaders(
-      { ...options, sessionId, reasoning: requestThinkingLevel(model, options?.reasoning ?? "off") },
-      { ...openCodeEndpointFromProvider(provider, model), sessionId },
+  return withSessionAffinityOptions(
+    withProviderHeaders(
+      withOpenCodeSessionHeaders(
+        { ...options, sessionId, reasoning: requestThinkingLevel(model, options?.reasoning ?? "off") },
+        { ...openCodeEndpointFromProvider(provider, model), sessionId },
+      ),
+      mergeProviderHeaders(
+        copilotRequestHeaders(provider, context),
+        provider.headers,
+      ),
+      model.api,
     ),
-    mergeProviderHeaders(
-      copilotRequestHeaders(provider, context),
-      provider.headers,
-    ),
-    model.api,
+    { provider, api: model.api, baseUrl: model.baseUrl, sessionId },
   );
 }
 

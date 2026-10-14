@@ -28,7 +28,7 @@ import {
   openCodeEndpointFromProvider,
   withOpenCodeSessionHeaders,
 } from "./opencode-session-headers.js";
-import { withSessionAffinityPayload } from "./session-affinity.js";
+import { withSessionAffinityOptions } from "./session-affinity.js";
 import { mergeProviderHeaders, withProviderHeaders } from "./provider-headers.js";
 import {
   withProviderFetchFailure,
@@ -136,7 +136,7 @@ export async function completeOneShot(
   // A one-shot call spends the session's credential like any turn does, so it
   // carries the session id too; a caller that supplies none keeps an unkeyed
   // request, and an endpoint that is not stamped is returned unchanged.
-  const sessionOptions = withSessionAffinityPayload(requestOptions, {
+  const sessionOptions = withSessionAffinityOptions(requestOptions, {
     provider,
     api: model.api,
     baseUrl: model.baseUrl,

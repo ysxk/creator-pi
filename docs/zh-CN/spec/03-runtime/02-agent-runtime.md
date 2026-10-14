@@ -949,28 +949,33 @@ agent 运行时的职责，与官方 Pi 编码 agent 的归属层保持一致；
 
 ### 6.3 适配器不作标识的端点上的会话身份（issue #1634）
 
-pi-ai 只在厂商自己发布了约定时才自带对话标识：Responses 适配器每个请求都发，而
-Chat Completions 与 Anthropic Messages 适配器只在
-`compat.sendSessionAffinityHeaders` 为真时才发，该默认值仅有 OpenRouter；Chat
-Completions 的请求体键更窄，硬编码在 `api.openai.com` 上。因此，用户把某一提供商行
-指向自己的网关或中转时，同一凭据下的所有会话在出网请求里没有任何字段可以区分，
-该网关既无法把一个会话固定到同一后端，也没有按会话隔离 prompt cache 的依据。
+pi-ai 只在厂商自己发布了约定时才自带对话标识：Responses 适配器每个请求都会发送
+`session_id` 与 `x-client-request-id`，而 Chat Completions 与 Anthropic Messages
+适配器只在 `compat.sendSessionAffinityHeaders` 为真时才发送，该默认值仅有
+OpenRouter；Chat Completions 的请求体键更窄，硬编码在 `api.openai.com` 上。因此，
+用户把某一提供商行指向自己的网关或中转时，同一凭据下的所有会话没有可靠的字段可以
+区分：反向代理通常会丢弃名称含下划线的 `session_id`，许多网关也不会把
+`x-client-request-id` 识别为稳定会话键。
 
 对这种 base URL 主机不属于任何已发布厂商主机（`NAMED_ENDPOINT_PRESETS`）的行，
-agent-runtime 自己补上该身份，覆盖 `openai-completions` 与 `anthropic-messages`
-两种线协议，但不对已经自带会话标头的 OpenCode 线路（§6.2）生效：
+agent-runtime 自己补上该身份，覆盖 `openai-completions`、`anthropic-messages` 与
+`openai-responses` 三种线协议，但不对已经自带会话标头的 OpenCode 线路（§6.2）生效：
 
-- 构造出的模型 `compat` 补上 `sendSessionAffinityHeaders: true` 与
+- 在 Completions 与 Anthropic 上，构造出的模型 `compat` 补上
+  `sendSessionAffinityHeaders: true` 与
   `sessionAffinityFormat: "openai"`，适配器据此写出 `x-session-affinity` 与
   `x-client-request-id`，并在格式为 `openai` 时一并写出 `session_id`。该默认值
   展开在行自身 `compat` 之下，因此显式的目录项仍然优先。
+- 自建 Responses 端点保留适配器原有的 `session_id`、`x-client-request-id` 与
+  `prompt_cache_key`；agent-runtime 通过 stream options 再加上稳定的
+  `x-session-affinity`，即使反向代理丢掉下划线标头也能路由会话。
 - Chat Completions 的请求体若不含 `prompt_cache_key`，补上会话 id 作为该键，按
   适配器的 64 字符上限截断。该键添加在载荷副本上，且排在其它所有载荷钩子之后，
   因此重写载荷的扩展无法把它丢掉。
 
 该身份覆盖会话回合、子智能体回合、上下文压缩摘要，以及拿到会话 id 的插件一次性
-调用。属于已发布厂商主机的行保持原有出网字节；没有会话 id 的调用方不会得到请求体
-键。
+调用。属于已发布厂商主机的行保持原有出网字节；没有会话 id 的调用方不会得到会话亲和
+标头或请求体键。
 
 
 ## 7. 系统提示组成

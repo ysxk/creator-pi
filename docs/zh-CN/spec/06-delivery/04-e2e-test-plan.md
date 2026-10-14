@@ -3780,7 +3780,8 @@ IPC 请求无法关闭。
 
 - **前提**：两个互相独立的会话，各进行若干回合，都绑定到 API 风格为
   `chat_completions`、base URL 指向本地抓包端点（不是已发布厂商主机）的提供商行。
-  另有一行位于已发布厂商主机，以及一行使用 `anthropic_messages`。
+  另有一行位于已发布厂商主机、一行使用 `anthropic_messages`，以及一行使用
+  `openai-responses`。
 - **步骤**：1) 在两个会话各发一个回合，抓取两次请求的完整标头与完整请求体。
   2) 逐字段比对这两个请求。3) 在第一个会话触发一次上下文压缩摘要并抓取。
   4) 运行一次子智能体回合与一次带会话 id 的插件一次性调用并抓取。
@@ -3791,11 +3792,14 @@ IPC 请求无法关闭。
     `x-client-request-id`，在格式为 `openai` 时还含 `session_id`，请求体中含
     `prompt_cache_key`，取值都是该会话自己的对话 id，并在该会话的多个回合之间保持
     不变。
+  - 自建 Responses 请求也携带 `x-session-affinity`，同时保留适配器原有的
+    `session_id`、`x-client-request-id` 与 `prompt_cache_key`，因此丢弃下划线标头的反向
+    代理仍能路由会话。
   - 压缩摘要、子智能体回合与一次性调用携带其所属会话的同一个 id，因此网关会把整个
     会话固定到同一后端。
   - 位于已发布厂商主机的行与 OpenCode 行的出网请求与改动前逐字节一致（OpenCode
     行仍带 `x-opencode-session`）。
-  - 没有会话 id 的一次性调用不会得到 `prompt_cache_key`。
+  - 没有会话 id 的一次性调用不会得到 `prompt_cache_key` 或 `x-session-affinity` 标头。
 - **关联规格**：`03-runtime/02-agent-runtime.md`（§6.2、§6.3）、
   `03-runtime/11-provider-model-system.md`、issue #1634
 - **验收**：C (chat/stream) + 质量

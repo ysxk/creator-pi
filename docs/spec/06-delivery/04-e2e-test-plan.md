@@ -6659,8 +6659,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Preconditions**: Two independent sessions, each with several turns, bound to
   a provider row whose API style is `chat_completions` and whose base URL points
   at a local capture endpoint (not a published vendor host). A third row on a
-  published vendor host, and a fourth on `anthropic_messages`, use the same
-  capture endpoint's stand-ins where applicable.
+  published vendor host, a fourth on `anthropic_messages`, and a fifth on
+  `openai-responses`, use the same capture endpoint's stand-ins where
+  applicable.
 - **Steps**: 1) Send a turn in each session and capture the full request headers
   and body of both. 2) Compare the two requests field by field. 3) Trigger a
   context-compaction summary in the first session and capture it. 4) Run a
@@ -6672,11 +6673,16 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     between the two sessions: `x-session-affinity` and `x-client-request-id`
     beside `session_id`, plus `prompt_cache_key` in the body, all holding the
     session's own conversation id and unchanged across that session's turns.
+  - The custom Responses request also carries `x-session-affinity` alongside
+    the adapter's existing `session_id`, `x-client-request-id`, and
+    `prompt_cache_key`, so a reverse proxy that drops underscore headers can
+    still route the session.
   - The compaction summary, the subagent turn, and the one-shot carry the same
     id for their session, so a gateway pins the whole session to one backend.
   - The published-vendor-host row and the OpenCode row are byte-identical to
     their pre-change requests (the OpenCode row keeps `x-opencode-session`).
-  - A one-shot call with no session id gains no `prompt_cache_key`.
+  - A one-shot call with no session id gains no `prompt_cache_key` or
+    `x-session-affinity` header.
 - **Specs linked**: `03-runtime/02-agent-runtime.md` (§6.2, §6.3),
   `03-runtime/11-provider-model-system.md`, issue #1634
 - **Acceptance**: C (chat/stream) + Quality

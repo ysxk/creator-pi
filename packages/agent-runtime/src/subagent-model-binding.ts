@@ -11,7 +11,7 @@ import {
   openCodeEndpointFromProvider,
   withOpenCodeSessionHeaders,
 } from "./opencode-session-headers.js";
-import { withSessionAffinityPayload } from "./session-affinity.js";
+import { withSessionAffinityOptions } from "./session-affinity.js";
 import { mergeProviderHeaders, withProviderHeaders } from "./provider-headers.js";
 import { clampOutputToContext } from "./output-cap.js";
 import {
@@ -103,7 +103,7 @@ export function subagentModelBinding(opts: {
       // The conversation key rides the same options object the retry stream
       // reuses, so every attempt of this delegate carries the parent session's
       // id rather than only the first.
-      const sessionOptions = withSessionAffinityPayload(requestOptions, {
+      const sessionOptions = withSessionAffinityOptions(requestOptions, {
         provider: opts.provider,
         api: m.api,
         baseUrl: m.baseUrl,
