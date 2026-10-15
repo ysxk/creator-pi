@@ -7583,6 +7583,29 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   descendant process tree and verifies no late marker/output; host-core tests
   verify cancellation registry cleanup
 
+#### E2E-265: Background Bash tasks outlive their turn
+
+- **Preconditions**: A project session whose catalog shell supports background
+  execution, and a port the test server may bind.
+- **Steps**: 1) Ask the agent to start a long-lived process with
+  `runInBackground` (a local web server) and watch the running-tasks bar above
+  the composer. 2) Abort the turn, send a second prompt in the same session,
+  then reload the renderer. 3) Expand the row's `Output`. 4) Press `Stop`.
+  5) Start two more tasks and quit the app.
+- **Expected**: The tool result carries `backgroundTaskId` and resolves without
+  waiting for the command; the bar lists the task as running with a growing
+  elapsed time and shows its streamed output; the process stays alive across the
+  abort, across the 60-second Bash timeout, and across a renderer reload.
+  `Stop` settles the row to `Stopped` and kills the process tree; quitting the
+  app leaves no orphan process behind.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md` (§5),
+  `03-runtime/06-host-rpc-protocol.md` (§4)
+- **Acceptance criterion**: C, E, F
+- **Milestone**: M6+
+- **Status**: Partially automated (host-core `background_tasks::tests` and the
+  renderer contract test `apps/desktop/test/background-tasks.test.mjs`; the bar
+  interaction itself is manual)
+
 #### E2E-117: Agent/Plan/Goal UX and locales contain no Chat controls
 
 - **Preconditions**: App can run in English and zh-CN with an idle session,
@@ -9996,6 +10019,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
 | G — Plugin host lifecycle (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
 | Quality (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
+| C / E / F / Quality — Background Bash tasks outlive their turn | E2E-265 |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
 Codex parity decisions in [decisions-log §D](../08-meta/decisions-log.md)

@@ -609,6 +609,16 @@ export const zhCN = {
     renameSave: "保存",
     renameSaving: "保存中…",
   },
+  backgroundTasks: {
+    running: "运行中",
+    exited: "已退出",
+    failed: "失败",
+    stopped: "已停止",
+    title: "后台命令",
+    output: "输出",
+    stop: "停止",
+    stopping: "停止中…",
+  },
   planHistory: {
     pending: "待审批",
     approved: "已批准",

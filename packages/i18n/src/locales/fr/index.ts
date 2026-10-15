@@ -604,6 +604,16 @@ export const fr = {
     "renameSave": "Enregistrer",
     "renameSaving": "Enregistrer…"
   },
+  backgroundTasks: {
+    running: "En cours",
+    exited: "Terminé",
+    failed: "Échec",
+    stopped: "Arrêté",
+    title: "Commandes en arrière-plan",
+    output: "Sortie",
+    stop: "Arrêter",
+    stopping: "Arrêt…",
+  },
   planHistory: {
     pending: "En attente d’approbation",
     approved: "Approuvé",

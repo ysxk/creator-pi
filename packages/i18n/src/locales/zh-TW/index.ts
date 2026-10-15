@@ -609,6 +609,16 @@ export const zhTW = {
     renameSave: "儲存",
     renameSaving: "儲存中…",
   },
+  backgroundTasks: {
+    running: "執行中",
+    exited: "已結束",
+    failed: "失敗",
+    stopped: "已停止",
+    title: "背景命令",
+    output: "輸出",
+    stop: "停止",
+    stopping: "停止中…",
+  },
   planHistory: {
     pending: "待審批",
     approved: "已批准",

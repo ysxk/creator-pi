@@ -603,6 +603,16 @@ export const ptBR = {
     renameSave: "Salvar",
     renameSaving: "Salvando…"
   },
+  backgroundTasks: {
+    running: "Em execução",
+    exited: "Finalizado",
+    failed: "Falhou",
+    stopped: "Parado",
+    title: "Comandos em segundo plano",
+    output: "Saída",
+    stop: "Parar",
+    stopping: "Parando…",
+  },
   planHistory: {
     pending: "Aguardando aprovação",
     approved: "Aprovado",

@@ -31,6 +31,7 @@ import { ComposerAutocomplete } from "./ComposerAutocomplete";
 import { AskToolCard } from "./AskToolCard";
 import { PlanApprovalBar } from "./PlanApprovalBar";
 import { TodoDock } from "./TodoDock";
+import { BackgroundTasksBar } from "./BackgroundTasksBar";
 import {
   COMPOSER_MAX_VISIBLE_ROWS,
   COMPOSER_MIN_HEIGHT_PX,
@@ -515,6 +516,7 @@ export function Composer({
     >
       <div className="composer-stack">
         {activeSessionId ? <TodoDock sessionId={activeSessionId} /> : null}
+        <BackgroundTasksBar />
         {planCheckpoint?.status === "pending" ? (
           <PlanApprovalBar proposal={planCheckpoint} />
         ) : null}

@@ -613,6 +613,16 @@ export const tr = {
     renameSave: "Kaydet",
     renameSaving: "Kaydediliyor…",
   },
+  backgroundTasks: {
+    running: "Çalışıyor",
+    exited: "Çıktı",
+    failed: "Başarısız",
+    stopped: "Durduruldu",
+    title: "Arka plan komutları",
+    output: "Çıktı",
+    stop: "Durdur",
+    stopping: "Durduruluyor…",
+  },
   planHistory: {
     pending: "Onay bekleniyor",
     approved: "Onaylandı",

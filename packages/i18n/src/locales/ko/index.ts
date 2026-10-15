@@ -613,6 +613,16 @@ export const ko = {
     renameSave: "저장",
     renameSaving: "저장 중…",
   },
+  backgroundTasks: {
+    running: "실행 중",
+    exited: "종료됨",
+    failed: "실패",
+    stopped: "중지됨",
+    title: "백그라운드 명령",
+    output: "출력",
+    stop: "중지",
+    stopping: "중지 중…",
+  },
   planHistory: {
     pending: "승인 대기",
     approved: "승인됨",

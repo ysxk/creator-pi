@@ -616,6 +616,16 @@ export const en = {
     renameSave: "Save",
     renameSaving: "Saving…",
   },
+  backgroundTasks: {
+    running: "Running",
+    exited: "Exited",
+    failed: "Failed",
+    stopped: "Stopped",
+    title: "Background commands",
+    output: "Output",
+    stop: "Stop",
+    stopping: "Stopping…",
+  },
   planHistory: {
     pending: "Awaiting approval",
     approved: "Approved",
