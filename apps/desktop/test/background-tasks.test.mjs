@@ -30,6 +30,10 @@ const bar = await readFile(
   new URL("../src/components/BackgroundTasksBar.tsx", import.meta.url),
   "utf8",
 );
+const controller = await readFile(
+  new URL("../src/features/chat/background-tasks/useBackgroundTasks.ts", import.meta.url),
+  "utf8",
+);
 const api = await readFile(new URL("../src/lib/api.ts", import.meta.url), "utf8");
 const composer = await readFile(
   new URL("../src/components/Composer.tsx", import.meta.url),
@@ -86,8 +90,8 @@ test("the registry keeps output bounded and stops everything on shutdown", () =>
 });
 
 test("the renderer bar lists tasks, offers output and stop, and mounts above the composer input", () => {
-  assert.match(bar, /api\.backgroundTasksList\(\)/);
-  assert.match(bar, /api\.backgroundTasksStop\(id\)/);
+  assert.match(controller, /api\.backgroundTasksList\(\)/);
+  assert.match(controller, /api\.backgroundTasksStop\(id\)/);
   assert.match(bar, /aria-label=\{t\("backgroundTasks\.title"\)\}/);
   assert.match(composer, /import \{ BackgroundTasksBar \} from "\.\/BackgroundTasksBar";/);
   assert.match(composer, /<BackgroundTasksBar \/>/);

@@ -893,9 +893,14 @@
    status block instead of a stack of input-like fields. */
 .background-tasks-bar {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
+  max-height: min(200px, 24vh);
   margin: 0 0 8px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-md);
   background: var(--ds-bg-dock-raised);
@@ -903,12 +908,20 @@
 
 .background-task {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
   padding: 6px 10px;
   color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.background-task-error {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--ds-warning);
   font-size: var(--text-sm);
 }
 

@@ -4506,16 +4506,27 @@ eleven-tool-round desktop paths are verified by
 - **前置条件**：项目会话，其目录 shell 支持后台执行；测试服务可绑定的端口。
 - **步骤**：1) 让 agent 用 `runInBackground` 启动长驻进程（本地 Web 服务），观察
   输入框上方的运行中任务栏。2) 中止本轮，在同一会话发送第二条提示，然后重新加载
-  渲染进程。3) 展开该行的“输出”。4) 点击“停止”。5) 再启动两个任务后退出应用。
+  渲染进程。3) 展开该行的“输出”。4) 点击“停止”。5) 启动十个任务，每个流
+  输出十万行、每行一百字符，检查最终输出。6) 在宽窄窗口同时展示 Todo、Ask 和
+  任务列表，滚动到第十个任务，在旧读取未完成时切换日志。7) 模拟停止失败后重试。
+  8) 再启动两个任务，在输出读取期间退出应用。
 - **预期**：工具结果携带 `backgroundTaskId` 且不等待命令结束；任务栏显示运行中的
   任务与递增的耗时，并展示流式输出；进程在中止后、Bash 60 秒超时后、渲染进程重载后
-  仍然存活。“停止”把该行落定为“已停止”并杀掉整个进程树；退出应用后不残留孤儿进程。
+    仍然存活。“停止”把该行落定为“已停止”并杀掉整个进程树；退出应用后不残留孤儿进程。
+  十任务列表在限高区域内滚动，不挤占 Todo、Ask 和输入框；仅刷新当前展开的日志，
+  过期响应不能清空新预览。每个流保持 256KiB 上限并保留最终标记。停止失败可见、
+  无未处理的 Promise 拒绝，且可以重试。
 - **关联规范**：`03-runtime/03-tools-and-permissions.md`（§5）、
   `03-runtime/06-host-rpc-protocol.md`（§4）
 - **验收标准**：C、E、F
 - **里程碑**：M6+
 - **状态**：部分自动化（host-core `background_tasks::tests`、渲染层契约测试
-  `apps/desktop/test/background-tasks.test.mjs`；任务栏交互本身仍为人工验证）
+  `apps/desktop/test/background-tasks.test.mjs`；运行
+  `node scripts/e2e-background-tasks-host.mjs` 验证真实宿主、进程和管道压力路径，
+  `node scripts/e2e-background-tasks.mjs` 在隔离 Electron 中以 1280px、700px、
+  390px 宽度验证生产 React 组件。宿主回归测试覆盖退出前输出排空和输出锁竞争时关闭。
+  完整 agent 到桌面流程及约 83 分钟的十万行定速长测仍为人工场景；
+  自动化的大输出测试采用加速模式。）
 
 #### E2E-117：Agent/Plan/Goal UX 和区域设置不包含聊天控件
 

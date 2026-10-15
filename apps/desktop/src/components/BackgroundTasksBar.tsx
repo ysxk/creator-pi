@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  api,
-  type BackgroundTaskOutput,
-  type BackgroundTaskSummary,
-} from "../lib/api";
+import type { BackgroundTaskOutput } from "../lib/api";
+import { useBackgroundTasks } from "../features/chat/background-tasks/useBackgroundTasks";
 import { Button } from "./ui";
 
 /** Characters shown when a finished task produced no output at all. */
@@ -18,71 +15,25 @@ const NO_OUTPUT = "—";
  */
 export function BackgroundTasksBar(): React.JSX.Element | null {
   const { t } = useTranslation();
-  const [tasks, setTasks] = useState<BackgroundTaskSummary[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [output, setOutput] = useState<BackgroundTaskOutput | null>(null);
-  const [stoppingIds, setStoppingIds] = useState<Set<string>>(() => new Set());
-
-  const refresh = useCallback(async () => {
-    try {
-      const result = await api.backgroundTasksList();
-      setTasks(result.tasks);
-    } catch {
-      // Host may be mid-restart; keep the last snapshot and retry on the
-      // next change event rather than flashing an error bar.
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    return api.onBackgroundTasksChanged(() => {
-      void refresh();
-    });
-  }, [refresh]);
-
-  const toggleOutput = useCallback(async (id: string) => {
-    setExpandedId((current) => (current === id ? null : id));
-    try {
-      setOutput(await api.backgroundTasksOutput(id));
-    } catch {
-      setOutput(null);
-    }
-  }, []);
-
-  const stop = useCallback(async (id: string) => {
-    setStoppingIds((current) => new Set(current).add(id));
-    try {
-      await api.backgroundTasksStop(id);
-    } finally {
-      setStoppingIds((current) => {
-        const next = new Set(current);
-        next.delete(id);
-        return next;
-      });
-    }
-  }, []);
-
-  const hasRunning = useMemo(
-    () => tasks.some((task) => task.state === "running"),
-    [tasks],
+  const { tasks, expandedId, output, stoppingIds, error, toggleOutput, stop } = useBackgroundTasks();
+  const outputText = useMemo(
+    () => formatOutput(output, expandedId ?? ""),
+    [output, expandedId],
   );
-
-  // Elapsed time comes from the host snapshot, so a running task needs a
-  // periodic re-list; without it the bar freezes at the last state change.
-  useEffect(() => {
-    if (!hasRunning) return;
-    const timer = setInterval(() => void refresh(), 1000);
-    return () => clearInterval(timer);
-  }, [hasRunning, refresh]);
-
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0 && !error) return null;
 
   return (
     <div
       className="background-tasks-bar"
       role="region"
       aria-label={t("backgroundTasks.title")}
+      tabIndex={0}
     >
+      {error ? (
+        <p className="background-task-error" role="alert">
+          {t(`backgroundTasks.${error}Failed`)}
+        </p>
+      ) : null}
       {tasks.map((task) => {
         const isRunning = task.state === "running";
         const stopping = stoppingIds.has(task.id);
@@ -129,7 +80,7 @@ export function BackgroundTasksBar(): React.JSX.Element | null {
             ) : null}
             {expandedId === task.id ? (
               <pre className="background-task-output">
-                {formatOutput(output, task.id) || NO_OUTPUT}
+                {outputText || NO_OUTPUT}
               </pre>
             ) : null}
           </div>

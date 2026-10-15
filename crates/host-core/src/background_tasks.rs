@@ -49,11 +49,13 @@ pub(crate) struct TaskShared {
     stdout_bytes: usize,
     stderr_bytes: usize,
     truncated: bool,
-    pub(crate) stop: watch::Sender<bool>,
 }
 
 impl TaskShared {
     fn push_text(ring: &mut VecDeque<String>, total: &mut usize, text: &str) -> bool {
+        if text.is_empty() {
+            return false;
+        }
         ring.push_back(text.to_string());
         *total += text.len();
         let mut dropped = false;
@@ -88,6 +90,7 @@ pub struct BackgroundTask {
     pub command_shell_id: String,
     pub started_at: Instant,
     pub shared: Arc<Mutex<TaskShared>>,
+    stop: watch::Sender<bool>,
 }
 
 #[derive(Serialize)]
@@ -268,8 +271,8 @@ fn register_spawned_task(
             stdout_bytes: 0,
             stderr_bytes: 0,
             truncated: false,
-            stop,
         })),
+        stop,
     };
     registry.order.push(task.id.clone());
     registry.tasks.insert(task.id.clone(), task.clone());
@@ -295,12 +298,31 @@ async fn supervise(
     drop(chunk_tx);
 
     let mut wait = runner.wait_task;
-    let exit = loop {
+    let mut exit = None;
+    let mut output_closed = false;
+    let mut stopping = false;
+    let mut lifecycle_failed = false;
+    let mut stdout_decoder = tools::Utf8Decoder::default();
+    let mut stderr_decoder = tools::Utf8Decoder::default();
+    // Reaping the process and draining its output are separate completion
+    // conditions. Keep receiving after exit/stop so a full channel cannot
+    // deadlock the readers, and disable recv after EOF to avoid a busy loop.
+    while exit.is_none() || !output_closed {
         tokio::select! {
-            waited = &mut wait => break Some(waited),
-            chunk = chunk_rx.recv() => {
-                let Some((is_stdout, bytes)) = chunk else { continue };
-                let text = String::from_utf8_lossy(&bytes).replace('\r', "");
+            waited = &mut wait, if exit.is_none() => {
+                exit = Some(waited);
+                if let Err(error) = runner.ownership.terminate_fail_closed(runner.pid) {
+                    tracing::error!(task_id = %task.id, %error, "background task exit cleanup failed");
+                    lifecycle_failed = true;
+                }
+            }
+            chunk = chunk_rx.recv(), if !output_closed => {
+                let Some((is_stdout, bytes)) = chunk else {
+                    output_closed = true;
+                    continue;
+                };
+                let decoder = if is_stdout { &mut stdout_decoder } else { &mut stderr_decoder };
+                let text = decoder.push(&bytes).replace('\r', "");
                 let mut shared = task.shared.lock().await;
                 let dropped = if is_stdout {
                     shared.push_stdout(&text)
@@ -311,34 +333,47 @@ async fn supervise(
                     shared.truncated = true;
                 }
             }
-            _ = stop_rx.changed() => {
-                if *stop_rx.borrow() {
-                    // Kill the whole tree; the wait below reaps it.
-                    let _ = runner.ownership.terminate_fail_closed(runner.pid);
-                    break Some((&mut wait).await);
+            changed = stop_rx.changed(), if !stopping => {
+                if changed.is_err() || *stop_rx.borrow() {
+                    stopping = true;
+                    if let Err(error) = runner.ownership.terminate_fail_closed(runner.pid) {
+                        tracing::error!(task_id = %task.id, %error, "background task stop failed");
+                        lifecycle_failed = true;
+                    }
                 }
             }
         }
+    }
+    for reader in [stdout_reader, stderr_reader] {
+        match reader.await {
+            Ok(Ok(())) => {}
+            result => {
+                tracing::error!(task_id = %task.id, ?result, "background task output reader failed");
+                lifecycle_failed = true;
+            }
+        }
+    }
+    let exit_code = match exit {
+        Some(Ok(Ok(status))) => status.code(),
+        result => {
+            tracing::error!(task_id = %task.id, ?result, "background task wait failed");
+            lifecycle_failed = true;
+            None
+        }
     };
-    // The tree is gone or exiting, so both pipes reach EOF; joining the
-    // readers keeps the rings complete before the terminal state is published.
-    let _ = stdout_reader.await;
-    let _ = stderr_reader.await;
-    let status: Option<std::io::Result<std::process::ExitStatus>> =
-        exit.and_then(|joined| joined.ok());
-    let exit_code = status
-        .and_then(|inner| inner.ok())
-        .and_then(|status| status.code());
 
     let stopped = *stop_rx.borrow();
-    let state = match (exit_code, stopped) {
-        (_, true) => BackgroundTaskState::Stopped,
-        (Some(0), false) => BackgroundTaskState::Exited,
-        (Some(_), false) => BackgroundTaskState::Failed,
-        (None, false) => BackgroundTaskState::Failed,
+    let state = match (exit_code, stopped, lifecycle_failed) {
+        (_, _, true) => BackgroundTaskState::Failed,
+        (_, true, false) => BackgroundTaskState::Stopped,
+        (Some(0), false, false) => BackgroundTaskState::Exited,
+        _ => BackgroundTaskState::Failed,
     };
     {
         let mut shared = task.shared.lock().await;
+        let stdout_dropped = shared.push_stdout(&stdout_decoder.finish());
+        let stderr_dropped = shared.push_stderr(&stderr_decoder.finish());
+        shared.truncated |= stdout_dropped || stderr_dropped;
         shared.state = state;
         shared.exit_code = exit_code;
     }
@@ -349,21 +384,23 @@ async fn drain_pipe<R>(
     pipe: Option<R>,
     is_stdout: bool,
     tx: tokio::sync::mpsc::Sender<(bool, Vec<u8>)>,
-) where
+) -> std::io::Result<()>
+where
     R: tokio::io::AsyncRead + Unpin,
 {
-    let Some(mut pipe) = pipe else { return };
+    let Some(mut pipe) = pipe else { return Ok(()) };
     let mut buffer = [0u8; 8192];
     loop {
-        match pipe.read(&mut buffer).await {
-            Ok(0) | Err(_) => break,
-            Ok(read) => {
+        match pipe.read(&mut buffer).await? {
+            0 => break,
+            read => {
                 if tx.send((is_stdout, buffer[..read].to_vec())).await.is_err() {
                     break;
                 }
             }
         }
     }
+    Ok(())
 }
 
 /// Registry operations that read or signal a task. Output reads and state
@@ -375,10 +412,10 @@ pub async fn stop_task(registry: &BackgroundTaskRegistry, id: &str) -> Result<bo
     let shared = task.shared.lock().await;
     // Idempotent: a task that already finished or is already stopping reports
     // "nothing to do" so a double click cannot queue a second kill.
-    if shared.state != BackgroundTaskState::Running || *shared.stop.borrow() {
+    if shared.state != BackgroundTaskState::Running || *task.stop.borrow() {
         return Ok(false);
     }
-    let _ = shared.stop.send(true);
+    let _ = task.stop.send(true);
     Ok(true)
 }
 
@@ -405,9 +442,7 @@ pub async fn task_output(
 /// shutdown never blocks on the AppState mutex and never leaves an orphan.
 pub fn stop_all_running_sync(registry: &BackgroundTaskRegistry) {
     for task in registry.tasks.values() {
-        if let Ok(shared) = task.shared.try_lock() {
-            let _ = shared.stop.send(true);
-        }
+        let _ = task.stop.send(true);
     }
 }
 
@@ -437,6 +472,79 @@ impl BackgroundTaskRegistry {
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[tokio::test]
+    async fn retains_output_when_the_process_exits_before_supervision_starts() {
+        let dir = tempfile::tempdir().unwrap();
+        let shell = crate::tools::shell::default_shell_id();
+        let command = if cfg!(windows) {
+            "[Console]::Out.Write('final-stdout'); [Console]::Error.Write('final-stderr')"
+        } else {
+            "printf final-stdout; printf final-stderr >&2"
+        };
+        let config = resolve_runner_config(shell, command, dir.path(), None).unwrap();
+        let runner = tools::spawn_tool_runner(&config).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !runner.wait_task.is_finished() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let mut registry = BackgroundTaskRegistry::default();
+        let changed = Arc::new(tokio::sync::Notify::new());
+        let notify = changed.clone();
+        let task = register_spawned_task(
+            &mut registry,
+            "session-output",
+            command,
+            shell,
+            runner,
+            Arc::new(move || notify.notify_one()),
+        );
+        tokio::time::timeout(Duration::from_secs(5), changed.notified())
+            .await
+            .expect("the process must settle after draining both pipes");
+        let output = task_output(&registry, &task.id).await.unwrap().unwrap();
+        assert_eq!(output["state"], "exited");
+        assert_eq!(output["stdout"], "final-stdout");
+        assert_eq!(output["stderr"], "final-stderr");
+    }
+
+    #[tokio::test]
+    async fn shutdown_signals_a_task_while_its_output_is_locked() {
+        let dir = tempfile::tempdir().unwrap();
+        let shell = crate::tools::shell::default_shell_id();
+        let config = resolve_runner_config(shell, "sleep 30", dir.path(), None).unwrap();
+        let runner = tools::spawn_tool_runner(&config).await.unwrap();
+        let mut registry = BackgroundTaskRegistry::default();
+        let changed = Arc::new(tokio::sync::Notify::new());
+        let notify = changed.clone();
+        let task = register_spawned_task(
+            &mut registry,
+            "session-output",
+            "sleep 30",
+            shell,
+            runner,
+            Arc::new(move || notify.notify_one()),
+        );
+        let output_lock = task.shared.lock().await;
+        stop_all_running_sync(&registry);
+        drop(output_lock);
+        let settled = tokio::time::timeout(Duration::from_secs(3), changed.notified()).await;
+        if settled.is_err() {
+            // Clean up the real child even when the regression is present.
+            stop_task(&registry, &task.id).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(5), changed.notified())
+                .await
+                .unwrap();
+        }
+        assert!(
+            settled.is_ok(),
+            "shutdown must not skip a contended output lock"
+        );
+        assert_eq!(registry.summaries()[0].state, BackgroundTaskState::Stopped);
+    }
 
     /// A start must bump the change counter. The renderer only learns about a
     /// running task through `backgroundTasks.changed`; a start that stays
