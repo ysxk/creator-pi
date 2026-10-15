@@ -8604,7 +8604,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      modal locks the id while editing, rejects a same-level duplicate id or
      label, and reports ready or failed through the row badge and a toast.
      Delete a server through the same two-press menu action and confirm its file
-     is gone.
+     is gone. Reopen MCP with servers in two projects and confirm the picker
+     reads All projects, both projects' servers are listed under their own
+     `Project · <name>` headers, and toggling a row in the project that is not
+     open changes that project's file. Pick one project and confirm only its
+     servers remain.
   10. Delete a skill or MCP file outside the app, reload its page, and confirm the
       row disappears and its local state has no orphaned entry. Confirm deleting
       a global file also removes its project overrides.

@@ -1074,6 +1074,7 @@ sklm: {
     projectLevel: "Proje",
     projectScopeDescription: "Yalnızca seçili projede kullanılabilir",
     noProjects: "Son proje yok",
+    allProjects: "All projects",
     selectProject: "Proje seç",
     selectProjectFirst: "Önce bir proje seçin",
     loadingCapabilities: "Yetenekler yükleniyor…",

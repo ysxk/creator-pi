@@ -1076,6 +1076,7 @@ sklm: {
     "projectLevel": "Projet",
     "projectScopeDescription": "Disponible uniquement dans le projet sélectionné",
     "noProjects": "Aucun projet récent",
+    "allProjects": "All projects",
     "selectProject": "Sélectionnez le projet",
     "selectProjectFirst": "Sélectionnez d'abord un projet",
     "loadingCapabilities": "Capacités de chargement…",

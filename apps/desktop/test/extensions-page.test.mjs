@@ -150,7 +150,7 @@ test("Settings exposes three independent Agent capability destinations", () => {
   assert.match(settingsComponents.get("AgentCapabilityLayout.tsx"), /agent-capability-list/);
   for (const name of ["AgentSkillsPage.tsx", "AgentMcpPage.tsx"]) {
     const source = settingsComponents.get(name);
-    assert.match(source, /useAgentProjects\(\)/, name);
+    assert.match(source, /useAgentProjects\((?:\{[^)]*\})?\)/, name);
     assert.match(source, /AgentProjectPicker/, name);
     assert.match(source, /level: "global"/);
     assert.match(source, /level: "project"/);

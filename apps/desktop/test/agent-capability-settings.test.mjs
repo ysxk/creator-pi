@@ -42,7 +42,7 @@ test("agent settings have three independent destinations and extensions have two
 test("every capability page filters one list by level instead of stacking two sections", () => {
   // The subagents page reads its two directories through its data loader.
   for (const source of [skills, mcp, `${subagents}\n${subagentSettings}`]) {
-    assert.match(source, /useAgentProjects\(\)/);
+    assert.match(source, /useAgentProjects\((?:\{[^)]*\})?\)/);
     assert.match(source, /AgentProjectPicker/);
     assert.match(source, /level: "global"/);
     assert.match(source, /level: "project"/);
@@ -467,4 +467,28 @@ test("MCP OAuth subscribe is owned by a ref cleaned up on unmount", () => {
   assert.match(mcp, /pendingOAuthRef\.current\?\.unsubscribe\(\)/);
   assert.match(mcp, /api\.onMcpOAuth\(/);
   assert.match(mcpIpc, /oauth\.start\(server\.id, server\.url, server\)/);
+});
+
+test("the MCP page lists every project's servers until one project is picked", () => {
+  // Skills and subagents still follow the open project; only MCP opts in.
+  assert.match(mcp, /useAgentProjects\(\{\s*allProjects: true,?\s*\}\)/);
+  assert.match(skills, /useAgentProjects\(\)/);
+  assert.match(subagents, /useAgentProjects\(\)/);
+  assert.match(layout, /allProjects \? null : currentProjectPath/);
+  assert.match(layout, /if \(!allProjects && currentProjectPath\) setSelectedProjectPath/);
+  // The picker reports the leading "every project" choice as a null path.
+  assert.match(layout, /onChange\(id === ALL_PROJECTS_VALUE \? null : id\)/);
+  assert.match(mcp, /allLabel=\{t\("settings\.allProjects"\)\}/);
+  // With no project selected, every listed project is queried and grouped
+  // under its own header, and each row acts on the project it came from.
+  assert.match(
+    mcp,
+    /selectedProjectPath \? \[selectedProjectPath\] : options\.map\(\(project\) => project\.path\)/,
+  );
+  assert.match(mcp, /api\.listMcpServers\(\{ level: "project", projectPath \}\)/);
+  assert.match(mcp, /label=\{`\$\{t\("settings\.projectLevel"\)\} · \$\{nameOfProject\(group\.projectPath\)\}`\}/);
+  assert.match(mcp, /renderRow\(server, "project", group\.projectPath\)/);
+  assert.match(mcp, /const path = level === "project" \? projectPath : selectedProjectPath/);
+  assert.match(mcp, /levelQuery\(level, projectPath\)/);
+  assert.doesNotMatch(mcp, /level === "project" && selectedProjectPath/);
 });

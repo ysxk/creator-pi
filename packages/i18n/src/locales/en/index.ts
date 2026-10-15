@@ -930,6 +930,7 @@ sklm: {
     projectLevel: "Project",
     projectScopeDescription: "Only available in the selected project",
     noProjects: "No recent projects",
+    allProjects: "All projects",
     selectProject: "Select project",
     selectProjectFirst: "Select a project first",
     loadingCapabilities: "Loading capabilities…",

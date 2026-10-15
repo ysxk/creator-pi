@@ -584,7 +584,13 @@ system while preserving their different data ownership:
   single toolbar above a single elevated panel. The toolbar carries the level
   filter as a segmented control with live counts (All / Global / Project), one
   search field with a clear affordance, the selected-project picker, and the
-  page's primary actions right-aligned. Subagents uses the same filter and
+  page's primary actions right-aligned. On Skills and Subagents the picker
+  follows the project open in the window. On MCP it opens on **All projects**
+  (D682): the Project level then lists every recent project's own servers, one
+  group per project that has any, headed `Project · <name>` with that
+  project's `.agents/servers` path, and each row's actions act on the project
+  it came from. Picking one project narrows the page to it, and choosing All
+  projects again widens it. Subagents uses the same filter and
   picker (ADR 0326) and three in-panel groups: **Built-in** (the five shipped
   definitions `explorer`, `code-reviewer`, `test-runner`, `fixer`, and
   `ui-designer`, listed with the Global level), **Global**
@@ -636,7 +642,9 @@ system while preserving their different data ownership:
   project named by the page toolbar's project picker, and a project row offers
   Move to Global. With no project selected the Move into <project> item is not
   offered and the project group asks for a project selection instead, so a
-  capability is never sent to an unnamed project.
+  capability is never sent to an unnamed project. On MCP's All projects view
+  the same holds: a global row has no Move into item, and New or import at the
+  Project level asks for a project first.
 - The MCP editor's optional connection timeout accepts 1–600 seconds. A blank
   value clears the server override and restores the default; saving a changed
   timeout refreshes that server's live connection.

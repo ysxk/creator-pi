@@ -1062,6 +1062,7 @@ sklm: {
     projectLevel: "專案級",
     projectScopeDescription: "僅當前選中專案可用",
     noProjects: "暫無最近專案",
+    allProjects: "全部專案",
     selectProject: "選擇專案",
     selectProjectFirst: "請先選擇專案",
     loadingCapabilities: "正在載入能力…",

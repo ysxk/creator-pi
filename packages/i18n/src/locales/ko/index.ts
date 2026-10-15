@@ -1084,6 +1084,7 @@ sklm: {
     projectLevel: "프로젝트",
     projectScopeDescription: "선택한 프로젝트에서만 사용 가능",
     noProjects: "최근 프로젝트 없음",
+    allProjects: "All projects",
     selectProject: "프로젝트 선택",
     selectProjectFirst: "먼저 프로젝트를 선택하세요",
     loadingCapabilities: "기능 불러오는 중…",

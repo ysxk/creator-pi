@@ -33,12 +33,18 @@ export function projectDisplayName(path: string, fallback?: string): string {
   return parts.at(-1) || path;
 }
 
-/** Recent projects plus the project currently open in the window. */
-export function useAgentProjects() {
+/**
+ * Recent projects plus the project currently open in the window.
+ *
+ * With `allProjects`, a null selection is a real choice meaning "every
+ * project": the page starts there and stays there until the user picks one
+ * project, instead of following the window's open project.
+ */
+export function useAgentProjects({ allProjects = false }: { allProjects?: boolean } = {}) {
   const currentProjectPath = useAppStore((state) => state.workspace?.path ?? null);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
-    currentProjectPath,
+    allProjects ? null : currentProjectPath,
   );
 
   useEffect(() => {
@@ -58,8 +64,8 @@ export function useAgentProjects() {
   }, []);
 
   useEffect(() => {
-    if (currentProjectPath) setSelectedProjectPath(currentProjectPath);
-  }, [currentProjectPath]);
+    if (!allProjects && currentProjectPath) setSelectedProjectPath(currentProjectPath);
+  }, [allProjects, currentProjectPath]);
 
   const options = useMemo<AgentProjectOption[]>(() => {
     const seen = new Set<string>();
@@ -82,13 +88,24 @@ export function useAgentProjects() {
       if (selectedProjectPath) setSelectedProjectPath(null);
       return;
     }
+    if (allProjects) {
+      // A project that left the list falls back to every project, not to
+      // whichever project happens to be first.
+      if (
+        selectedProjectPath &&
+        !options.some((project) => project.path === selectedProjectPath)
+      ) {
+        setSelectedProjectPath(null);
+      }
+      return;
+    }
     if (
       !selectedProjectPath ||
       !options.some((project) => project.path === selectedProjectPath)
     ) {
       setSelectedProjectPath(options[0].path);
     }
-  }, [options, selectedProjectPath]);
+  }, [allProjects, options, selectedProjectPath]);
 
   return {
     currentProjectPath,
@@ -116,36 +133,45 @@ export function matchesCapabilitySearch(
   return fields.some((field) => field?.toLocaleLowerCase().includes(needle));
 }
 
+/** Picker value for "every project"; no project path is empty. */
+const ALL_PROJECTS_VALUE = "";
+
 export function AgentProjectPicker({
   value,
   options,
   label,
+  allLabel,
   disabled,
   onChange,
 }: {
   value: string | null;
   options: readonly AgentProjectOption[];
   label: string;
+  /** Offers a leading "every project" choice, reported as a null path. */
+  allLabel?: string;
   disabled?: boolean;
-  onChange: (path: string) => void;
+  onChange: (path: string | null) => void;
 }) {
   const { t } = useTranslation();
+  const projectOptions = options.map((project) => ({
+    id: project.path,
+    label: project.name,
+  }));
   return (
     <div className="agent-capability-project-picker">
       <IconFolder size={13} aria-hidden="true" />
       <SettingsMenuSelect
         className="agent-capability-project-select"
         label={label}
-        value={value ?? ""}
-        disabled={disabled || options.length === 0}
-        onChange={onChange}
+        value={value ?? ALL_PROJECTS_VALUE}
+        disabled={disabled || (options.length === 0 && !allLabel)}
+        onChange={(id) => onChange(id === ALL_PROJECTS_VALUE ? null : id)}
         options={
-          options.length === 0
-            ? [{ id: "", label: t("settings.noProjects"), disabled: true }]
-            : options.map((project) => ({
-                id: project.path,
-                label: project.name,
-              }))
+          allLabel
+            ? [{ id: ALL_PROJECTS_VALUE, label: allLabel }, ...projectOptions]
+            : options.length === 0
+              ? [{ id: ALL_PROJECTS_VALUE, label: t("settings.noProjects"), disabled: true }]
+              : projectOptions
         }
       />
     </div>

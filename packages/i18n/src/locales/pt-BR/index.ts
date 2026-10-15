@@ -904,6 +904,7 @@ export const ptBR = {
     projectLevel: "Projeto",
     projectScopeDescription: "Aplica-se apenas ao projeto selecionado.",
     noProjects: "Nenhum projeto recente",
+    allProjects: "All projects",
     selectProject: "Selecionar projeto",
     selectProjectFirst: "Selecione um projeto primeiro",
     loadingCapabilities: "Carregando recursos…",

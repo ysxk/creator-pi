@@ -74,6 +74,7 @@ This log freezes previously open questions into concrete decisions.
 | D679 | Project sessions are one flat list | *(supersedes the date labels of the 2026-09-16 sidebar rhythm entry)* **A project group in the sidebar lists its sessions flat, in the active sort order. The Yesterday / Previous 7 days / Previous 14 days / Older labels are gone, and so are their catalog keys and the bucketing helper. The ten-row fold, the load-more row, global pins and the sort modes are unchanged. Renderer-only.** | The user asked for it: with a date bucket every few rows, the labels took rows from a short list and split sessions that the chosen sort had already ordered. Under a Name or Created sort the buckets also overrode that sort, regrouping rows by update date. |
 | D680 | The work panel closes with its last tab | *(amends ADR 0224 and the 2026-09-11 tab strip entry)* **Closing the final work-panel tab, an explicit New tab included, closes the panel and records the session's panel context as closed. A close that leaves another tab, or that removes nothing, keeps the panel's open state. The toggle and `Cmd/Ctrl + J` still reveal a tab-less panel on the New launcher. Focus is not moved into the leaving panel. Renderer-only.** | The user reported it: previewing a file opened the panel, and closing that preview left an empty dock holding width beside the chat until it was collapsed by hand. The panel was there for the resource, so it goes with it. |
 | D681 | The runtime budgets with the context window the endpoint listed, where no publisher describes the model | **Extend D669 from input modalities to the context window, and amend `13-model-catalog-and-selection.md` §9.1. For a model no models.dev record matches and no typed operation metadata covers, the runtime's baseline window is the one host-core's model cache holds for it (`providers.listModels`), the number the model list already shows, instead of the generic 128,000. Provenance decides as it does for a published record: a `catalog` binding follows the listed window, a `user` binding and an unmarked legacy binding keep their stored one, and a discovered model with no binding runs with the listed window. It is not a safety ceiling, so a user's larger number is used as entered. The output cap is unchanged, since the cache holds none. The window travels on the model config as `endpointContextWindow`, so every place that applies a binding again resolves the same number. No protocol, host RPC, schema, or stored-binding change.** | The settings list and the context meter read the endpoint's window while the runtime compacted against 128k: an endpoint listing 32k overflowed before compaction started, and one listing 1M compacted far too early. |
+| D682 | The MCP page lists every project's servers by default | **The Settings › MCP project picker opens on a leading **All projects** choice instead of the project open in the window. With it, the Project level asks host-core for each recent project's `.agents/servers` list (the existing `mcp.list` with `level: "project"`, once per project) and shows one group per project that has servers, headed with the project's name and path; each row carries its project, so enable, edit, test, authorize, remove and Move to Global act on that project. Picking a project narrows the page to it, as before. Creating, importing and Move into <project> still need one project picked. Skills and Subagents keep following the open project. Renderer-only; no protocol, host RPC or storage change.** | The user wanted to see every project's MCP servers at a glance and only narrow to one project when they choose to; the page showed one project at a time and hid the rest behind the picker. |
 
 ## B. Secondary implementation defaults
 
@@ -7881,3 +7882,17 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - Covered by `apps/desktop/test/models-dev-catalog.test.mjs`,
   `packages/shared/src/model-catalog.test.ts` and
   `packages/agent-runtime/src/model-capabilities.test.ts`.
+
+## 2026-10-15 — The MCP page lists every project's servers (D682)
+
+- Before: `useAgentProjects` always selected a project (the open one, or the
+  first recent one), so the MCP page showed one project's servers at a time.
+- `useAgentProjects({ allProjects: true })` keeps a null selection as "every
+  project" and does not follow the open project; a project that leaves the
+  list falls back to every project. `AgentProjectPicker` takes `allLabel` and
+  reports that choice as `null`. Skills and Subagents call the hook as before.
+- `AgentMcpPage` keeps project servers as `{ projectPath, servers }` groups
+  and threads each row's project path into its row key and every host call,
+  instead of reading the picker's selection. Connection status still comes
+  from the open window's runtime, as it did for a selected project.
+- Covered by `apps/desktop/test/agent-capability-settings.test.mjs`.

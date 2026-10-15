@@ -157,6 +157,29 @@ window.settingsInlineMcpImportProbe = async () => {
     "MCP settings page did not open",
   );
 
+  // The page opens on every project; importing into a project needs one picked.
+  const projectPicker = requireNode(
+    document.querySelector('.agent-capability-project-select button[aria-label="Select project"]'),
+    "Project picker is missing",
+  );
+  if (projectPicker.textContent.trim() !== "All projects") {
+    throw new Error("Project picker opened on " + projectPicker.textContent.trim());
+  }
+  flushSync(() => projectPicker.click());
+  // The open project is listed under its folder name.
+  const projectLabel = projectPath.split("/").at(-1);
+  const projectOption = await waitFor(
+    () =>
+      [...document.querySelectorAll('button[role="option"]')]
+        .find((option) => option.textContent.trim() === projectLabel),
+    "Project option is missing",
+  );
+  flushSync(() => projectOption.click());
+  await waitFor(
+    () => projectPicker.textContent.trim() === projectLabel,
+    "Project picker did not select the project",
+  );
+
   const projectFilter = requireNode(
     [...document.querySelectorAll('.agent-capability-segment button[role="radio"]')]
       .find((button) => button.textContent.trim().startsWith("Project")),

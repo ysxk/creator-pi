@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   GLOBAL_SCOPE,
@@ -66,41 +66,59 @@ type McpEditorState = {
   draft: McpDraft;
   editing: McpServerRecord | null;
   level: AgentCapabilityLevel;
+  /** The project a project-level server lives in; unset for global. */
+  projectPath?: string;
+};
+
+/** One project's own servers, listed under that project's group header. */
+type McpProjectGroup = {
+  projectPath: string;
+  servers: McpServerRecord[];
 };
 
 type McpCollection = {
   global: McpServerRecord[];
-  project: McpServerRecord[];
+  projects: McpProjectGroup[];
   statuses: McpServerStatus[];
 };
 
-const EMPTY_MCP_COLLECTION: McpCollection = { global: [], project: [], statuses: [] };
+const EMPTY_MCP_COLLECTION: McpCollection = { global: [], projects: [], statuses: [] };
 
 export function AgentMcpPage() {
   const { t } = useTranslation();
   const showToast = useAppStore((state) => state.showToast);
-  const { selectedProjectPath, setSelectedProjectPath, options } = useAgentProjects();
+  // No selected project means every project: the page lists each recent
+  // project's own servers until the user narrows it to one.
+  const { selectedProjectPath, setSelectedProjectPath, options } = useAgentProjects({
+    allProjects: true,
+  });
+  const listedProjectPaths = useMemo(
+    () => (selectedProjectPath ? [selectedProjectPath] : options.map((project) => project.path)),
+    [options, selectedProjectPath],
+  );
   const fetchServers = useCallback(async (): Promise<McpCollection> => {
-    const [global, project] = await Promise.all([
+    const [global, ...projects] = await Promise.all([
       api.listMcpServers({
         level: "global",
         ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
       }),
-      selectedProjectPath
-        ? api.listMcpServers({ level: "project", projectPath: selectedProjectPath })
-        : Promise.resolve({
-            servers: [] as McpServerRecord[],
-            statuses: [] as McpServerStatus[],
-          }),
+      ...listedProjectPaths.map((projectPath) =>
+        api.listMcpServers({ level: "project", projectPath }),
+      ),
     ]);
     return {
       global: global.servers ?? [],
-      project: project.servers ?? [],
-      statuses: [...(global.statuses ?? []), ...(project.statuses ?? [])],
+      projects: listedProjectPaths.map((projectPath, index) => ({
+        projectPath,
+        servers: projects[index]?.servers ?? [],
+      })),
+      // Status comes from the open window's runtime, so every list call
+      // returns the same set; the global call's copy is enough.
+      statuses: global.statuses ?? [],
     };
-  }, [selectedProjectPath]);
+  }, [listedProjectPaths, selectedProjectPath]);
   const {
-    data: { global: globalServers, project: projectServers, statuses },
+    data: { global: globalServers, projects: projectGroups, statuses },
     setData: setServers,
     loading,
     refreshing,
@@ -130,21 +148,41 @@ export function AgentMcpPage() {
   const [view, setView] = useState<"servers" | "market">("servers");
   const { armed, setArmed } = useArmedDelete();
 
-  const rowKey = (level: AgentCapabilityLevel, id: string) => `${level}:${id}`;
-  const levelQuery = (level: AgentCapabilityLevel) => ({
-    level,
-    ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
-  });
+  const projectServers = useMemo(
+    () => projectGroups.flatMap((group) => group.servers),
+    [projectGroups],
+  );
+  const rowKey = (level: AgentCapabilityLevel, id: string, projectPath?: string) =>
+    level === "project" ? `${level}:${projectPath ?? ""}:${id}` : `${level}:${id}`;
+  /**
+   * A project row names its own project; a global row borrows the selected
+   * project, if any, the way the page always queried it.
+   */
+  const levelQuery = (level: AgentCapabilityLevel, projectPath?: string) => {
+    const path = level === "project" ? projectPath : selectedProjectPath;
+    return { level, ...(path ? { projectPath: path } : {}) };
+  };
 
   const patchRow = (
     level: AgentCapabilityLevel,
     id: string,
     patch: Partial<McpServerRecord>,
+    projectPath?: string,
   ) => {
-    setServers((current) => ({
-      ...current,
-      [level]: current[level].map((row) => (row.id === id ? { ...row, ...patch } : row)),
-    }));
+    const patchList = (rows: McpServerRecord[]) =>
+      rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
+    setServers((current) =>
+      level === "global"
+        ? { ...current, global: patchList(current.global) }
+        : {
+            ...current,
+            projects: current.projects.map((group) =>
+              group.projectPath === projectPath
+                ? { ...group, servers: patchList(group.servers) }
+                : group,
+            ),
+          },
+    );
   };
 
   /** New servers land at whichever level the filter is pointing at. */
@@ -165,20 +203,29 @@ export function AgentMcpPage() {
       },
       editing: null,
       level: targetLevel,
+      ...(targetLevel === "project" ? { projectPath: selectedProjectPath! } : {}),
     });
   };
 
-  const openEdit = (server: McpServerRecord, level: AgentCapabilityLevel) => {
+  const openEdit = (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
     setMenuFor(null);
-    setEditor({ draft: draftFromRecord(server), editing: server, level });
+    setEditor({ draft: draftFromRecord(server), editing: server, level, projectPath });
   };
 
   const save = async () => {
     if (!editor) return;
-    const projectPath = editor.level === "project" ? selectedProjectPath ?? undefined : undefined;
+    const projectPath = editor.level === "project" ? editor.projectPath : undefined;
     const candidateId = editor.draft.id.trim();
     const candidateLabel = editor.draft.label.trim().toLocaleLowerCase();
-    const sameLevel = (editor.level === "global" ? globalServers : projectServers).some(
+    const levelServers =
+      editor.level === "global"
+        ? globalServers
+        : projectGroups.find((group) => group.projectPath === projectPath)?.servers ?? [];
+    const sameLevel = levelServers.some(
       (server) =>
         server.id !== editor.editing?.id &&
         (server.id === candidateId ||
@@ -206,16 +253,20 @@ export function AgentMcpPage() {
     }
   };
 
-  const toggle = async (server: McpServerRecord, level: AgentCapabilityLevel) => {
-    const key = rowKey(level, server.id);
+  const toggle = async (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
+    const key = rowKey(level, server.id, projectPath);
     if (busyId) return;
     const next = !server.enabled;
     setBusyId(key);
     // Flip locally first: the host is the authority, but a round-trip of latency
     // on a switch reads as a broken control.
-    patchRow(level, server.id, { enabled: next });
+    patchRow(level, server.id, { enabled: next }, projectPath);
     try {
-      await api.setMcpServerEnabled(server.id, next, levelQuery(level));
+      await api.setMcpServerEnabled(server.id, next, levelQuery(level, projectPath));
       showToast(
         t(next ? "settings.capabilityEnabled" : "settings.capabilityDisabled", {
           name: server.label || server.id,
@@ -223,22 +274,24 @@ export function AgentMcpPage() {
         { variant: "success" },
       );
     } catch (error) {
-      patchRow(level, server.id, { enabled: server.enabled });
+      patchRow(level, server.id, { enabled: server.enabled }, projectPath);
       showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
     } finally {
       setBusyId(null);
     }
   };
 
-  const testConnection = async (server: McpServerRecord, level: AgentCapabilityLevel) => {
+  const testConnection = async (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
     if (testingId) return;
     setTestingId(server.id);
     try {
       const result = await api.testMcpServer(server.id, {
         level,
-        ...(level === "project" && selectedProjectPath
-          ? { projectPath: selectedProjectPath }
-          : {}),
+        ...(level === "project" && projectPath ? { projectPath } : {}),
       });
       setStatuses((current) => [
         ...current.filter((status) => status.serverId !== server.id),
@@ -260,7 +313,11 @@ export function AgentMcpPage() {
     }
   };
 
-  const authorizeServer = async (server: McpServerRecord, level: AgentCapabilityLevel) => {
+  const authorizeServer = async (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
     if (authorizingId || pendingOAuthRef.current) return;
     setAuthorizingId(server.id);
     let activeLoginId: string | null = null;
@@ -307,9 +364,7 @@ export function AgentMcpPage() {
       showToast(t("extensions.mcp.authorizing"), { variant: "info" });
       const result = await api.startMcpOAuth(server.id, {
         level,
-        ...(level === "project" && selectedProjectPath
-          ? { projectPath: selectedProjectPath }
-          : {}),
+        ...(level === "project" && projectPath ? { projectPath } : {}),
       });
       activeLoginId = result.loginId;
       if (!result.ok) {
@@ -322,11 +377,15 @@ export function AgentMcpPage() {
     }
   };
 
-  const remove = async (server: McpServerRecord, level: AgentCapabilityLevel) => {
-    const key = rowKey(level, server.id);
+  const remove = async (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
+    const key = rowKey(level, server.id, projectPath);
     setBusyId(key);
     try {
-      await api.removeMcpServer(server.id, levelQuery(level));
+      await api.removeMcpServer(server.id, levelQuery(level, projectPath));
       await load();
       showToast(t("settings.capabilityDeleted", { name: server.label || server.id }), {
         variant: "success",
@@ -348,24 +407,26 @@ export function AgentMcpPage() {
         server.description,
         server.transport === "http" ? server.url : server.command,
       );
+    const projects = projectGroups.map((group) => ({
+      ...group,
+      servers: group.servers.filter(match),
+    }));
     return {
       global: globalServers.filter(match),
-      project: projectServers.filter(match),
+      projects,
+      projectCount: projects.reduce((sum, group) => sum + group.servers.length, 0),
     };
-  }, [globalServers, projectServers, search]);
+  }, [globalServers, projectGroups, search]);
 
   const counts = {
-    all: visible.global.length + visible.project.length,
+    all: visible.global.length + visible.projectCount,
     global: visible.global.length,
-    project: visible.project.length,
+    project: visible.projectCount,
   };
 
-  const projectName = useMemo(
-    () =>
-      options.find((project) => project.path === selectedProjectPath)?.name ??
-      (selectedProjectPath ? projectDisplayName(selectedProjectPath) : undefined),
-    [options, selectedProjectPath],
-  );
+  const nameOfProject = (path: string) =>
+    options.find((project) => project.path === path)?.name ?? projectDisplayName(path);
+  const projectName = selectedProjectPath ? nameOfProject(selectedProjectPath) : undefined;
 
   /** Where a move sends a row, named the way the toast should say it. */
   const moveTarget: Partial<Record<AgentCapabilityLevel, string>> = {
@@ -384,20 +445,24 @@ export function AgentMcpPage() {
    * already holds the id or name renames the arriving server, so the toast
    * reports the new name instead of pretending the id survived.
    */
-  const move = async (server: McpServerRecord, level: AgentCapabilityLevel) => {
+  const move = async (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
     const to: AgentCapabilityLevel = level === "global" ? "project" : "global";
     const target = moveTarget[to];
     if (!target) {
       showToast(t("settings.selectProjectFirst"), { variant: "error" });
       return;
     }
-    const key = rowKey(level, server.id);
+    const key = rowKey(level, server.id, projectPath);
     setBusyId(key);
     try {
       const result = await api.transferMcpServer({
         id: server.id,
-        from: levelQuery(level),
-        to: levelQuery(to),
+        from: levelQuery(level, projectPath),
+        to: levelQuery(to, selectedProjectPath ?? undefined),
       });
       await load();
       const name = server.label || server.id;
@@ -419,8 +484,12 @@ export function AgentMcpPage() {
     }
   };
 
-  const renderRow = (server: McpServerRecord, level: AgentCapabilityLevel) => {
-    const key = rowKey(level, server.id);
+  const renderRow = (
+    server: McpServerRecord,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
+    const key = rowKey(level, server.id, projectPath);
     const name = server.label || server.id;
     const status = statusFor(statuses, server);
     const busy = busyId === key;
@@ -445,7 +514,7 @@ export function AgentMcpPage() {
         disabled: testing || authorizing,
         onSelect: () => {
           setMenuFor(null);
-          void testConnection(server, level);
+          void testConnection(server, level, projectPath);
         },
       },
       ...(isOAuth
@@ -459,7 +528,7 @@ export function AgentMcpPage() {
               disabled: testing || authorizing,
               onSelect: () => {
                 setMenuFor(null);
-                void authorizeServer(server, level);
+                void authorizeServer(server, level, projectPath);
               },
             } satisfies CapabilityMenuItem,
           ]
@@ -482,7 +551,7 @@ export function AgentMcpPage() {
               icon: <IconArrowUpDown size={14} />,
               onSelect: () => {
                 setMenuFor(null);
-                void move(server, level);
+                void move(server, level, projectPath);
               },
             } satisfies CapabilityMenuItem,
           ]
@@ -495,7 +564,7 @@ export function AgentMcpPage() {
         onSelect: () => {
           if (isArmed) {
             setMenuFor(null);
-            void remove(server, level);
+            void remove(server, level, projectPath);
           } else {
             setArmed(key);
           }
@@ -552,7 +621,7 @@ export function AgentMcpPage() {
                 ariaLabel={t("extensions.mcp.authorize")}
                 tooltip={authorizing ? t("extensions.mcp.authorizing") : t("extensions.mcp.authorize")}
                 disabled={busy || authorizing}
-                onClick={() => void authorizeServer(server, level)}
+                onClick={() => void authorizeServer(server, level, projectPath)}
               >
                 <IconKey size={15} />
               </TooltipButton>
@@ -563,7 +632,7 @@ export function AgentMcpPage() {
               ariaLabel={t("settings.editMcpOf", { name })}
               tooltip={t("settings.editMcp")}
               disabled={busy}
-              onClick={() => openEdit(server, level)}
+              onClick={() => openEdit(server, level, projectPath)}
             >
               <IconPencil size={15} />
             </TooltipButton>
@@ -581,7 +650,7 @@ export function AgentMcpPage() {
               checked={server.enabled}
               busy={busy || testing}
               label={t("settings.toggleCapability", { name })}
-              onChange={() => void toggle(server, level)}
+              onChange={() => void toggle(server, level, projectPath)}
             />
           </>
         }
@@ -646,6 +715,7 @@ export function AgentMcpPage() {
               value={selectedProjectPath}
               options={options}
               label={t("settings.selectProject")}
+              allLabel={t("settings.allProjects")}
               onChange={setSelectedProjectPath}
             />
           }
@@ -716,23 +786,56 @@ export function AgentMcpPage() {
               </>
             ) : null}
             {showProject ? (
-              <>
-                <CapabilityGroupHeader
-                  label={t("settings.projectLevel")}
-                  path={projectMcpPath(selectedProjectPath)}
-                  count={visible.project.length}
-                />
-                {!selectedProjectPath ? (
-                  <CapabilityEmpty message={t("settings.selectProjectFirst")} />
-                ) : visible.project.length === 0 ? (
+              selectedProjectPath ? (
+                <>
+                  <CapabilityGroupHeader
+                    label={t("settings.projectLevel")}
+                    path={projectMcpPath(selectedProjectPath)}
+                    count={visible.projectCount}
+                  />
+                  {visible.projectCount === 0 ? (
+                    <CapabilityEmpty
+                      message={t("settings.mcpEmpty")}
+                      icon={<IconServer size={18} />}
+                    />
+                  ) : (
+                    visible.projects.flatMap((group) =>
+                      group.servers.map((server) =>
+                        renderRow(server, "project", group.projectPath),
+                      ),
+                    )
+                  )}
+                </>
+              ) : visible.projectCount === 0 ? (
+                <>
+                  <CapabilityGroupHeader
+                    label={t("settings.projectLevel")}
+                    path={projectMcpPath(null)}
+                    count={0}
+                  />
                   <CapabilityEmpty
                     message={t("settings.mcpEmpty")}
                     icon={<IconServer size={18} />}
                   />
-                ) : (
-                  visible.project.map((server) => renderRow(server, "project"))
-                )}
-              </>
+                </>
+              ) : (
+                // Every project at once: one group per project that has servers,
+                // so a row's project is always named by the header above it.
+                visible.projects
+                  .filter((group) => group.servers.length > 0)
+                  .map((group) => (
+                    <Fragment key={group.projectPath}>
+                      <CapabilityGroupHeader
+                        label={`${t("settings.projectLevel")} · ${nameOfProject(group.projectPath)}`}
+                        path={projectMcpPath(group.projectPath)}
+                        count={group.servers.length}
+                      />
+                      {group.servers.map((server) =>
+                        renderRow(server, "project", group.projectPath),
+                      )}
+                    </Fragment>
+                  ))
+              )
             ) : null}
           </>
         )}
@@ -747,15 +850,17 @@ export function AgentMcpPage() {
           status={editor.editing ? statusFor(statuses, editor.editing) : undefined}
           testing={testingId === editor.editing?.id}
           projects={[]}
-          currentProjectPath={selectedProjectPath}
+          currentProjectPath={editor.projectPath ?? selectedProjectPath}
           managementLevel={editor.level}
-          managementProjectName={projectName}
+          managementProjectName={editor.projectPath ? nameOfProject(editor.projectPath) : projectName}
           onClose={() => {
             if (!saving && !testingId) setEditor(null);
           }}
           onSave={() => void save()}
           onTest={() => {
-            if (editor.editing) void testConnection(editor.editing, editor.level);
+            if (editor.editing) {
+              void testConnection(editor.editing, editor.level, editor.projectPath);
+            }
           }}
         />
       ) : null}
