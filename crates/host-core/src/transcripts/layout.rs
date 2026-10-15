@@ -303,12 +303,9 @@ fn scan_layout(path: &Path, mut layout: TranscriptLayout) -> Result<TranscriptLa
         if !raw.ends_with(b"\n") {
             break;
         }
-        let line = std::str::from_utf8(&raw).map_err(|_| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "stream did not contain valid UTF-8",
-            )
-        })?;
+        // Preserve the readable prefix and suffix when a completed append
+        // contains bytes from a character that was torn during a crash.
+        let line = String::from_utf8_lossy(&raw);
         match sniff_line_kind(line.trim_end()) {
             Some("message") => layout.message_offsets.push(offset),
             Some("compaction") => layout.compaction_offsets.push(offset),

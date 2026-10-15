@@ -1315,6 +1315,21 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **状态**：草案。2026-09-20 的嵌套披露变更仅把本场景作为静态源码／设计审查的
   预期行为；该范围不新增或运行单元、组件、集成、浏览器、Electron 或 E2E 测试。
 
+#### E2E-TRANSCRIPT-invalid-utf8-window-remains-readable
+
+- **先决条件**：隔离的 Host 配置中有一个会话转录，损坏行前后都有有效消息。完整行内含非法
+  UTF-8 字节：一份夹具把字节放在消息文本中，另一份使消息行无法解析。不使用真实用户数据。
+- **步骤**：通过渲染器的有界 `session.get` 路径以 `messageLimit` 打开会话，分页经过损坏行，
+  再通过 Host API 读取完整历史。比较读取前后的转录文件。
+- **预期**：会话仍可读取。前后有效消息按顺序出现；可解析的损坏文本以 U+FFFD 替代非法字节，
+  无法解析的行会跳过。源转录逐字节不变，分页位置保持一致。
+- **链接规格**：`03-runtime/04-data-storage.md`、ADR 0127。
+- **验收**：C（对话和流）、F（持久性）、质量。
+- **里程碑**：维护。
+- **自动化**：`pnpm test:e2e:transcript-cache` 通过隔离 Host 的有界 `session.get` 验证替代文本
+  和源文件不变；`crates/host-core/src/transcripts_layout_tests.rs` 直接覆盖坏行与布局读取。完整
+  Renderer 用户旅程仍为草案。
+
 #### E2E-041：对话小地图导航长记录
 
 - **先决条件**：会话包含足够的用户和助理轮流
@@ -5779,6 +5794,7 @@ eleven-tool-round desktop paths are verified by
 | 品质（工具调用 id 唯一） | E2E-RUNTIME-unique-tool-call-ids-per-request |
 | C — 对话与流式（循环上下文归属） | E2E-RUNTIME-loop-context-ownership |
 | 品质（循环上下文归属） | E2E-RUNTIME-loop-context-ownership |
+| C / F / 质量 — 转录非法 UTF-8 恢复 | E2E-TRANSCRIPT-invalid-utf8-window-remains-readable |
 | G — 插件宿主生命周期（崩溃上报） | E2E-PLUGIN-crash-report-names-the-exit-code |
 | 品质（崩溃上报） | E2E-PLUGIN-crash-report-names-the-exit-code |
 | F — 持久化（存储的模型绑定数组） | E2E-PROVIDER-stored-binding-array-reads-entry-by-entry |

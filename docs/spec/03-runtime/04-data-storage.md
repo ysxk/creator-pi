@@ -1451,9 +1451,11 @@ cached read is proportional to the requested page. Consequences:
 - A point read that finds an invalid indexed line boundary drops both cache
   layers, scans the complete transcript without consulting the disk cache, and
   retries once with message counts, page ranges, and message location recomputed
-  from the rebuilt layout. A real JSON, UTF-8, or I/O error from that complete
-  scan remains an error; the transcript is never rewritten or repaired by
-  replacing bytes or skipping messages.
+  from the rebuilt layout. Reads tolerate invalid UTF-8 within a complete line:
+  parseable records use U+FFFD for the damaged bytes, while records that remain
+  invalid JSON or do not match the record schema are skipped with a diagnostic.
+  Physical message-line positions stay consistent across bounded reads. The
+  transcript bytes are never rewritten; actual file I/O errors remain errors.
 - New cache files use a nonnumeric version header that older parsers safely
   reject and rebuild. Downgrading to an older app preserves the transcript and
   database, though that app's own cache defect may recur. No database or

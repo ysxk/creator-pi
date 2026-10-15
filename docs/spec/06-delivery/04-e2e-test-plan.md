@@ -1885,6 +1885,27 @@ identify the platform validation still needed.
 - **Status**: Source-level and isolated Host RPC cache regressions covered;
   full large-fixture Electron journey Draft
 
+#### E2E-TRANSCRIPT-invalid-utf8-window-remains-readable
+
+- **Preconditions**: An isolated Host profile contains a session transcript
+  with valid messages before and after a complete line containing invalid
+  UTF-8 bytes. The damaged bytes are inside message text in one fixture and
+  make a separate message line unparseable in another. No real user data.
+- **Steps**: Open the session through the renderer's bounded `session.get`
+  path with `messageLimit`, page across the damaged line, then read the full
+  history through the Host API. Compare the transcript file before and after.
+- **Expected**: The session stays readable. Valid surrounding messages appear
+  in order; parseable damaged text contains U+FFFD, while an unparseable row is
+  skipped. The source transcript remains byte-identical and paging positions
+  stay consistent.
+- **Specs**: `03-runtime/04-data-storage.md` and ADR 0127.
+- **Acceptance**: C (conversation and stream), F (persistence), Quality.
+- **Milestone**: Maintenance.
+- **Automation**: `pnpm test:e2e:transcript-cache` exercises bounded `session.get`
+  against an isolated Host and verifies replacement text plus unchanged source
+  bytes. `crates/host-core/src/transcripts_layout_tests.rs` covers the invalid
+  row and layout reader directly. Full renderer journey remains Draft.
+
 #### E2E-011a: New session while another session is still streaming
 
 - **Preconditions**: Provider configured; session A is streaming a long
@@ -9941,6 +9962,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality (stored model binding array) | E2E-PROVIDER-stored-binding-array-reads-entry-by-entry |
 | Quality (unique tool-call ids) | E2E-RUNTIME-unique-tool-call-ids-per-request |
 | C — Conversation & stream (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
+| C / F / Quality — Transcript invalid UTF-8 recovery | E2E-TRANSCRIPT-invalid-utf8-window-remains-readable |
 | Quality (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
 | G — Plugin host lifecycle (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
 | Quality (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |

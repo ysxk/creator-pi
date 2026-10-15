@@ -189,13 +189,17 @@ pub fn find_message_position(
         id: String,
     }
     let mut reader = BufReader::new(File::open(transcript_path(data_dir, session_id)?)?);
+    let mut raw = Vec::new();
     let mut line = String::new();
     for (position, offset) in layout.message_offsets.iter().enumerate().rev() {
-        read_layout_line(&mut reader, *offset, "message", &mut line)?;
-        let identity: Identity =
-            serde_json::from_str(&line).context("decode indexed transcript message identity")?;
-        if identity.id == message_id {
-            return Ok(Some(position));
+        let invalid_utf8 = read_layout_line(&mut reader, *offset, "message", &mut raw, &mut line)?;
+        match serde_json::from_str::<Identity>(&line) {
+            Ok(identity) if identity.id == message_id => return Ok(Some(position)),
+            Ok(_) => {}
+            Err(error) if invalid_utf8 => {
+                tracing::warn!(%error, "skipping invalid indexed transcript identity");
+            }
+            Err(error) => return Err(error).context("decode indexed transcript message identity"),
         }
     }
     Ok(None)
@@ -210,6 +214,7 @@ pub fn read_tool_call(
     call_id: &str,
 ) -> Result<Option<MessageRecord>> {
     let mut reader = BufReader::new(File::open(transcript_path(data_dir, session_id)?)?);
+    let mut raw = Vec::new();
     let mut line = String::new();
     // A provider tool-call id is an opaque token, so it appears verbatim in the
     // line that stores it. A byte scan rejects a line before serde walks its
@@ -217,12 +222,20 @@ pub fn read_tool_call(
     // that JSON would escape keeps the unfiltered path.
     let verbatim = is_json_verbatim(call_id);
     for offset in layout.message_offsets.iter().rev() {
-        read_layout_line(&mut reader, *offset, "message", &mut line)?;
+        let invalid_utf8 = read_layout_line(&mut reader, *offset, "message", &mut raw, &mut line)?;
         if verbatim && !line.contains(call_id) {
             continue;
         }
-        let identity: Value =
-            serde_json::from_str(&line).context("decode indexed transcript tool-call identity")?;
+        let identity: Value = match serde_json::from_str(&line) {
+            Ok(value) => value,
+            Err(error) if invalid_utf8 => {
+                tracing::warn!(%error, "skipping invalid indexed transcript tool-call identity");
+                continue;
+            }
+            Err(error) => {
+                return Err(error).context("decode indexed transcript tool-call identity");
+            }
+        };
         let matches_call = identity.get("role").and_then(Value::as_str) == Some("tool")
             && identity
                 .get("blocks")
@@ -233,7 +246,15 @@ pub fn read_tool_call(
                         .any(|block| block.get("callId").and_then(Value::as_str) == Some(call_id))
                 });
         if matches_call {
-            return Ok(Some(serde_json::from_str(&line)?));
+            match serde_json::from_str(&line) {
+                Ok(record) => return Ok(Some(record)),
+                Err(error) if invalid_utf8 => {
+                    tracing::warn!(%error, "skipping invalid indexed tool-call message");
+                }
+                Err(error) => {
+                    return Err(error).context("decode indexed transcript tool-call message")
+                }
+            }
         }
     }
     Ok(None)
@@ -248,40 +269,43 @@ pub(crate) fn read_line_tolerant(
     reader: &mut BufReader<File>,
     raw_buf: &mut Vec<u8>,
     line_buf: &mut String,
-) -> std::io::Result<usize> {
+) -> std::io::Result<(usize, bool)> {
     raw_buf.clear();
     let n = reader.read_until(b'\n', raw_buf)?;
     if n == 0 {
         line_buf.clear();
-        return Ok(0);
+        return Ok((0, false));
     }
     line_buf.clear();
-    match std::str::from_utf8(raw_buf) {
-        Ok(valid) => line_buf.push_str(valid),
-        Err(_) => line_buf.push_str(&String::from_utf8_lossy(raw_buf)),
+    match String::from_utf8(std::mem::take(raw_buf)) {
+        Ok(decoded) => {
+            *raw_buf = std::mem::replace(line_buf, decoded).into_bytes();
+            Ok((n, false))
+        }
+        Err(error) => {
+            let bytes = error.into_bytes();
+            line_buf.push_str(&String::from_utf8_lossy(&bytes));
+            *raw_buf = bytes;
+            Ok((n, true))
+        }
     }
-    Ok(n)
 }
 fn read_layout_line(
     reader: &mut BufReader<File>,
     offset: u64,
     expected_kind: &str,
+    raw: &mut Vec<u8>,
     line: &mut String,
-) -> Result<()> {
+) -> Result<bool> {
     reader.seek(SeekFrom::Start(offset))?;
-    line.clear();
-    match reader.read_line(line) {
-        Ok(0) => return Err(layout::invalid_boundary()),
-        Ok(_) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
-            return Err(layout::invalid_boundary())
-        }
-        Err(error) => return Err(error.into()),
+    let (read, invalid_utf8) = read_line_tolerant(reader, raw, line)?;
+    if read == 0 {
+        return Err(layout::invalid_boundary());
     }
     if !line.ends_with('\n') || sniff_line_kind(line.trim_end()) != Some(expected_kind) {
         return Err(layout::invalid_boundary());
     }
-    Ok(())
+    Ok(invalid_utf8)
 }
 
 /// Whether a JSON string for this value is the value itself.
@@ -320,7 +344,7 @@ pub fn transcript_contains_id(data_dir: &Path, session_id: &str, message_id: &st
     let mut line = String::new();
     loop {
         line.clear();
-        if read_line_tolerant(&mut reader, &mut raw, &mut line)? == 0 {
+        if read_line_tolerant(&mut reader, &mut raw, &mut line)?.0 == 0 {
             return Ok(false);
         }
         let trimmed = line.trim();
@@ -913,22 +937,34 @@ pub fn read_transcript_window_with_layout(
         Err(e) => return Err(e).with_context(|| format!("read {}", path.display())),
     };
     let mut reader = BufReader::new(file);
+    let mut raw = Vec::new();
     let mut line = String::new();
     for (offset, is_message) in wanted {
         let kind = if is_message { "message" } else { "compaction" };
-        read_layout_line(&mut reader, offset, kind, &mut line)
+        let invalid_utf8 = read_layout_line(&mut reader, offset, kind, &mut raw, &mut line)
             .with_context(|| format!("read indexed transcript line in {}", path.display()))?;
         let trimmed = line.trim();
         if is_message {
-            out.messages.push(
-                serde_json::from_str::<MessageRecord>(trimmed)
-                    .context("decode indexed transcript message")?,
-            );
+            match serde_json::from_str::<MessageRecord>(trimmed) {
+                Ok(record) => out.messages.push(record),
+                Err(error) if invalid_utf8 => {
+                    tracing::warn!(path = %path.display(), %error, "skipping invalid indexed message line");
+                }
+                Err(error) => return Err(error).context("decode indexed transcript message"),
+            }
         } else {
-            out.compactions.push(
-                serde_json::from_str::<CompactionRecord>(trimmed)
-                    .context("decode indexed transcript compaction")?,
-            );
+            match serde_json::from_str::<CompactionRecord>(trimmed) {
+                Ok(record) => out.compactions.push(record),
+                Err(error) if invalid_utf8 => {
+                    tracing::warn!(path = %path.display(), %error, "skipping invalid indexed compaction line");
+                }
+                Err(error) => {
+                    return Err(error).context("decode indexed transcript compaction");
+                }
+            }
+        }
+        if raw.capacity() > 1024 * 1024 {
+            raw = Vec::new();
         }
         if line.capacity() > 1024 * 1024 {
             line = String::new();
@@ -961,7 +997,7 @@ pub fn read_transcript_window(
     let mut out = TranscriptRead::default();
     loop {
         line.clear();
-        if read_line_tolerant(&mut reader, &mut raw, &mut line)? == 0 {
+        if read_line_tolerant(&mut reader, &mut raw, &mut line)?.0 == 0 {
             break;
         }
         // Classify by a bounded prefix scan: a full parse here walks every byte
@@ -1388,7 +1424,7 @@ pub fn read_revision(
             line = String::new();
         }
         line.clear();
-        let read = read_line_tolerant(&mut reader, &mut raw, &mut line)?;
+        let (read, _) = read_line_tolerant(&mut reader, &mut raw, &mut line)?;
         if read == 0 {
             break;
         }
@@ -1412,7 +1448,7 @@ pub fn read_revision(
         }
         line.clear();
         reader.seek(SeekFrom::Start(*offset))?;
-        if read_line_tolerant(&mut reader, &mut raw, &mut line)? == 0 {
+        if read_line_tolerant(&mut reader, &mut raw, &mut line)?.0 == 0 {
             continue;
         }
         let body = line.trim();
