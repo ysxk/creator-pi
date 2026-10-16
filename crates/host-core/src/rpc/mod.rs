@@ -1383,7 +1383,10 @@ fn requires_external_path_permission(
     tool_name: &str,
     args: &Value,
 ) -> bool {
-    if !matches!(tool_name, "Read" | "Glob" | "Grep" | "Write" | "Edit") {
+    if !matches!(
+        tool_name,
+        "Read" | "Glob" | "Grep" | "Write" | "Edit" | "ViewVideo" | "ViewAudio"
+    ) {
         return false;
     }
     let Some(path) = args.get("path").and_then(Value::as_str) else {

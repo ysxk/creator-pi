@@ -13,6 +13,9 @@ import {
 
 test("maps built-in tools to concise Codex-style actions", () => {
   assert.equal(getToolAction("Read"), "read");
+  // The media tools (D685) read as watching and listening, not as a generic tool.
+  assert.equal(getToolAction("ViewVideo"), "watch");
+  assert.equal(getToolAction("ViewAudio"), "listen");
   assert.equal(getToolAction("list_files"), "list");
   assert.equal(getToolAction("Grep"), "search");
   assert.equal(getToolAction("apply_patch"), "edit");

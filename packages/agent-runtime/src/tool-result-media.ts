@@ -4,13 +4,15 @@ import { audioFromModelConfig, videoFromModelConfig } from "./model-capabilities
 import { apiBindingForProviderModel, type RuntimeProviderConfig } from "./provider-binding.js";
 
 /**
- * A clip or a recording the model asked to read, handed to it as media.
+ * A clip or a recording the model asked to watch or hear, handed to it as media.
  *
- * host-core answers `Read` of a video or audio file with a reference — it has
- * applied the path policy, and only the runtime knows whether the model can
- * watch or listen. A model that takes the medium gets the file itself inside
- * the tool result, so it watches or listens instead of extracting frames or
- * transcribing with shell tools.
+ * `ViewVideo` and `ViewAudio` exist only for a model that takes the medium
+ * over a wire API that can carry it in a tool result; for any other model they
+ * are not declared and nothing in the prompt mentions them, so it handles the
+ * file the way it can. host-core answers either tool with a reference — it has
+ * applied the path policy — and the runtime attaches the file itself to the
+ * tool result, so the model watches or listens instead of extracting frames or
+ * transcribing with shell tools. `Read` refuses both kinds as binary.
  *
  * pi-ai's tool result carries text and image blocks only, so the media travels
  * as a block of that kind with a `video/*` or `audio/*` type, and each adapter
@@ -28,6 +30,17 @@ import { apiBindingForProviderModel, type RuntimeProviderConfig } from "./provid
  * out, and the model is told in words that nothing was attached.
  */
 export type ToolResultMediaKind = "video" | "audio";
+
+export const VIEW_VIDEO_TOOL_NAME = "ViewVideo";
+export const VIEW_AUDIO_TOOL_NAME = "ViewAudio";
+
+const VIEW_TOOL_NAMES: Record<ToolResultMediaKind, string> = {
+  video: VIEW_VIDEO_TOOL_NAME,
+  audio: VIEW_AUDIO_TOOL_NAME,
+};
+
+/** Both media tools; a delegate gets neither, since its model is not this one. */
+export const VIEW_MEDIA_TOOL_NAMES: ReadonlySet<string> = new Set(Object.values(VIEW_TOOL_NAMES));
 
 export type HostMediaReference = {
   kind: ToolResultMediaKind;
@@ -75,7 +88,7 @@ function mediaKindOfMime(mimeType: string): ToolResultMediaKind | null {
   return null;
 }
 
-/** The media reference in a host `Read` result, or null when there is none. */
+/** The media reference in a host `ViewVideo` / `ViewAudio` result, or null. */
 export function hostMediaReference(content: unknown): HostMediaReference | null {
   if (!isRecord(content)) return null;
   for (const kind of MEDIA_KINDS) {
@@ -98,16 +111,16 @@ export function hostMediaReference(content: unknown): HostMediaReference | null 
 }
 
 /**
- * The sentences added to `Read`'s description for a model that will receive
- * the medium. Said to no one else: a model told this and then handed a path
- * would have been promised something the result does not deliver.
+ * The sentences added to `Read`'s description that point a media file at its
+ * own tool. Said only where that tool is declared: a delegate, or a model that
+ * does not take the medium, must not be sent to a tool it does not have.
  */
 export const READ_VIDEO_HINT =
-  " Reading a video file (mp4, mov, webm, …) attaches the video itself to the result, so you watch and hear it natively: Read it instead of extracting frames or audio.";
+  ` Read refuses a video file (mp4, mov, webm, …); call ${VIEW_VIDEO_TOOL_NAME} to watch it.`;
 export const READ_AUDIO_HINT =
-  " Reading an audio file (mp3, wav, m4a, …) attaches the recording itself to the result, so you listen to it natively: Read it instead of transcribing it with tools.";
+  ` Read refuses an audio file (mp3, wav, m4a, …); call ${VIEW_AUDIO_TOOL_NAME} to listen to it.`;
 
-/** The `Read` description sentences for the media this provider's model receives. */
+/** The `Read` description sentences for the media tools this provider's model gets. */
 export function readMediaHint(
   provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
 ): string {
@@ -115,6 +128,53 @@ export function readMediaHint(
     (toolResultMediaSupported(provider, "video") ? READ_VIDEO_HINT : "") +
     (toolResultMediaSupported(provider, "audio") ? READ_AUDIO_HINT : "")
   );
+}
+
+/** The media tools declared for this provider's model, in a stable order. */
+export function viewMediaToolNames(
+  provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
+): string[] {
+  return MEDIA_KINDS.filter((kind) => toolResultMediaSupported(provider, kind)).map(
+    (kind) => VIEW_TOOL_NAMES[kind],
+  );
+}
+
+/** What each media tool tells the model it does. */
+export const VIEW_MEDIA_TOOL_DESCRIPTIONS: Record<string, string> = {
+  [VIEW_VIDEO_TOOL_NAME]:
+    "Watch a video file natively: the clip itself (picture and sound) is attached to the result. " +
+    "Takes mp4, mov, webm, mpeg, avi, wmv, flv and 3gp files up to the inline size limit. " +
+    "Use this instead of extracting frames, screenshots or the audio track with ffmpeg or other shell tools.",
+  [VIEW_AUDIO_TOOL_NAME]:
+    "Listen to an audio file natively: the recording itself is attached to the result. " +
+    "Takes mp3, wav, m4a, aac, flac, ogg and aiff files up to the inline size limit. " +
+    "Use this instead of transcribing or converting it with whisper, ffmpeg or other shell tools.",
+};
+
+/**
+ * The system-prompt block for the media tools that are declared, or "" when
+ * none is. The tool descriptions say how; this says when, because a model
+ * used to tool-only file access reaches for ffmpeg before it reads a schema.
+ */
+export function viewMediaPrompt(toolNames: ReadonlySet<string>): string {
+  const video = toolNames.has(VIEW_VIDEO_TOOL_NAME);
+  const audio = toolNames.has(VIEW_AUDIO_TOOL_NAME);
+  if (!video && !audio) return "";
+  const lines = ["# Watching and listening"];
+  if (video) {
+    lines.push(
+      `- You take video input natively. To understand a video file, call ${VIEW_VIDEO_TOOL_NAME} with its path and watch it yourself. Do not extract frames or screenshots, split out its audio, or describe it from metadata with shell tools.`,
+    );
+  }
+  if (audio) {
+    lines.push(
+      `- You take audio input natively. To understand an audio file, call ${VIEW_AUDIO_TOOL_NAME} with its path and listen to it yourself. Do not transcribe or convert it with shell tools.`,
+    );
+  }
+  lines.push(
+    "- Use shell tools on media only to produce a new file the user asked for (a cut, a conversion), not to understand one.",
+  );
+  return lines.join("\n");
 }
 
 /** A `Read` description with every media sentence taken back out, for a delegate. */
@@ -299,7 +359,7 @@ export async function loadToolResultMedia(
   // to a model that does not take it fails the delegate's whole request.
   if (options.delegate) {
     return {
-      text: `${description} A subagent's tool result does not carry ${noun}, so the ${noun} is not attached. The main agent can Read the file itself to ${verb} it.`,
+      text: `${description} A subagent's tool result does not carry ${noun}, so the ${noun} is not attached. The main agent can call ${VIEW_TOOL_NAMES[reference.kind]} itself to ${verb} it.`,
     };
   }
   const blocker = toolResultMediaBlocker(provider, reference.kind);
@@ -360,7 +420,7 @@ export function toolResultWithoutMediaBytes<T>(result: T): T {
       const { noun, verb } = MEDIA[kind];
       return {
         type: "text",
-        text: `[${block.mimeType} ${noun} was attached to this result when it ran; Read the file again to ${verb} it]`,
+        text: `[${block.mimeType} ${noun} was attached to this result when it ran; call ${VIEW_TOOL_NAMES[kind]} again to ${verb} it]`,
       };
     }),
   } as T;

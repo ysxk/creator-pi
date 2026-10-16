@@ -16,6 +16,9 @@ import {
   readMediaHint,
   toolResultMediaSupported,
   toolResultWithoutMediaBytes,
+  VIEW_MEDIA_TOOL_DESCRIPTIONS,
+  viewMediaPrompt,
+  viewMediaToolNames,
   withoutReadMediaHints,
 } from "./tool-result-media.js";
 
@@ -163,15 +166,39 @@ describe("media in a tool result", () => {
     expect(JSON.stringify(stripped)).not.toContain("CCCC");
     // A picture is small and still replays as a picture.
     expect(stripped.content[3]).toEqual({ type: "image", data: "BBBB", mimeType: "image/png" });
-    expect(stripped.content[1]).toMatchObject({ type: "text", text: expect.stringContaining("watch it") });
-    expect(stripped.content[2]).toMatchObject({ type: "text", text: expect.stringContaining("listen to it") });
+    expect(stripped.content[1]).toMatchObject({ type: "text", text: expect.stringContaining("call ViewVideo again to watch it") });
+    expect(stripped.content[2]).toMatchObject({ type: "text", text: expect.stringContaining("call ViewAudio again to listen to it") });
     expect(stripped.details).toEqual({ videoAttached: true });
     // Nothing to strip: the same object goes through untouched.
     const plain = { content: [{ type: "text", text: "ok" }] };
     expect(toolResultWithoutMediaBytes(plain)).toBe(plain);
   });
 
-  it("tells only a model that will receive the media that Read attaches it", async () => {
+  it("declares a media tool only for a model the medium can reach", () => {
+    expect(viewMediaToolNames(gemini)).toEqual(["ViewVideo", "ViewAudio"]);
+    expect(viewMediaToolNames(relay)).toEqual(["ViewVideo", "ViewAudio"]);
+    expect(viewMediaToolNames(videoOnly)).toEqual(["ViewVideo"]);
+    // The model takes the media, but the result could not carry it.
+    expect(viewMediaToolNames(responses)).toEqual([]);
+    expect(viewMediaToolNames(audioWithoutImages)).toEqual([]);
+    expect(viewMediaToolNames(textOnly)).toEqual([]);
+    expect(viewMediaToolNames(undefined)).toEqual([]);
+    expect(VIEW_MEDIA_TOOL_DESCRIPTIONS.ViewVideo).toContain("instead of extracting frames");
+    expect(VIEW_MEDIA_TOOL_DESCRIPTIONS.ViewAudio).toContain("instead of transcribing");
+  });
+
+  it("prompts only for the media tools that are declared", () => {
+    expect(viewMediaPrompt(new Set(["Read", "Bash"]))).toBe("");
+    const both = viewMediaPrompt(new Set(["ViewVideo", "ViewAudio"]));
+    expect(both).toMatch(/^# Watching and listening\n/);
+    expect(both).toContain("call ViewVideo with its path");
+    expect(both).toContain("call ViewAudio with its path");
+    const video = viewMediaPrompt(new Set(["ViewVideo"]));
+    expect(video).toContain("ViewVideo");
+    expect(video).not.toContain("ViewAudio");
+  });
+
+  it("points Read at a media tool only where that tool is declared", async () => {
     expect(readMediaHint(gemini)).toBe(`${READ_VIDEO_HINT}${READ_AUDIO_HINT}`);
     expect(readMediaHint(videoOnly)).toBe(READ_VIDEO_HINT);
     expect(readMediaHint(responses)).toBe("");
@@ -181,14 +208,15 @@ describe("media in a tool result", () => {
     expect(withoutReadMediaHints(`Read a file.${READ_VIDEO_HINT}${READ_AUDIO_HINT} More.`)).toBe(
       "Read a file. More.",
     );
-    expect(READ_VIDEO_HINT).toContain("attaches the video itself");
-    expect(READ_AUDIO_HINT).toContain("attaches the recording itself");
+    expect(READ_VIDEO_HINT).toContain("call ViewVideo to watch it");
+    expect(READ_AUDIO_HINT).toContain("call ViewAudio to listen to it");
 
     const runtime = await readFile(new URL("./runtime.ts", import.meta.url), "utf8");
     // The main agent hears it only when its own provider can take the media.
     expect(runtime).toContain("const mediaHint = readMediaHint(this.provider);");
-    // A delegate never receives any, so the sentences are taken back out.
+    // A delegate never gets the tools, so the sentences are taken back out.
     expect(runtime).toContain("description: withoutReadMediaHints(tool.description),");
+    expect(runtime).toContain(").filter((name) => !VIEW_MEDIA_TOOL_NAMES.has(name));");
   });
 
   it("names the Chat Completions part that carries a recording", () => {

@@ -340,6 +340,8 @@ export const TOOL_ACTION_KEYS: Record<ToolAction, string> = {
   fork: "chat.toolUsed",
   delegate: "chat.toolDelegated",
   todo: "chat.todo.updated",
+  watch: "chat.toolWatched",
+  listen: "chat.toolListened",
   use: "chat.toolUsed",
 };
 
@@ -371,6 +373,8 @@ export const TOOL_RUNNING_KEYS: Record<ToolAction, string> = {
   fork: "chat.toolUsing",
   delegate: "chat.toolDelegating",
   todo: "chat.todo.updating",
+  watch: "chat.toolWatching",
+  listen: "chat.toolListening",
   use: "chat.toolUsing",
 };
 
@@ -396,6 +400,10 @@ export function ToolActionIcon({ action }: { action: ToolAction }) {
       return <IconBranch {...props} />;
     case "delegate":
       return <IconBot {...props} />;
+    case "watch":
+      return <IconVideo {...props} />;
+    case "listen":
+      return <IconAudio {...props} />;
     default:
       return <IconWrench {...props} />;
   }

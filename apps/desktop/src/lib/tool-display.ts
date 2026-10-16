@@ -9,6 +9,8 @@ export type ToolAction =
   | "fork"
   | "delegate"
   | "todo"
+  | "watch"
+  | "listen"
   | "use";
 
 const SUMMARY_KEYS: Record<ToolAction, string[]> = {
@@ -26,6 +28,8 @@ const SUMMARY_KEYS: Record<ToolAction, string[]> = {
   // it summarizes from the agent names in its own result roster instead (D268).
   delegate: ["description", "agent"],
   todo: [],
+  watch: ["path", "file_path"],
+  listen: ["path", "file_path"],
   use: [
     "command",
     "cmd",
@@ -110,6 +114,9 @@ export function getToolAction(toolName?: string): ToolAction {
     return "delegate";
   }
   if (bareToolName(toolName) === "todowrite") return "todo";
+  // The media tools (D685) name a file the model watched or heard.
+  if (bareToolName(toolName) === "viewvideo") return "watch";
+  if (bareToolName(toolName) === "viewaudio") return "listen";
   if (matches(["websearch", "searchquery", "fetch", "http", "browser"])) {
     return "fetch";
   }

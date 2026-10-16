@@ -30,7 +30,7 @@ enum ToolClass {
 impl ToolClass {
     fn from_name(tool_name: &str) -> Self {
         match tool_name {
-            "Read" | "Glob" | "Grep" => Self::Read,
+            "Read" | "Glob" | "Grep" | "ViewVideo" | "ViewAudio" => Self::Read,
             "Write" | "Edit" => Self::Mutation,
             "Bash" => Self::Shell,
             _ => Self::Plugin,

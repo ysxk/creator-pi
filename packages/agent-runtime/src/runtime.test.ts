@@ -11601,6 +11601,50 @@ describe("inline image placement", () => {
   });
 });
 
+describe("DesktopAgentRuntime media tools (D685)", () => {
+  const mediaProvider: RuntimeProviderConfig = {
+    ...provider,
+    apiStyle: "chat_completions",
+    modelConfig: {
+      ...provider.modelConfig!,
+      modalities: { input: ["text", "image", "video", "audio"], output: ["text"] },
+    } as never,
+  };
+  const names = (runtime: DesktopAgentRuntime) =>
+    ((runtime as any).agent.state.tools as Array<{ name: string }>).map((tool) => tool.name);
+  const prompt = (runtime: DesktopAgentRuntime) =>
+    (runtime as any).agent.state.systemPrompt as string;
+
+  it("gives a model that takes video and audio both tools, as core tools, and says when to use them", async () => {
+    for (const mode of ["agent", "plan"] as const) {
+      const runtime = createRuntime({ provider: mediaProvider, mode });
+      try {
+        expect(names(runtime)).toEqual(expect.arrayContaining(["ViewVideo", "ViewAudio"]));
+        expect((runtime as any).deferredToolNames.has("ViewVideo")).toBe(false);
+        expect(prompt(runtime)).toContain("# Watching and listening");
+        expect(runtimeTool(runtime, "Read").description).toContain("call ViewVideo to watch it");
+        expect(runtimeTool(runtime, "ViewVideo").description).toContain("Watch a video file natively");
+      } finally {
+        await runtime.dispose();
+      }
+    }
+  });
+
+  it("gives a model that does not take the media neither tool nor a word about them", async () => {
+    const runtime = createRuntime();
+    try {
+      expect(names(runtime)).not.toContain("ViewVideo");
+      expect(names(runtime)).not.toContain("ViewAudio");
+      expect((runtime as any).toolCatalog.has("ViewVideo")).toBe(false);
+      expect(prompt(runtime)).not.toContain("ViewVideo");
+      expect(prompt(runtime)).not.toContain("Watching and listening");
+      expect(runtimeTool(runtime, "Read").description).not.toContain("ViewVideo");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+});
+
 describe("DesktopAgentRuntime tool-result media at the event boundary (D660, D667)", () => {
   async function endRead(result: unknown) {
     const onEvent = vi.fn();

@@ -27,7 +27,8 @@ Let the agent get things done, but stay under control by default.
 
 | Tool | Risk | Description |
 |---|---|---|
-| `Read` | low | Read files within the workspace; returns line-numbered content and a `[path#TAG]` header. An image is returned as an image block; a video or an audio file is answered with a reference (path, mime type, size) and no bytes, which the runtime turns into the clip or recording itself for a model that takes that medium (D660, D667). The media rides an image-typed block, so it is attached only while the model's image input is also on; otherwise the result says in words that nothing was attached (D675) |
+| `Read` | low | Read files within the workspace; returns line-numbered content and a `[path#TAG]` header. An image is returned as an image block. A video or an audio file is refused as `TOOL_BINARY_CONTENT`; where a media tool is declared, the description points the model at it (D685) |
+| `ViewVideo` / `ViewAudio` | low | Hand a video or an audio file to the model as media. Declared only for a session model that takes that medium over a wire API that can carry it in a tool result, with its image input on (the media rides an image-typed block, D675); a declared one is a core tool in every mode, a short system-prompt block says to use it instead of extracting frames or transcribing, and a delegate never gets either. host-core applies `Read`'s path policy, checks the container, and answers with a reference (path, mime type, size) and no bytes; the runtime attaches the clip or recording itself (D660, D667, D685) |
 | `new_context` | low | Start a new context window at the next turn boundary; takes no parameters and changes no environment state |
 | `Glob` | low | List files by pattern |
 | `Grep` | low | Content search; uses system `rg` when installed, else in-process; mints a per-file `tag` |

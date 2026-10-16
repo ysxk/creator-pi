@@ -14,7 +14,7 @@ import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
-import { hostMediaReference, loadToolResultMedia, readMediaHint, toolResultWithoutMediaBytes, withoutReadMediaHints, withToolResultMediaPayload } from "./tool-result-media.js";
+import { hostMediaReference, loadToolResultMedia, readMediaHint, toolResultWithoutMediaBytes, VIEW_AUDIO_TOOL_NAME, VIEW_MEDIA_TOOL_DESCRIPTIONS, VIEW_MEDIA_TOOL_NAMES, VIEW_VIDEO_TOOL_NAME, viewMediaPrompt, viewMediaToolNames, withoutReadMediaHints, withToolResultMediaPayload } from "./tool-result-media.js";
 import { withPriorityServiceTier } from "./service-tier.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
@@ -761,8 +761,12 @@ const PATH_SCOPED_INSTRUCTION_TOOLS = new Set([
 /** Tools whose `path` argument is rewritten, and which therefore must not run
  * concurrently against the same file (see `PathMutex`). */
 const PATH_MUTATING_TOOLS = new Set(["Write", "Edit"]);
-const CHAT_CORE_TOOL_NAMES = new Set(["Read", "Glob", "Grep", ASK_TOOL_NAME]);
+// The media tools are declared only for a model that takes the medium (see
+// tool-result-media), and a declared one is core: a capability the model has
+// to go looking for is one it routes around with ffmpeg.
+const CHAT_CORE_TOOL_NAMES = new Set(["Read", "Glob", "Grep", ASK_TOOL_NAME, ...VIEW_MEDIA_TOOL_NAMES]);
 const AGENT_CORE_TOOL_NAMES = new Set([
+  ...VIEW_MEDIA_TOOL_NAMES,
   "Read",
   "Glob",
   "Grep",
@@ -2381,6 +2385,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     const projectPrompt = projectInstructionsPrompt(this.projectInstructions);
     const memoryPrompt = projectMemoryPrompt(this.projectMemory);
     const optionalToolsPrompt = this.optionalToolsPrompt();
+    const mediaPrompt = viewMediaPrompt(new Set(this.toolCatalog.keys()));
     const resumablePrompt =
       this.subagents.length > 0
         ? this.delegationChains.promptBlock({
@@ -2396,6 +2401,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       context: composeModeSystemPrompt(this.mode, [
         ...(this.customSystemPrompt?.append ? [this.customSystemPrompt.append] : []),
         ...(optionalToolsPrompt ? [optionalToolsPrompt] : []),
+        ...(mediaPrompt ? [mediaPrompt] : []),
         ...(projectPrompt ? [projectPrompt] : []),
         ...(memoryPrompt ? [memoryPrompt] : []),
         ...(resumablePrompt ? [resumablePrompt] : []),
@@ -3171,9 +3177,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       : "";
     const externalPathHint =
       " An explicit path outside the workspace and session scratch roots requires permission unless the effective mode is Auto.";
-    // Said only to a model that will actually receive the clip or recording:
-    // told this, it reads the file instead of reaching for ffmpeg or whisper.
+    // Points a clip or a recording at its own tool, and is said only where
+    // that tool is declared, which is only for a model that takes the medium.
     const mediaHint = readMediaHint(this.provider);
+    const mediaTools = viewMediaToolNames(this.provider);
     const describe = (toolName: string): string => {
       if (toolName === "GenerateImages") return imageGenerationDescription;
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
@@ -3191,6 +3198,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             "when a directory must be listed or the file name is uncertain." +
             `${mediaHint}${scratchPathHint}${externalPathHint}`
           );
+        case VIEW_VIDEO_TOOL_NAME:
+        case VIEW_AUDIO_TOOL_NAME:
+          return `${VIEW_MEDIA_TOOL_DESCRIPTIONS[toolName]}${scratchPathHint}${externalPathHint}`;
         case "Glob":
           return (
             "List files by glob pattern, newest first. Use `path` to scope the " +
@@ -3246,6 +3256,14 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       },
       BrowserPreview: {
         path: pathParam("File to preview; workspace-relative."),
+        file_path: aliasParam("path"),
+      },
+      [VIEW_VIDEO_TOOL_NAME]: {
+        path: pathParam("Video file to watch; workspace-relative or explicitly approved."),
+        file_path: aliasParam("path"),
+      },
+      [VIEW_AUDIO_TOOL_NAME]: {
+        path: pathParam("Audio file to listen to; workspace-relative or explicitly approved."),
         file_path: aliasParam("path"),
       },
       Glob: {
@@ -3647,8 +3665,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           text = textParts.join("\n") || JSON.stringify(rawContent, null, 2);
           details = { ...rawContent, imageCount: imageBlocks.length };
         } else if (isRecord(rawContent) && hostMediaReference(rawContent)) {
-          // Read of a video or audio file: the host admitted the path and named
-          // the file; whether the media can ride this result is decided here.
+          // ViewVideo / ViewAudio: the host admitted the path and named the
+          // file; whether the media can ride this result is decided here.
           const reference = hostMediaReference(rawContent)!;
           const media = await loadToolResultMedia(
             reference,
@@ -3799,6 +3817,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             "TodoWrite",
           ]
         : ["Read", "Glob", "Grep", "BrowserPreview", "Bash", "Write", "Edit"];
+    // Read-only, so every mode gets them, but only for a model that takes them.
+    tools.push(...mediaTools);
     if (this.mode === "agent") {
       tools.push("PluginScaffold", "PluginPack", "GenerateImages", ...Object.keys(scheduledToolParameters));
     }
@@ -3984,6 +4004,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       "Grep",
       "BrowserPreview",
       "Bash",
+      ...VIEW_MEDIA_TOOL_NAMES,
       ASK_TOOL_NAME,
       CONTEXT_COMPACTION_TOOL_NAME,
       SUBMIT_TOOL_NAMES[kind],
@@ -4011,6 +4032,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               "Grep",
               "Bash",
               "BrowserPreview",
+              ...VIEW_MEDIA_TOOL_NAMES,
               ASK_TOOL_NAME,
             ]).has(name) || this.isPlanSafePluginTool(name)
           : CHAT_CORE_TOOL_NAMES.has(name))
@@ -4670,10 +4692,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             );
           }
         }
+        // A delegate runs on its own model, which this one's media switches do
+        // not describe, so it never inherits or declares the media tools.
         const declaredToolNames = resolveSubagentToolNames(
           definition,
           [...this.toolCatalog.keys()],
-        );
+        ).filter((name) => !VIEW_MEDIA_TOOL_NAMES.has(name));
         const tools = declaredToolNames
           .map((name) => this.toolCatalog.get(name))
           .filter((tool): tool is AgentTool => tool !== undefined);
@@ -4922,8 +4946,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     const scope = definition.permission ?? DEFAULT_SUBAGENT_PERMISSION;
     return tools.map((tool) => ({
       ...tool,
-      // A delegate's Read never carries a clip or a recording (its model is
-      // not this one), so its description must not say it does.
+      // A delegate has no media tools (its model is not this one), so its
+      // Read must not point it at them.
       description: withoutReadMediaHints(tool.description),
       execute: async (toolCallId, args, signal, onUpdate) => {
         this.mutationOwners.set(toolCallId, mutationOwner);
