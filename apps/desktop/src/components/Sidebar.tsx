@@ -18,6 +18,7 @@ const MAX_VISIBLE_SESSIONS = 10;
 import { portalToBody } from "../lib/portal-visibility";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
+import { formatSessionLastReplyDate } from "../lib/sidebar-session-date";
 import { SessionHoverCard } from "../features/sessions/SessionHoverCard";
 import { useSessionHoverCard } from "../features/sessions/useSessionHoverCard";
 import { isDefaultSessionTitle, useAppStore } from "../stores/app-store";
@@ -231,7 +232,7 @@ export function Sidebar({
   className?: string;
   onAnimationEnd?: ReactAnimationEventHandler<HTMLElement>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const sessions = useAppStore((s) => s.sessions);
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const selectingSessionId = useAppStore((s) => s.selectingSessionId);
@@ -1708,7 +1709,12 @@ export function Sidebar({
 
   const renderSessionRows = (
     items: SessionSummary[],
-    options?: { temporary?: boolean; projectPath?: string; global?: boolean },
+    options?: {
+      temporary?: boolean;
+      projectPath?: string;
+      global?: boolean;
+      showLastReplyDate?: boolean;
+    },
   ) => items.map((session) => {
     const meta = sessionMeta[session.id] ?? {};
     const normalizedProjectPath = normalizeProjectPath(session.projectPath);
@@ -1727,6 +1733,13 @@ export function Sidebar({
       outcome: sessionOutcomes[session.id],
       hasPendingPermission,
     });
+    const lastReplyDate = options?.showLastReplyDate
+      ? formatSessionLastReplyDate(
+          session.updatedAt,
+          new Date(),
+          i18n.resolvedLanguage ?? i18n.language,
+        )
+      : "";
     return (
       <div
         key={session.id}
@@ -1801,6 +1814,14 @@ export function Sidebar({
             <span className="thread-item-source" title="Native Pi session">Pi</span>
           ) : null}
           <span className="thread-item-title">{taskTitle(session.title)}</span>
+          {lastReplyDate ? (
+            <>
+              <span className="thread-item-date-separator" aria-hidden="true">
+                |
+              </span>
+              <span className="thread-item-last-reply">{lastReplyDate}</span>
+            </>
+          ) : null}
           {options?.global ? (
             <span className="thread-item-project">
               {owningProject}
@@ -1856,9 +1877,16 @@ export function Sidebar({
     const showRunBadge = runningAffordances.badge && runIsLive;
     const showRunRail = runningAffordances.rail && runIsLive;
 
-    // One flat list in the active sort order, with no date labels (D679).
+    // One flat list in the active sort order, with no date labels (D679);
+    // each row carries its own last-reply date instead.
     const renderProjectSessions = (sessions: SessionSummary[]) => {
-      const result: React.ReactNode[] = renderSessionRows(sessions, { projectPath: entry.path });
+      const result: React.ReactNode[] = [
+        ...renderSessionRows(sessions, {
+          projectPath: entry.path,
+          showLastReplyDate: true,
+        }),
+      ];
+      // Add "load more" button if there are hidden sessions
       if (hiddenCount > 0) {
         result.push(
           <button

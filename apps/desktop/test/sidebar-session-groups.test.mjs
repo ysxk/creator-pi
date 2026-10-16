@@ -88,7 +88,7 @@ test("finds only newly imported project-bound sessions", () => {
   );
 });
 
-test("global pins include closed projects and temporary sessions without date buckets", () => {
+test("global pins include closed projects and temporary sessions", () => {
   const sessions = [
     session({ id: "today", projectPath: "/open", updatedAt: "2026-09-13T01:00:00Z" }),
     session({ id: "old-pin", projectPath: "/open", updatedAt: "2025-01-01T00:00:00Z" }),

@@ -589,9 +589,9 @@ visually distinct from list content.
   and Open session path (the session scratch directory in the system file
   manager).
 - Pinned conversations appear once in a global section above Sessions and
-  Projects, independent of date buckets, project collapse, retained tabs, and
-  each project's ten-row history limit. Each pin shows its project display
-  name (full path on hover), or Temporary space for a path-less conversation.
+  Projects, independent of project session dates, project collapse, retained
+  tabs, and each project's ten-row history limit. Each pin shows its project
+  display name (full path on hover), or Temporary space for a path-less conversation.
   The section is omitted when empty and scrolls within `min(233px, 30vh)` when
   needed. Its rows reuse normal selection, status, hover, and overflow actions.
 - Pinning moves the existing row into that section; unpinning returns it to
@@ -731,7 +731,7 @@ controls.
 | Project close | removes retained tab only; durable project/sessions remain |
 | Project delete | row-menu danger action behind a second confirmation that names the project and the number of its sessions; refused with a message while any of those sessions is running and leaves group membership unchanged; removes the durable project row, those sessions, their transcripts, and its project memory; never deletes the folder on disk; deleting a root of a multi-folder project group detaches it as part of deletion, promotes the first remaining root when the primary is deleted, and removes the group record when its last root is deleted. A path the host no longer knows is still removed from the list. Detaching a root with chats through Edit project preserves them under a standalone project |
 | Project memory | row-menu editor reads and saves a compact list of titled or untitled memory cards for the exact project path; cards can be added, edited, and removed, the context is available in later chats, and it is never a higher-priority instruction |
-| Session list | exact-path matches only; no basename grouping |
+| Session list | exact-path matches only; no basename grouping; the latest ten unpinned sessions appear initially without time-group headings, and Load more reveals the remaining history; each project row shows the title, a divider, and a localized last-reply age through seven calendar days or a concrete date afterward; hovering or focusing the row replaces that date with session actions; collapsing the project clears the expanded-list state so the next expansion returns to the initial ten |
 | Active group | exactly one group reflects the selected host workspace |
 | Task state | In-progress, selected, completed, and failed indicators update by session without replacing the visible transcript; precedence is in-progress, selected, then terminal outcome |
 

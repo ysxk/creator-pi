@@ -251,11 +251,12 @@ destination, chat as the home surface, tools and permissions inline.
   first, and Name. Pinned rows precede unpinned rows. Project groups switch
   to `manual` by dragging a title or using ArrowUp/ArrowDown on that
   title. Session `manual` remains a compatibility value.
-- **Conversation list**: each group shows the ten most-recent sessions in the
-  active sort order by default; the remainder folds behind a **Load N more…**
-  row that expands the full list on click. The list is flat: rows follow the
-  active sort order with no date labels between them. Pinned rows precede
-  unpinned rows and are never pushed behind the fold; the expansion state is
+- **Conversation list**: each project group shows the ten most-recent sessions
+  in the active sort order by default; the remainder folds behind a **Load N
+  more…** row. The list has no time-group headings. Rows show the title and a
+  localized last-reply age through seven calendar days, then a concrete date;
+  hovering or focusing a row replaces the date with its session actions. Pinned
+  rows precede unpinned rows and are never pushed behind the fold; expansion is
   not persisted.
 - **Standalone sessions**: path-less sessions remain in the separate Sessions
   section and never inherit the last active project's workspace.

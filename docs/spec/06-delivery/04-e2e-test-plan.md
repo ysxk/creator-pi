@@ -4158,19 +4158,22 @@ window; opening a normal panel afterward must still work.
 - **Preconditions**: One retained project contains more than ten durable
   sessions with distinct updated timestamps; the sidebar uses the default
   Recently updated sort; another retained project has ten or fewer sessions.
-- **Steps**: 1) Inspect the large project's session rows and count them. 2)
-  Select the **Load N more…** control. 3) Switch the sort to Name and inspect
-  the same group before expanding. 4) Restart the app and inspect the group
-  again.
+- **Steps**: 1) Inspect the large project's session rows and count them. Check
+  rows with recent and older replies. Hover a row, then focus one with the
+  keyboard. 2) Select the **Load N more…** control. 3) Switch the sort to Name
+  and inspect the same group before expanding. 4) Restart the app and inspect
+  the group again.
 - **Expected**: The group shows exactly ten session rows by default plus a
-  **Load N more…** control (N = remaining session count); the ten rows are
-  the first rows in the active sort order, so pinned rows are never pushed
+  **Load N more…** control (N = remaining session count); there are no time-group
+  headers. Every row places the title before a divider and the localized last
+  reply date. Replies within seven calendar days show an exact relative day
+  (including 0–7 days); older replies show a concrete localized date. Hovering
+  or focusing a row hides its date and reveals the session action. The ten rows
+  are the first rows in the active sort order, so pinned rows are never pushed
   behind unpinned rows and a Name sort folds everything after the first ten
-  alphabetically; selecting Load more expands the full list, still flat and
-  in the active sort order with no Yesterday/Previous 7 days/Previous 14
-  days/Older label anywhere in the group, and the control disappears;
-  expansion is per group and resets on restart (not persisted); the project
-  with ten or fewer sessions shows no fold control.
+  alphabetically; selecting Load more expands the flat list and the control
+  disappears. Expansion is per group and resets on restart (not persisted); the
+  project with ten or fewer sessions shows no fold control.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (session organization)
 - **Milestone**: M5
@@ -15753,8 +15756,8 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   session, one holding none, and one holding ten pinned sessions.
   `prefers-reduced-motion` is unset.
 - **Steps**:
-  1. Inspect the groups: body layering, row count, no date label, the empty
-     state, the tail each expanded group contributes to the next one, and the
+  1. Inspect the groups: body layering, row and per-row date counts, no time
+     headings, the empty state, the tail each expanded group contributes to the next one, and the
      non-project lists' budgets.
   2. Collapse the multi-row group with a real pointer click on its directory row —
      scrolled into view and confirmed to hit that button — and read the group
@@ -15783,7 +15786,9 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   reduced motion both endpoints are kept and the travel is dropped. The pinned
   list holds eight rows inside `min(233px, 30vh)` and scrolls to its remaining
   rows, and the standalone list keeps its flex column and 146px budget. The group
-  indent, ordering, and workspace state are unchanged.
+  indent, ordering, and workspace state are unchanged. The five seeded project
+  sessions remain in one flat list with no time headings and each has its own
+  date label.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §6.1 and
   §13, `04-ux/08-component-spec.md` §6.2, `08-meta/decisions-log.md`
   (2026-09-16, sidebar list rhythm and project-group fold)

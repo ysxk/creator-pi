@@ -34,11 +34,32 @@
 }
 
 .thread-item-title {
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   font-size: var(--text-md); /* session titles stay compact within the sidebar */
   line-height: var(--leading-row);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.thread-item-date-separator,
+.thread-item-last-reply {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.thread-item-date-separator {
+  margin-left: auto;
+}
+
+.thread-item:hover .thread-item-date-separator,
+.thread-item:hover .thread-item-last-reply,
+.thread-item:focus-within .thread-item-date-separator,
+.thread-item:focus-within .thread-item-last-reply {
+  display: none;
 }
 
 .thread-item:hover,

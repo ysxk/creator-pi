@@ -292,9 +292,10 @@ may be retained while exactly one workspace supplies the visible shell context.
   a stable path order until they are moved.
 - Each project group shows the ten most-recent rows in the active sort order
   by default; the remaining sessions fold behind a **Load N more…** control.
-  Selecting it expands the full list, which stays one flat list in the active
-  sort order with no date labels (D679). The expanded state is per-group, for
-  the current session only, and not persisted.
+  The expanded list remains flat. Each project session row shows its title and
+  localized last-reply age through seven calendar days, then a concrete date;
+  hover or keyboard focus replaces the date with the session actions. Expanded
+  state is per-group, for the current session only, and not persisted.
 - Presentation changes are saved best-effort. Storage failure must not block
   project activation, session selection, or agent execution.
 

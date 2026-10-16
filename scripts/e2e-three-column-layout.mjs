@@ -61,8 +61,8 @@ function resolveHostBinary() {
  * Seed four retained project groups into the same throwaway data directory the
  * app will open, using only the host protocol:
  *
- *   alpha   five sessions across four date buckets, so the group draws date
- *           labels as well as rows
+ *   alpha   five sessions across recent and old reply dates, so the flat group
+ *           draws per-row dates as well as sessions
  *   beta    one session, the smallest non-empty group
  *   gamma   no sessions, the empty group
  *   delta   ten sessions that the renderer pins, so the Pinned section has more
@@ -90,8 +90,8 @@ async function seedSidebarProjects(hostBinary, dataDir, tempDirs) {
   startOfToday.setHours(0, 0, 0, 0);
   const dayStart = startOfToday.getTime();
   const stamp = (ms) => new Date(ms).toISOString();
-  // Rows that span today, yesterday, the last week and beyond: the group lists
-  // them flat, with no date label between them (D679).
+  // These offsets are anchored to local midnight so the calendar-day boundary
+  // is stable even when this suite runs late in the day.
   const alphaRows = [
     ["alpha today b", Date.now() - 120_000],
     ["alpha today a", Date.now() - 60_000],
@@ -1330,7 +1330,8 @@ async function main() {
         bottom: box.bottom,
         opacity: Number(style.opacity),
         rows: rows.length,
-        dateHeaders: body.querySelectorAll(".sidebar-time-group-header").length,
+        timeHeaders: body.querySelectorAll(".sidebar-time-group-header").length,
+        dateLabels: body.querySelectorAll(".thread-item-last-reply").length,
         emptyState: !!body.querySelector(".sidebar-session-empty"),
         clipMinHeight: clip ? getComputedStyle(clip).minHeight : null,
         clipOverflowY: clip ? getComputedStyle(clip).overflowY : null,
@@ -1520,12 +1521,12 @@ async function main() {
       JSON.stringify({ alpha, beta, gamma }),
     );
     check(
-      alpha?.rows === 5 && alpha.dateHeaders === 0 && alpha.height > 0,
-      "the seeded multi-row group draws its rows flat, with no date label",
+      alpha?.rows === 5 && alpha.timeHeaders === 0 && alpha.dateLabels === 5 && alpha.height > 0,
+      "the seeded multi-row group stays flat and shows a date for every session",
       JSON.stringify(alpha),
     );
     check(
-      beta?.rows === 1 && beta.height > 0 && beta.dateHeaders === 0,
+      beta?.rows === 1 && beta.height > 0 && beta.timeHeaders === 0 && beta.dateLabels === 1,
       "a one-row group folds the same way",
       JSON.stringify(beta),
     );
