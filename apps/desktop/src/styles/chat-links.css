@@ -122,6 +122,27 @@
   margin: 0;
 }
 
+/* A picture a table cell names, shown small under its chip. One fixed box
+   keeps the rows even; a tall page shows its top, where it starts. */
+.chat-media-thumb {
+  display: block;
+  margin-top: 6px;
+  line-height: 0;
+}
+
+.prose-chat .chat-media-thumb > img {
+  display: block;
+  width: 120px;
+  max-width: 100%;
+  height: 90px;
+  margin: 0;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-tile);
+}
+
 .chat-media-mention > figcaption {
   overflow: hidden;
   padding: 6px 2px 0;

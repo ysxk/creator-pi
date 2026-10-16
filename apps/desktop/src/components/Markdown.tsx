@@ -909,8 +909,16 @@ function isAttachmentBlobRefText(value: string): boolean {
   return /^attachments\/[0-9a-f]{64}$/i.test(value.replace(/\\/g, "/"));
 }
 
-/** The preview `remarkChatMediaPreviews` placed under a block (chat only). */
-function ChatMediaNode({ path, kind }: { path?: unknown; kind?: unknown }) {
+/** The preview `remarkChatMediaPreviews` placed under a block or in a cell (chat only). */
+function ChatMediaNode({
+  path,
+  kind,
+  variant,
+}: {
+  path?: unknown;
+  kind?: unknown;
+  variant?: unknown;
+}) {
   const baseDir = useContext(MarkdownBaseDirContext);
   const openFileMenu = useContext(MarkdownFileMenuContext);
   if (typeof path !== "string" || (kind !== "video" && kind !== "audio" && kind !== "image")) {
@@ -920,6 +928,7 @@ function ChatMediaNode({ path, kind }: { path?: unknown; kind?: unknown }) {
     <MentionedMedia
       path={path}
       kind={kind as ChatMediaKind}
+      variant={variant === "thumb" ? "thumb" : "block"}
       baseDir={baseDir}
       onContextMenu={
         openFileMenu ? (event, file) => openFileMenu(event, { path: file, baseDir }) : undefined
@@ -964,7 +973,7 @@ const sanitizeSchema = {
     audio: ["src", "controls", "preload", "className"],
     video: ["src", "controls", "preload", "className", "poster"],
     source: ["src", "type"],
-    [CHAT_MEDIA_TAG]: ["path", "kind"],
+    [CHAT_MEDIA_TAG]: ["path", "kind", "variant"],
   },
   tagNames: [
     ...(defaultSchema.tagNames || []),

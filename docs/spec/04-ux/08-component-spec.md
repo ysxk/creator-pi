@@ -1818,11 +1818,14 @@ Single message render — either user (plaintext) or assistant (markdown streami
   clip (`mp4`, `mov`, `webm`), recording (`mp3`, `wav`, `m4a`, `flac`, `ogg`,
   `aac`; D667) or vector drawing (`svg`) the reply only names gets a preview
   under the block that names it — an inline player, or the drawing as an image
-  that opens in the same viewer — with the file's name under it. A list keeps a preview inside its item; a table's previews follow
-  the table. A bare name is also looked for in the folders the reply names,
+  that opens in the same viewer — with the file's name under it. A list keeps a preview inside its item. A picture
+  a table cell names (`png`, `jpg`, `gif`, `webp`, `avif`, `bmp`, `svg`) gets a
+  120 × 90 thumbnail right after its name in that cell, top-cropped and opening
+  the same viewer; a table's clips and recordings follow the table (D684). A bare name is also looked for in the folders the reply names,
   a name that matches no file draws nothing, and one file is previewed once
   per reply. Fenced code, remote URLs and `path:line` references are not
-  mentions, and a raster image is shown only where the reply embeds it.
+  mentions, and outside a table cell a raster image is shown only where the
+  reply embeds it.
   Unprefixed relative paths
   resolve from the workspace root; `./` and `../` resolve from the workspace
   root in chat, and from the viewed file's directory when previewing a

@@ -18,7 +18,7 @@ import {
 import { mediaViewUrl } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { toWorkspaceRel } from "../lib/chat-links";
-import type { ChatMediaKind } from "../lib/chat-media-refs";
+import type { ChatMediaKind, ChatMediaVariant } from "../lib/chat-media-refs";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { useOpenChatFileRef } from "../hooks/use-preview-target";
 import { useAppStore } from "../stores/app-store";
@@ -228,16 +228,34 @@ function MentionedAudio({
 function MentionedImage({
   file,
   media,
+  variant,
   onContextMenu,
 }: {
   file: string;
   media: MarkdownChatMedia;
+  variant: ChatMediaVariant;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
 }) {
   const dataUrl = useReferencedImageDataUrl(file);
   const name = leafName(file);
   if (!dataUrl) return null;
   const gallery = { [CHAT_GALLERY_ATTRIBUTE]: file };
+  // In a table cell the chip beside it already names the file, and the cell
+  // may sit inside bold text, so the thumbnail is phrasing content.
+  if (variant === "thumb") {
+    return (
+      <span className="chat-media-thumb" onContextMenu={onContextMenu}>
+        <img
+          {...gallery}
+          className="chat-image-local"
+          src={dataUrl}
+          alt={name}
+          title={name}
+          onClick={(event) => media.openImage(event.currentTarget, file)}
+        />
+      </span>
+    );
+  }
   return (
     <figure className="chat-media-mention" onContextMenu={onContextMenu}>
       <img
@@ -253,15 +271,17 @@ function MentionedImage({
   );
 }
 
-/** The preview under a block that named a clip or a drawing. */
+/** The preview under a block that named a clip or a drawing, or a cell's thumbnail. */
 export function MentionedMedia({
   path,
   kind,
+  variant = "block",
   baseDir,
   onContextMenu,
 }: {
   path: string;
   kind: ChatMediaKind;
+  variant?: ChatMediaVariant;
   baseDir: string;
   onContextMenu?: (event: MouseEvent<HTMLElement>, file: string) => void;
 }) {
@@ -286,6 +306,6 @@ export function MentionedMedia({
   ) : kind === "audio" ? (
     <MentionedAudio file={file} onContextMenu={openMenu} />
   ) : (
-    <MentionedImage file={file} media={media} onContextMenu={openMenu} />
+    <MentionedImage file={file} media={media} variant={variant} onContextMenu={openMenu} />
   );
 }

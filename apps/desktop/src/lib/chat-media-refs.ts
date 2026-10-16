@@ -5,7 +5,8 @@
  * table leaves the reader a file name and nothing to look at. This pass finds
  * the file links the chat-link pass already made, keeps the ones that name a
  * clip or a recording the renderer can play or a vector drawing it can show,
- * and places a preview node under the block that mentions them. Whether the
+ * and places a preview node under the block that mentions them. A picture a
+ * table cell names gets a thumbnail in that cell instead. Whether the
  * file exists is not known here; the component that renders the node asks the
  * host and draws nothing for a name that resolves to no file.
  */
@@ -24,6 +25,12 @@ const VIDEO_RE = /\.(?:mp4|mov|webm)$/i;
 const AUDIO_RE = /\.(?:mp3|wav|m4a|flac|ogg|oga|aac)$/i;
 /** Named drawings. Raster images are shown where the reply embeds them. */
 const VECTOR_IMAGE_RE = /\.svg$/i;
+/**
+ * Pictures a table cell shows as a thumbnail beside their name. A table is how
+ * a batch of outputs is listed, and a small picture in the row is what tells
+ * them apart; a name in prose stays a chip.
+ */
+const CELL_IMAGE_RE = /\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i;
 
 /** What a path would preview as, or null when it is not previewed. */
 export function chatMediaKind(path: string): ChatMediaKind | null {
@@ -33,22 +40,84 @@ export function chatMediaKind(path: string): ChatMediaKind | null {
   return null;
 }
 
+/** Whether a table cell that names this path shows it as a thumbnail. */
+export function isChatCellImage(path: string): boolean {
+  return CELL_IMAGE_RE.test(path);
+}
+
 /** Blocks a preview may sit inside, after the child that named the file. */
 const FLOW_CONTAINERS = new Set(["root", "listItem", "blockquote"]);
 /** Never a mention: code is quoted text, and an image is already shown. */
 const NOT_A_MENTION = new Set(["code", "image", "definition", "html"]);
 
+/** How a preview sits: under its block, or as a thumbnail in a table cell. */
+export type ChatMediaVariant = "block" | "thumb";
+
 type PreviewNode = MdastNode & {
-  data: { hName: string; hProperties: { path: string; kind: ChatMediaKind } };
+  data: {
+    hName: string;
+    hProperties: { path: string; kind: ChatMediaKind; variant: ChatMediaVariant };
+  };
   position?: unknown;
 };
 
-function mediaRefOfLink(url: string): ChatMediaRef | null {
-  // A remote clip is the page's to play; only local files are previewed.
+function previewNode(
+  ref: ChatMediaRef,
+  variant: ChatMediaVariant,
+  position: unknown,
+): PreviewNode {
+  return {
+    type: "chatMedia",
+    data: { hName: CHAT_MEDIA_TAG, hProperties: { path: ref.path, kind: ref.kind, variant } },
+    position,
+  };
+}
+
+function localPathOfLink(url: string): string | null {
+  // A remote file is the page's to show; only local files are previewed.
   if (!url || isHttpUrl(url)) return null;
-  const path = safeDecodeUri(url);
-  const kind = chatMediaKind(path);
-  return kind ? { path, kind } : null;
+  return safeDecodeUri(url);
+}
+
+function mediaRefOfLink(url: string): ChatMediaRef | null {
+  const path = localPathOfLink(url);
+  const kind = path ? chatMediaKind(path) : null;
+  return path && kind ? { path, kind } : null;
+}
+
+/**
+ * Put a thumbnail right after each link in a cell that names a picture, and
+ * return the pictures placed, so the table's own previews leave them out.
+ */
+function placeCellThumbnails(table: MdastNode): Set<string> {
+  const placed = new Set<string>();
+  const visit = (node: MdastNode, position: unknown) => {
+    if (NOT_A_MENTION.has(node.type) || !node.children) return;
+    const next: MdastNode[] = [];
+    for (const child of node.children) {
+      if (!child || typeof child.type !== "string") continue;
+      next.push(child);
+      if (child.type === "link" && typeof child.url === "string") {
+        const path = localPathOfLink(child.url);
+        if (path && isChatCellImage(path) && !placed.has(path)) {
+          placed.add(path);
+          next.push(previewNode({ path, kind: "image" }, "thumb", position));
+        }
+        continue;
+      }
+      visit(child, position);
+    }
+    node.children = next;
+  };
+  for (const row of table.children ?? []) {
+    for (const cell of row?.children ?? []) {
+      if (cell && typeof cell.type === "string") {
+        // The thumbnail answers for its cell, so it shares the cell's span.
+        visit(cell, (cell as { position?: unknown }).position);
+      }
+    }
+  }
+  return placed;
 }
 
 function collectMentions(node: MdastNode, found: Map<string, ChatMediaRef>): void {
@@ -67,8 +136,9 @@ function collectMentions(node: MdastNode, found: Map<string, ChatMediaRef>): voi
  * Put a preview node after each block that names previewable media.
  *
  * A list keeps its previews inside the item that named the file, and a quote
- * inside the quote, so a preview stays beside its mention; a table's previews
- * follow the table, because a cell cannot hold one.
+ * inside the quote, so a preview stays beside its mention. A table's pictures
+ * become thumbnails in the cells that name them; its clips and recordings
+ * follow the table, because a cell has no room for a player.
  */
 export function appendChatMediaPreviews(tree: MdastNode | null | undefined): void {
   if (!tree || !FLOW_CONTAINERS.has(tree.type) || !tree.children) return;
@@ -84,16 +154,13 @@ export function appendChatMediaPreviews(tree: MdastNode | null | undefined): voi
       appendChatMediaPreviews(child);
       continue;
     }
+    const inCells = child.type === "table" ? placeCellThumbnails(child) : null;
     const found = new Map<string, ChatMediaRef>();
     collectMentions(child, found);
     for (const ref of found.values()) {
-      const preview: PreviewNode = {
-        type: "chatMedia",
-        data: { hName: CHAT_MEDIA_TAG, hProperties: { path: ref.path, kind: ref.kind } },
-        // The preview answers for the block it follows, so it shares its span.
-        position: (child as { position?: unknown }).position,
-      };
-      next.push(preview);
+      if (inCells?.has(ref.path)) continue;
+      // The preview answers for the block it follows, so it shares its span.
+      next.push(previewNode(ref, "block", (child as { position?: unknown }).position));
     }
   }
   tree.children = next;
