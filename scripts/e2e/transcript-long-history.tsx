@@ -14,13 +14,24 @@ const createdAt = "2026-09-01T00:00:00.000Z";
 function assert(value: unknown, label: string): asserts value {
   if (!value) throw new Error(`Long history: ${label}`);
 }
-const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+// A hidden CI window can starve rAF; race it with a timer so every bounded wait
+// advances and a real stall reports its predicate instead of hanging until the
+// harness phase cap.
+const frame = () => new Promise<void>((resolve) => {
+  let settled = false;
+  const finish = () => { if (!settled) { settled = true; resolve(); } };
+  requestAnimationFrame(finish);
+  window.setTimeout(finish, 50);
+});
 async function until(predicate: () => boolean, label: string, diagnostic?: () => unknown) {
-  for (let attempt = 0; attempt < 180; attempt++) {
+  const deadline = performance.now() + 60_000;
+  for (;;) {
     if (predicate()) return;
+    if (performance.now() >= deadline) {
+      throw new Error(`Long history did not settle: ${label}${diagnostic ? ` ${JSON.stringify(diagnostic())}` : ""}`);
+    }
     await frame();
   }
-  throw new Error(`Long history did not settle: ${label}${diagnostic ? ` ${JSON.stringify(diagnostic())}` : ""}`);
 }
 
 type FixtureSession = { summary: SessionSummary; messages: UiMessage[]; reads: { count: number }; tail: string };
