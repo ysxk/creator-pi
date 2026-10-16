@@ -8027,3 +8027,32 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   E2E-PROVIDER-custom-endpoint-session-identity. See issue #1634,
   `03-runtime/02-agent-runtime.md` §6.3, and
   `03-runtime/11-provider-model-system.md`.
+
+## 2026-10-16 — Segmented turn process and independent thinking preference (D660)
+
+- D660 supersedes the `Detailed` / `Compact` display-mode behavior and the single
+  whole-process disclosure recorded by D633 / D651 and the
+  `turn-process-and-thinking-display` ADR. A turn now renders as chronological
+  collapsible process segments; the trailing answer, assistant errors, stopped
+  trailing text, and pending action surfaces stay outside them.
+- Bash and run aliases render as standalone rows outside every folded container —
+  neither the turn-level process disclosure nor an ordinary activity group — and
+  stay visible even when every group is collapsed. Adjacent Bash rows remain
+  separate, and a Bash row's detail stays closed until the user opens it.
+- Group folding defaults are unified and independent of the thinking preference:
+  the active group opens and closes on completion only if untouched, other
+  completed groups start closed, and an untouched active group with a recorded
+  failed or denied tool stays open through later recovery.
+- The preference is the optional boolean `AppSettings.showThinking`. When false,
+  the live thinking indicator stays visible while completed thinking rows and
+  excerpts are hidden and empty thinking-only containers are omitted; the stored
+  reasoning is retained. Absent or non-boolean values fall back to the legacy
+  `thinkingDisplayMode` field (`compact` hides, `detailed`/unknown/absent shows),
+  which is retained only for persisted-settings compatibility and is no longer
+  exposed in the UI.
+- `showThinking` joins the portable application fields so it synchronizes like the
+  legacy field; no other host protocol, persistence schema, permission, or plugin
+  contract change. Covered by `apps/desktop/test/thinking-visibility.test.mjs` and
+  the i18n catalog tests. See the amended ADR, `04-ux/06-settings-ia.md`,
+  `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and
+  E2E-CHAT-turn-process-and-thinking-display.

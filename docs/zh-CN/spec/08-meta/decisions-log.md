@@ -5687,3 +5687,23 @@ Markdown 源码，不是 `text/html` 负载；对禁用行内 HTML 的外部编�
 - 由 `packages/agent-runtime/src/session-affinity.test.ts` 与
   E2E-PROVIDER-custom-endpoint-session-identity 覆盖。见 issue #1634、
   `03-runtime/02-agent-runtime.md` §6.3 与 `03-runtime/11-provider-model-system.md`。
+
+## 2026-10-16 —— 分段回合过程与独立的思考偏好（D660）
+
+- D660 取代 D633 / D651 与 `turn-process-and-thinking-display` ADR 中记录的
+  `Detailed` / `Compact` 显示模式行为与单一整体过程披露。回合现在渲染为按时间顺序排列的
+  可折叠过程片段；末尾回答、助手错误、中止后的末尾文字和待处理操作面留在这些片段之外。
+- Bash 与 run 别名作为独立行渲染，位于所有折叠容器之外——既不属于回合级过程披露，也不
+  属于普通活动组——即使所有组都收起也保持可见。相邻的 Bash 行保持独立，Bash 行的详情在
+  用户打开之前保持收起。
+- 组折叠默认值统一且不依赖思考偏好：活动组默认展开，完成时仅在用户未操作时收起；其他
+  已完成组默认收起；记录过失败或被拒工具的未接管活动组会在后续恢复期间保持展开。
+- 偏好为可选的布尔值 `AppSettings.showThinking`。当它为 false 时，活动思考指示器保持
+  可见，而已完成的思考行和摘要被隐藏，空的纯思考容器被省略；已存推理仍会保留。缺失或
+  非布尔值回退到旧版 `thinkingDisplayMode` 字段（`compact` 隐藏，`detailed`／未知／缺失
+  显示），该旧字段仅为持久化设置兼容性保留，不再在界面中暴露。
+- `showThinking` 加入可移植应用字段，因此会像旧字段一样同步；其余 Host 协议、持久化
+  schema、权限或插件契约不变。由 `apps/desktop/test/thinking-visibility.test.mjs` 与
+  i18n 目录测试覆盖。见修订后的 ADR、`04-ux/06-settings-ia.md`、
+  `04-ux/08-component-spec.md`、`04-ux/09-interaction-patterns.md` 与
+  E2E-CHAT-turn-process-and-thinking-display。
