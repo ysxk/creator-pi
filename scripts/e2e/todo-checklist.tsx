@@ -37,12 +37,13 @@ async function mount(sessionId: string) {
   await frame();
 }
 const dock = () => document.querySelector(".todo-dock");
-const header = () => document.querySelector<HTMLButtonElement>(".todo-dock-header");
+const toggle = () => document.querySelector<HTMLButtonElement>(".todo-dock-toggle");
+const dockText = () => dock()?.textContent ?? "";
 const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-const collapsedGap = () => Math.round(box(".todo-dock").height - box(".todo-dock-header").height);
-const dockGeometry = () => `dock ${box(".todo-dock").height}px, header ${box(".todo-dock-header").height}px, `
-  + `content ${box(".todo-dock-content").height}px, clip ${box(".todo-dock-clip").height}px, `
-  + `list ${box(".todo-dock-list").height}px`;
+const collapsedGap = () => Math.round(box(".todo-dock").height - box(".todo-dock-summary").height);
+const dockGeometry = () => `dock ${box(".todo-dock").height}px, `
+  + `summary ${document.querySelector(".todo-dock-summary") ? box(".todo-dock-summary").height : "-"}px, `
+  + `list ${document.querySelector(".todo-dock-list") ? box(".todo-dock-list").height : "-"}px`;
 const snapshot = (id: string) => useAppStore.getState().sessionTodos[id];
 function items(count: number, prefix: string): SessionTodo[] {
   return Array.from({ length: count }, (_, index) => ({ content: `${prefix} ${index + 1}`,
@@ -60,33 +61,30 @@ window.todoChecklistProbe = async () => {
   assert(!dock(), "Empty session must hide the dock");
 
   const original = await write(first, items(10, "Task"));
-  await until(() => header()?.textContent?.includes("Task 1") === true, "Committed host notification must reach TodoDock");
-  assert(header()?.getAttribute("aria-expanded") === "false", "Dock starts collapsed");
-  // The closed disclosure must not reserve the list's inset: vertical padding on
-  // the collapsing box held the `0fr` row open and left a blank band under it.
-  assert(Math.round(box(".todo-dock-content").height) === 0,
-    `Collapsed disclosure must reserve no height (${dockGeometry()})`);
-  assert(Math.round(box(".todo-dock-clip").height) === 0,
-    `Collapsed clip must reserve no height (${dockGeometry()})`);
-  assert(collapsedGap() === 2, `Collapsed dock must be the header plus its borders (${dockGeometry()})`);
-  checks.push("collapsed-dock-reserves-no-blank-height");
-  flushSync(() => header()!.click());
-  await until(() => header()?.getAttribute("aria-expanded") === "true", "Click must expand dock");
-  // The expanded dock lists every row and scrolls inside its own box (#1319).
-  assert(document.querySelectorAll(".todo-dock-row").length === 10, "Expanded list renders every row");
+  await until(() => dockText().includes("Task 1"), "Committed host notification must reach TodoDock");
+  // The checklist opens by default and lists every row in its own scrollport
+  // (D683, #1319).
+  assert(toggle()?.getAttribute("aria-expanded") === "true", "Dock starts open");
+  assert(document.querySelectorAll(".todo-dock-row").length === 10, "Open list renders every row");
+  assert(document.querySelectorAll(".todo-dock-mark-spinner").length === 1, "The item in progress turns");
   const list = document.querySelector<HTMLElement>(".todo-dock-list")!;
-  assert(getComputedStyle(list).overflowY === "auto", "The expanded list is the scroll container");
+  assert(getComputedStyle(list).overflowY === "auto", "The open list is the scroll container");
   assert(list.scrollHeight > list.clientHeight, "A long checklist scrolls inside the dock instead of growing it");
   assert(Math.round(list.clientHeight) <= 280, `The dock list keeps a bounded height (${list.clientHeight}px)`);
   assert(getComputedStyle(list).overscrollBehaviorY === "contain",
     "Reaching the list's end must not scroll the transcript");
-  assert(list.tabIndex === 0, "The expanded list is keyboard reachable");
-  await until(() => Math.round(box(".todo-dock-clip").height) === Math.round(box(".todo-dock-list").height),
-    "Expanded clip must match the listed rows once the disclosure transition settles");
+  assert(list.tabIndex === 0, "The open list is keyboard reachable");
   assert(!document.querySelector(".todo-dock-more"), "No static overflow line remains");
   assert(Math.round(box(".todo-dock").height) < 400,
     `The dock keeps a bounded footprint (${dockGeometry()})`);
-  checks.push("agent-prompt-tool-discovery-host-write-event-dock-expand-full-scrolling-list");
+  flushSync(() => toggle()!.click());
+  await until(() => toggle()?.getAttribute("aria-expanded") === "false", "Click must collapse dock");
+  assert(!document.querySelector(".todo-dock-list"), "A collapsed dock lists no rows");
+  assert(document.querySelector(".todo-dock-summary")?.textContent?.includes("Task 1"),
+    "A collapsed dock shows the item in progress");
+  assert(collapsedGap() === 2, `Collapsed dock must be one row plus its borders (${dockGeometry()})`);
+  checks.push("collapsed-dock-is-one-row");
+  checks.push("agent-prompt-tool-discovery-host-write-event-dock-open-full-scrolling-list");
   const normalized = await write(first, [
     { content: "😀".repeat(501), status: "in_progress", priority: "high" },
     { content: "Second active item", status: "in_progress", priority: "medium" },
@@ -101,16 +99,11 @@ window.todoChecklistProbe = async () => {
 
   await write(second, items(1, "Other"));
   await mount(second);
-  await until(() => header()?.textContent?.includes("Other 1") === true, "Session switch must show its own checklist");
-  assert(header()?.getAttribute("aria-expanded") === "false", "Session switch collapses dock");
-  // Closing after the switch must retract the list completely, not just fade it;
-  // the transition's end state is the sync point, so no arbitrary delay is used.
-  await until(() => collapsedGap() === 2,
-    `Collapsing the dock must retract the listed rows (${dockGeometry()})`);
-  assert(Math.round(box(".todo-dock-content").height) === 0,
-    `Collapsed disclosure must reserve no height (${dockGeometry()})`);
+  await until(() => dockText().includes("Other 1"), "Session switch must show its own checklist");
+  await until(() => toggle()?.getAttribute("aria-expanded") === "true", "Session switch reopens dock");
+  assert(!dockText().includes("Task"), "Session switch shows no rows of the other checklist");
   await mount(first);
-  await until(() => header()?.textContent?.includes("Task 1") === true, "Returning session restores its checklist");
+  await until(() => dockText().includes("Task 1"), "Returning session restores its checklist");
   checks.push("session-switch-isolation");
 
   // A finished checklist is on screen only while its turn runs (D672).
@@ -120,14 +113,15 @@ window.todoChecklistProbe = async () => {
     { content: "Dropped", status: "cancelled", priority: "low" },
   ]);
   await until(() => snapshot(first)?.revision === finished.revision, "Completion must reach store");
-  assert(header()?.textContent?.includes("1/1"), "Cancelled items are excluded from progress denominator");
+  assert(dockText().includes("1/1"), "Cancelled items are excluded from progress denominator");
   await action("event", original);
   await frame();
   assert(snapshot(first)?.revision === finished.revision, "Stale event cannot replace newer snapshot");
-  assert(header()?.textContent?.includes("1/1"), "Stale event cannot replace finished UI");
+  assert(dockText().includes("1/1"), "Stale event cannot replace finished UI");
   const cancelled = await write(first, [{ content: "Dropped", status: "cancelled", priority: "medium" }]);
   await until(() => snapshot(first)?.revision === cancelled.revision, "Cancellation must reach store");
-  assert(header()?.textContent?.toLowerCase().includes("cancelled"), "All-cancelled list must show cancelled status");
+  assert(dock()?.querySelector('[aria-label="Cancelled"]') && !dockText().includes("0/0"),
+    "All-cancelled list must show cancelled status, not a 0/0 count");
   useAppStore.setState({ runningSessions: { [first]: false } });
   await until(() => !dock(), "A finished checklist must leave when its turn ends");
   const cleared = await write(first, []);
@@ -140,7 +134,7 @@ window.todoChecklistProbe = async () => {
   await action("restart");
   await action("suppressEvents", false);
   await action("ready");
-  await until(() => snapshot(first)?.revision === durable.revision && header()?.textContent?.includes("Persisted 1") === true,
+  await until(() => snapshot(first)?.revision === durable.revision && dockText().includes("Persisted 1"),
     "Host restart must recover a newer durable snapshot even with a cached empty snapshot");
   checks.push("sqlite-host-restart-cached-snapshot-recovery");
 
@@ -156,7 +150,7 @@ window.todoChecklistProbe = async () => {
   assert(await action("readFailures") === 1, "The initial transport read failure must actually occur");
   // Explicit transport readiness is the sync point; no arbitrary timer delay.
   await action("ready");
-  await until(() => snapshot(third)?.revision === recoverable.revision && header()?.textContent?.includes("Recovered 1") === true,
+  await until(() => snapshot(third)?.revision === recoverable.revision && dockText().includes("Recovered 1"),
     "A failed first read must retry when the host becomes ready");
   assert((await action("readCount") as number) > readsBefore, "Recovery must use the real todos.get transport");
   checks.push("initial-read-failure-ready-recovery");

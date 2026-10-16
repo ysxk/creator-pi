@@ -1,4 +1,4 @@
-import type { SessionTodoSnapshot, UiMessage } from "@pi-desktop/shared";
+import type { SessionTodo, SessionTodoSnapshot, TodoStatus, UiMessage } from "@pi-desktop/shared";
 
 /** Whether nothing on the checklist is left to do: every item completed or cancelled. */
 export function checklistFinished(snapshot: Pick<SessionTodoSnapshot, "todos">): boolean {
@@ -37,4 +37,41 @@ export function finishedChecklistVisible(input: {
 }): boolean {
   if (!input.running) return false;
   return input.turnStartedAt === undefined || input.updatedAt >= input.turnStartedAt;
+}
+
+export interface ChecklistSummary {
+  /** Items completed. */
+  completed: number;
+  /** Items that count toward progress: everything not cancelled. */
+  total: number;
+  /** The status mark the collapsed dock shows for the whole list. */
+  status: TodoStatus;
+  /** The item in progress, when there is one and work is still open. */
+  current: SessionTodo | undefined;
+  allCancelled: boolean;
+  finished: boolean;
+}
+
+/** What the collapsed dock says about the checklist as a whole (D683). */
+export function checklistSummary(snapshot: Pick<SessionTodoSnapshot, "todos">): ChecklistSummary {
+  const completed = snapshot.todos.filter((todo) => todo.status === "completed").length;
+  const cancelled = snapshot.todos.filter((todo) => todo.status === "cancelled").length;
+  const allCancelled = cancelled === snapshot.todos.length;
+  const finished = checklistFinished(snapshot);
+  const current = snapshot.todos.find((todo) => todo.status === "in_progress");
+  const status: TodoStatus = allCancelled
+    ? "cancelled"
+    : finished
+      ? "completed"
+      : current
+        ? "in_progress"
+        : "pending";
+  return {
+    completed,
+    total: snapshot.todos.length - cancelled,
+    status,
+    current: finished ? undefined : current,
+    allCancelled,
+    finished,
+  };
 }

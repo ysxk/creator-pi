@@ -50,16 +50,20 @@ test("TodoDock renders bounded session progress and cancelled state", async () =
       },
     });
     const html = render();
-    assert.match(html, /aria-expanded="false"/);
-    assert.match(html, /class="todo-dock-content" aria-hidden="true"/);
-    assert.match(html, /class="todo-dock-content" aria-hidden="true"><div class="todo-dock-clip">/);
+    // The checklist opens by default, the way the agent's plan is read (D683).
+    assert.match(html, /aria-expanded="true"/);
+    assert.match(html, /aria-label="Collapse checklist"/);
+    assert.match(html, /class="todo-dock-progress">1\/12</);
     assert.match(html, /extra-0/);
-    // The expanded dock lists every row (#1319): the whole list is mounted, and
+    // The open dock lists every row (#1319): the whole list is mounted, and
     // the dock scrolls inside instead of printing a static overflow line.
     assert.equal((html.match(/role="listitem"/g) ?? []).length, 12, "every ordered row renders");
     assert.doesNotMatch(html, /more items/);
-    assert.match(html, /class="todo-dock-list" role="list" tabindex="-1"/);
-    assert.match(html, /lucide-check/);
+    assert.match(html, /class="todo-dock-list" role="list" tabindex="0"/);
+    // One status mark per row, no tinted tiles: done, turning, waiting.
+    assert.match(html, /todo-dock-row-completed[\s\S]*?aria-label="Completed"/);
+    assert.equal((html.match(/todo-dock-mark-spinner/g) ?? []).length, 1);
+    assert.equal((html.match(/stroke-dasharray/g) ?? []).length, 10);
 
     Object.assign(useAppStore.getInitialState(), {
       sessionTodos: {
@@ -79,7 +83,7 @@ test("TodoDock renders bounded session progress and cancelled state", async () =
       runningSessions: { "session-todo-test": true },
     });
     assert.match(render(), /Cancelled/);
-    assert.doesNotMatch(render(), /0\/0 completed/);
+    assert.doesNotMatch(render(), /0\/0/);
   } finally {
     await server.close();
   }
@@ -161,20 +165,55 @@ test("a finished checklist leaves with the turn that finished it", async () => {
   }
 });
 
-test("TodoDock uses a quiet disclosure animation and state surfaces", async () => {
+test("the collapsed dock summarises the checklist by its item in progress", async () => {
+  const server = await createServer({
+    root: fileURLToPath(new URL("..", import.meta.url)),
+    configFile: false,
+    server: { middlewareMode: true, hmr: false, ws: false },
+    esbuild: { jsx: "automatic" },
+    appType: "custom",
+    optimizeDeps: { noDiscovery: true, include: [] },
+  });
+  try {
+    const { checklistSummary } = await server.ssrLoadModule("/src/features/chat/todos/finished-checklist.ts");
+    const item = (content, status) => ({ content, status, priority: "medium" });
+    const open = checklistSummary({
+      todos: [item("audit", "completed"), item("write report", "in_progress"), item("ship", "pending")],
+    });
+    assert.equal(open.status, "in_progress");
+    assert.equal(open.current?.content, "write report");
+    assert.deepEqual([open.completed, open.total], [1, 3]);
+
+    const waiting = checklistSummary({ todos: [item("audit", "completed"), item("ship", "pending")] });
+    assert.equal(waiting.status, "pending");
+    assert.equal(waiting.current, undefined);
+
+    const done = checklistSummary({ todos: [item("audit", "completed"), item("skip", "cancelled")] });
+    assert.equal(done.status, "completed");
+    assert.deepEqual([done.completed, done.total, done.finished], [1, 1, true]);
+
+    const dropped = checklistSummary({ todos: [item("skip", "cancelled")] });
+    assert.equal(dropped.status, "cancelled");
+    assert.equal(dropped.allCancelled, true);
+  } finally {
+    await server.close();
+  }
+});
+
+test("TodoDock is a quiet card with status marks and a bounded scrollport", async () => {
   const { readFile } = await import("node:fs/promises");
   const css = await readFile(new URL("../src/styles/composer.css", import.meta.url), "utf8");
-  assert.match(css, /\.todo-dock-header:active:not\(:disabled\)\s*\{[\s\S]*?transform:\s*none;/);
-  assert.match(css, /\.todo-dock-content\s*\{[\s\S]*?grid-template-rows:\s*0fr;[\s\S]*?opacity:\s*0;/);
-  assert.match(css, /\.todo-dock\.is-expanded \.todo-dock-content\s*\{[\s\S]*?grid-template-rows:\s*1fr;/);
-  assert.match(css, /\.todo-dock-row-completed\s*\{[\s\S]*?var\(--ds-success\)/);
-  // The expanded list is the scrollport (#1319): bounded height, internal
-  // scroll, no chaining into the transcript, and reachable from the keyboard.
+  assert.match(css, /\.todo-dock-toggle:active:not\(:disabled\)\s*\{[\s\S]*?transform:\s*none;/);
+  // No tinted tiles behind rows: the mark carries the state.
+  assert.doesNotMatch(css, /\.todo-dock-row[^{]*\{[^}]*background/);
+  assert.match(css, /\.todo-dock-row-cancelled \.todo-dock-row-content\s*\{[\s\S]*?line-through/);
+  // The list is the scrollport (#1319): bounded height, internal scroll, no
+  // chaining into the transcript, and reachable from the keyboard.
   assert.match(
     css,
-    /\.todo-dock\.is-expanded \.todo-dock-list\s*\{[\s\S]*?max-height:[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain;/,
+    /\.todo-dock-list\s*\{[\s\S]*?max-height:[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain;/,
   );
   assert.match(css, /\.todo-dock-list:focus-visible\s*\{[\s\S]*?outline:/);
   assert.doesNotMatch(css, /\.todo-dock-more\s*\{/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.todo-dock-content/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.todo-dock-mark-spinner\s*\{\s*animation:\s*none;/);
 });

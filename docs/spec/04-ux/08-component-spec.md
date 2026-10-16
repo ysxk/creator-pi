@@ -2922,23 +2922,24 @@ reasoning-level control.
   a run only if it was written after the latest prompt, and steering does not
   count as a prompt. A checklist with work still open stays visible whether or
   not a turn runs. The host keeps the checklist; only the dock steps aside.
-- The collapsed header shows completed/active progress and the current
-  `in_progress` content. A checklist whose items are all cancelled has a clear
-  cancelled label instead of a misleading `0/0 completed` count.
-- The disclosure is keyboard accessible, does not take focus on updates, and
-  resets closed when the active session changes. The expanded dock lists every
-  ordered row and scrolls inside its own box (`max-height: min(280px, 30dvh)`,
-  `overflow-y: auto`, `overscroll-behavior: contain`), so a long checklist stays
-  readable without growing the Composer stack and reaching the list's end never
-  scrolls the transcript behind it; that scrollport is keyboard reachable only
-  while the disclosure is open. The list stays mounted while collapsed so
-  opening and closing can animate with a bounded height/opacity transition;
-  collapsed content is `aria-hidden` and reduced-motion users receive an
-  immediate state change. A collapsed dock reserves only its header row: the
-  list's inset is clipped, never laid out below the header.
-  Completed rows use a success-tinted tile with a check icon, in-progress rows
-  use the accent tint, and cancelled rows are muted. Each status symbol has a
-  localized accessible name, and each row renders plain text.
+- The dock is one quiet card that opens by default and lists the plan in order
+  (D683). Each row is a status mark plus one line of plain text, with no tinted
+  tile: a filled circle with a check for completed, a turning arc for
+  `in_progress`, a dashed ring for pending, and a struck ring with struck-through
+  muted text for cancelled. Each mark has a localized accessible name. A small
+  toggle in the card's top-right corner shows `completed/total` progress and
+  collapses or reopens the card; it does not take focus on updates and the card
+  reopens when the active session changes.
+- Collapsed, the card is one row: the `in_progress` item, or the progress or
+  finished count when nothing is in progress. A checklist whose items are all
+  cancelled shows a clear cancelled label instead of a misleading `0/0` count.
+- The open card lists every ordered row and scrolls inside its own box
+  (`max-height: min(280px, 30dvh)`, `overflow-y: auto`,
+  `overscroll-behavior: contain`), so a long checklist stays readable without
+  growing the Composer stack and reaching the list's end never scrolls the
+  transcript behind it. The scrollport is keyboard reachable, and it keeps the
+  `in_progress` row and the row after it in view without moving focus.
+  Reduced-motion users get a still in-progress mark.
 - Renderer snapshots are keyed by session id. A `todos.changed` event with an
   older or equal revision is ignored. Session activation and host recovery
   re-read the authoritative snapshot, including already cached checklists; a

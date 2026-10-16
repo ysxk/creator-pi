@@ -9620,9 +9620,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Preconditions**: An isolated local Electron profile with a deterministic
   Agent/host fixture, two Desktop sessions, and no real provider or paid API.
 - **Steps**: Start a multi-step Agent turn that calls `TodoWrite` with ordered
-  pending and `in_progress` items. Observe the TodoDock above the Composer,
-  expand it, switch sessions, and confirm the checklist stays session-scoped.
-  Expand a checklist longer than the dock's height cap: every row must render
+  pending and `in_progress` items. Observe the TodoDock open above the
+  Composer, collapse it, switch sessions, and confirm the checklist stays
+  session-scoped and reopens. Open a checklist longer than the dock's height
+  cap: every row must render
   and the list must scroll inside the dock without growing the Composer stack.
   Complete and cancel items while the turn runs, confirm the all-cancelled
   label, end the turn and confirm the finished checklist leaves, then clear
@@ -9633,9 +9634,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Expected**: Host SQLite is authoritative; each successful full replacement
   advances revision, including clear, and emits one committed `todos.changed`
   snapshot. Invalid or unauthorized writes do not mutate or emit. TodoDock
-  renders plain text, does not take focus, resets expansion on session changes,
+  renders plain text, does not take focus, reopens on session changes,
   lists every ordered row with the dock's own list as the scrollport,
-  keeps a collapsed dock to its header height, shows a finished checklist
+  keeps a collapsed dock to one row, shows a finished checklist
   only while the turn that finished it runs (D672),
   rejects stale events, and skips local recovery for `remote:` sessions because
   RACP v1 has no Todo snapshot operation.

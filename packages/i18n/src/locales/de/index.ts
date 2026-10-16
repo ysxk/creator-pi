@@ -295,6 +295,8 @@ export const de = {
       "completed": "{{completed}}/{{total}} erledigt",
       "updated": "Checkliste aktualisiert",
       "updating": "Checkliste wird aktualisiert",
+      "collapse": "Collapse checklist",
+      "expand": "Expand checklist",
       "status": { "pending": "Offen", "in_progress": "In Bearbeitung", "completed": "Erledigt", "cancelled": "Abgebrochen" }
     },
     "queuedPrompts": "Nachrichten in der Warteschlange",

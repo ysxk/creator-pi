@@ -297,6 +297,8 @@ export const zhTW = {
       completed: "已完成 {{completed}}/{{total}}",
       updated: "清單已更新",
       updating: "正在更新清單",
+      collapse: "收起清單",
+      expand: "展開清單",
       status: { pending: "待辦", in_progress: "進行中", completed: "已完成", cancelled: "已取消" },
     },
     queuedPrompts: "待發送訊息",

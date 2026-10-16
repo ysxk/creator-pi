@@ -295,6 +295,8 @@ export const fr = {
       "completed": "{{completed}}/{{total}} terminées",
       "updated": "Liste mise à jour",
       "updating": "Mise à jour de la liste",
+      "collapse": "Collapse checklist",
+      "expand": "Expand checklist",
       "status": { "pending": "En attente", "in_progress": "En cours", "completed": "Terminée", "cancelled": "Annulée" }
     },
     "queuedPrompts": "Messages en file d'attente",
