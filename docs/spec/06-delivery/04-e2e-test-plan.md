@@ -17659,3 +17659,40 @@ host-created files. The full app's file-preview viewer is covered separately.
   `apps/desktop/test/app-store-sidebar.test.mjs` and
   `apps/desktop/test/project-create-dialog.test.mjs`; full UI scenario remains
   Draft and is run only when explicitly requested in a capable environment.
+
+### E2E-266: Project headers show running activity while collapsed
+
+- **Preconditions**: At least two local project groups with sessions, one of
+  them with a running turn (and optionally a session waiting for a
+  permission prompt), plus a connected remote host group with a running
+  session. Settings → General → Sidebar switches are at their defaults.
+- **Steps**:
+  1. Start a turn in one project and collapse that project group.
+  2. Inspect the collapsed header, then expand it again.
+  3. Start a second concurrent turn in a different project and a turn in the
+     remote host's project.
+  4. Open Settings → General → Sidebar and turn off **Show running activity
+     on projects**, then re-check the sidebar.
+  5. Turn the master switch back on, turn off **Count badge** only, and
+     re-check. Repeat with **Activity rail** only.
+  6. Enable the OS "reduce motion" setting and re-check the rail.
+- **Expected**: A project with live work marks its header — the collapsed
+  header keeps showing the count badge and the activity rail, so the project
+  is identifiable without expanding it. Running and permission-waiting counts
+  are separate figures and never merge into one number. The remote host group
+  shows the same pair. The master switch removes both affordances at once and
+  leaves the two sub-switches disabled but retaining their stored value, so
+  re-enabling the master restores the previous choice. Each sub-switch hides
+  only its own affordance. Under reduced motion both affordances stay visible
+  with their animation removed. Settings persist across a renderer reload.
+- **Specs linked**: `04-ux/01-ui-ia.md` §3.2, `04-ux/06-settings-ia.md`
+  (General → Sidebar card).
+- **Acceptance**: The "is anything running under here?" answer is available
+  from a collapsed project group, and each affordance can be switched off
+  independently through a persisted setting.
+- **Status**: Draft. Unit coverage in
+  `apps/desktop/test/sidebar-project-runs.test.mjs` covers the count
+  classification, the master/sub-switch gating, both render call sites, and
+  the theme-token and reduced-motion guarantees; the interactive sidebar
+  scenario remains a manual validation scenario run in a capable
+  environment.
