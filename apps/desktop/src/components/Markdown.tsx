@@ -34,6 +34,7 @@ import {
   CHAT_GALLERY_ATTRIBUTE,
   MarkdownChatMediaContext,
   MentionedMedia,
+  useOpenReplyFileRef,
 } from "./MarkdownChatMedia";
 import {
   CHAT_MEDIA_TAG,
@@ -538,7 +539,7 @@ function InlineCode({
 }: ComponentProps<"code"> & { node?: unknown }) {
   const root = useAppStore((s) => s.workspace?.path);
   const baseDir = useContext(MarkdownBaseDirContext);
-  const openFileRef = useOpenChatFileRef();
+  const openReplyFileRef = useOpenReplyFileRef();
   const openFileMenu = useContext(MarkdownFileMenuContext);
   const text = typeof children === "string" ? children : null;
   const target =
@@ -563,9 +564,12 @@ function InlineCode({
       className="chat-code-link"
       data-file-type={fileType?.id}
       title={target.kind === "file" ? fileTitle : urlTitle}
-      onClick={() => {
+      onClick={(event) => {
         if (target.kind === "file") {
-          openFileRef(text ?? target.path, baseDir);
+          // The chip usually sits inside the link the file-link pass made;
+          // the link sees this click as handled instead of opening it again.
+          event.preventDefault();
+          openReplyFileRef(text ?? target.path, baseDir, event.currentTarget);
           return;
         }
         if (target.kind === "session") {
@@ -598,7 +602,7 @@ function Anchor({
   const { t } = useTranslation();
   const root = useAppStore((s) => s.workspace?.path);
   const baseDir = useContext(MarkdownBaseDirContext);
-  const openFileRef = useOpenChatFileRef();
+  const openReplyFileRef = useOpenReplyFileRef();
   const openFileMenu = useContext(MarkdownFileMenuContext);
   const openUrl = useAppStore((s) => s.openUrlInWorkPanel);
   const showToast = useAppStore((s) => s.showToast);
@@ -682,6 +686,8 @@ function Anchor({
   // to _blank, which main routes to shell.openExternal.
 
   const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // A chip inside the link already opened its file.
+    if (e.defaultPrevented) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (!href) return;
     if (/^https?:\/\//i.test(href)) {
@@ -689,7 +695,10 @@ function Anchor({
       openHttpUrl(href);
       return;
     }
-    handleMarkdownFileLinkClick(e, href, root, baseDir, openFileRef);
+    const trigger = e.currentTarget;
+    handleMarkdownFileLinkClick(e, href, root, baseDir, (ref, base) =>
+      openReplyFileRef(ref, base, trigger),
+    );
   };
   return (
     <>

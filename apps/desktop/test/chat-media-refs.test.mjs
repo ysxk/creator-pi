@@ -15,7 +15,7 @@ import {
   appendChatMediaPreviews,
   CHAT_MEDIA_TAG,
   chatMediaKind,
-  isChatCellImage,
+  isChatImagePath,
   mentionedFolders,
   remarkChatMediaPreviews,
 } from "../src/lib/chat-media-refs.ts";
@@ -113,7 +113,7 @@ test("a table cell that names a picture holds its thumbnail, right after the nam
     ].join("\n"),
   );
   // A clip still follows the table; the pictures do not.
-  assert.deepEqual(tree.children.map(preview), ["table", "video:tmp/final.mp4"]);
+  assert.deepEqual(tree.children.map(placed), ["table", "block:video:tmp/final.mp4"]);
   const rows = tree.children[0].children.slice(1).map((row) => row.children.map(cellPreviews));
   assert.deepEqual(rows, [
     [["link:output/full.jpg", "thumb:image:output/full.jpg"], []],
@@ -129,15 +129,33 @@ test("a table cell that names a picture holds its thumbnail, right after the nam
   assert.deepEqual(strong.children.map((node) => node.type), ["link", "chatMedia"]);
 });
 
-test("a picture named outside a table stays a chip", () => {
-  assert.equal(isChatCellImage("output/full.jpg"), true);
-  assert.equal(isChatCellImage("a/b.webp"), true);
-  assert.equal(isChatCellImage("a/b.svg"), true);
-  assert.equal(isChatCellImage("a/b.mp4"), false);
-  assert.equal(isChatCellImage("shot.png:12"), false);
-  const tree = previewsOf("Saved `output/full.jpg`.\n\n- also `output/seams.jpg`\n");
-  assert.deepEqual(tree.children.map(preview), ["paragraph", "list"]);
-  assert.deepEqual(tree.children[1].children[0].children.map(preview), ["paragraph"]);
+/** A preview label that also names how it sits. */
+const placed = (node) =>
+  node.type === "chatMedia"
+    ? `${node.data.hProperties.variant}:${node.data.hProperties.kind}:${node.data.hProperties.path}`
+    : node.type;
+
+test("pictures named outside a table follow their block as a row of thumbnails", () => {
+  assert.equal(isChatImagePath("output/full.jpg"), true);
+  assert.equal(isChatImagePath("a/b.webp"), true);
+  assert.equal(isChatImagePath("a/b.svg"), true);
+  assert.equal(isChatImagePath("a/b.mp4"), false);
+  assert.equal(isChatImagePath("shot.png:12"), false);
+  const tree = previewsOf(
+    "Saved `output/full.jpg` and `output/seams.jpg`, see also `design/panel.svg`.\n\n- also `output/seams.jpg`\n- and `out/b.png`\n",
+  );
+  // A drawing keeps its full preview; the pictures are thumbnails, in order.
+  assert.deepEqual(tree.children.map(placed), [
+    "paragraph",
+    "block:image:design/panel.svg",
+    "thumb:image:output/full.jpg",
+    "thumb:image:output/seams.jpg",
+    "list",
+  ]);
+  // A list keeps them inside the item; the reply's viewer shows each file once.
+  const [first, second] = tree.children[4].children;
+  assert.deepEqual(first.children.map(placed), ["paragraph", "thumb:image:output/seams.jpg"]);
+  assert.deepEqual(second.children.map(placed), ["paragraph", "thumb:image:out/b.png"]);
 });
 
 test("a remote picture or an embedded one in a cell gets no thumbnail", () => {
@@ -258,6 +276,12 @@ test("the reply lends its Markdown the previews and the viewer; nothing else get
   );
   // The element survives the sanitizer and has a renderer.
   assert.match(markdown, /\[CHAT_MEDIA_TAG\]: \["path", "kind", "variant"\]/);
+  // A picture's name in a reply opens the viewer on the completed file, and
+  // the link around the chip does not open it a second time.
+  assert.match(markdown, /openReplyFileRef\(text \?\? target\.path, baseDir, event\.currentTarget\)/);
+  assert.match(markdown, /if \(e\.defaultPrevented\) return;/);
+  assert.match(mention, /if \(!media \|\| !trigger \|\| !isChatImagePath\(path\)\) \{\s*openFileRef\(path, baseDir\);/);
+  assert.match(mention, /if \(file && trigger\.isConnected\) media\.openImage\(trigger, file\);\s*else openFileRef\(path, baseDir\);/);
   // A cell's picture is phrasing content with no caption; the chip names it.
   assert.match(markdown, /variant=\{variant === "thumb" \? "thumb" : "block"\}/);
   assert.match(mention, /if \(variant === "thumb"\) \{\s*return \(\s*<span className="chat-media-thumb"/);

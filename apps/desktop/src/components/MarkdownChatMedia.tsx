@@ -9,6 +9,7 @@
  */
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useId,
@@ -18,7 +19,7 @@ import {
 import { mediaViewUrl } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { toWorkspaceRel } from "../lib/chat-links";
-import type { ChatMediaKind, ChatMediaVariant } from "../lib/chat-media-refs";
+import { isChatImagePath, type ChatMediaKind, type ChatMediaVariant } from "../lib/chat-media-refs";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { useOpenChatFileRef } from "../hooks/use-preview-target";
 import { useAppStore } from "../stores/app-store";
@@ -99,6 +100,25 @@ async function lookUp(
   return lookup;
 }
 
+/** What a lookup of a named file is cached under, and the paths it tries. */
+function mentionLookup(
+  path: string,
+  baseDir: string,
+  folders: readonly string[],
+  workspacePath: string | null,
+  sessionId: string | null,
+): { key: string; ref: string; folderKey: string } {
+  const ref = isAbsolutePath(path) ? path : toWorkspaceRel(path, workspacePath, baseDir) ?? path;
+  // A bare name is half a path; the folders the reply named may be the rest.
+  const bare = !/[\\/]/.test(ref);
+  const folderKey = bare ? folders.join("\n") : "";
+  return { key: `${workspacePath ?? ""}\n${sessionId ?? ""}\n${ref}\n${folderKey}`, ref, folderKey };
+}
+
+function lookupCandidates(ref: string, folderKey: string): string[] {
+  return [ref, ...(folderKey ? folderKey.split("\n").map((folder) => `${folder}/${ref}`) : [])];
+}
+
 /** The absolute path of a named file, once the host has found one. */
 function useMentionedFile(
   path: string | null,
@@ -107,23 +127,15 @@ function useMentionedFile(
 ): string | null {
   const workspacePath = useAppStore((s) => s.workspace?.path ?? null);
   const sessionId = useAppStore((s) => s.activeSessionId) ?? null;
-  const ref = !path
-    ? null
-    : isAbsolutePath(path)
-      ? path
-      : toWorkspaceRel(path, workspacePath, baseDir) ?? path;
-  // A bare name is half a path; the folders the reply named may be the rest.
-  const bare = ref !== null && !/[\\/]/.test(ref);
-  const folderKey = bare ? folders.join("\n") : "";
-  const key = ref ? `${workspacePath ?? ""}\n${sessionId ?? ""}\n${ref}\n${folderKey}` : null;
+  const lookup = path ? mentionLookup(path, baseDir, folders, workspacePath, sessionId) : null;
+  const key = lookup?.key ?? null;
+  const ref = lookup?.ref ?? null;
+  const folderKey = lookup?.folderKey ?? "";
   const [found, setFound] = useState<{ key: string; path: string } | null>(null);
   useEffect(() => {
     if (!key || !ref) return;
     if (resolvedPaths.has(key)) return;
-    const candidates = [
-      ref,
-      ...(folderKey ? folderKey.split("\n").map((folder) => `${folder}/${ref}`) : []),
-    ];
+    const candidates = lookupCandidates(ref, folderKey);
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let lookups = 0;
@@ -146,6 +158,48 @@ function useMentionedFile(
   }, [key, ref, folderKey, sessionId]);
   if (!key) return null;
   return resolvedPaths.get(key) ?? (found?.key === key ? found.path : null);
+}
+
+/**
+ * The opener a reply's file references use. A picture opens the reply's image
+ * viewer, on the file the host completes the name to, so a click shows the
+ * picture rather than a file view that may not render it; anything else, a
+ * name the host cannot find, and every reference outside a reply open as a
+ * file, as before.
+ */
+export function useOpenReplyFileRef(): (
+  path: string,
+  baseDir: string | undefined,
+  trigger: HTMLElement | null,
+) => void {
+  const media = useContext(MarkdownChatMediaContext);
+  const openFileRef = useOpenChatFileRef();
+  const workspacePath = useAppStore((s) => s.workspace?.path ?? null);
+  const sessionId = useAppStore((s) => s.activeSessionId) ?? null;
+  return useCallback(
+    (path, baseDir, trigger) => {
+      if (!media || !trigger || !isChatImagePath(path)) {
+        openFileRef(path, baseDir);
+        return;
+      }
+      const { key, ref, folderKey } = mentionLookup(
+        path,
+        baseDir ?? "",
+        media.folders,
+        workspacePath,
+        sessionId,
+      );
+      const cached = resolvedPaths.get(key);
+      const resolved = cached
+        ? Promise.resolve(cached)
+        : lookUp(key, lookupCandidates(ref, folderKey), sessionId);
+      void resolved.then((file) => {
+        if (file && trigger.isConnected) media.openImage(trigger, file);
+        else openFileRef(path, baseDir);
+      });
+    },
+    [media, openFileRef, workspacePath, sessionId],
+  );
 }
 
 function leafName(path: string): string {

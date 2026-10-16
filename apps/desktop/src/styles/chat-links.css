@@ -122,12 +122,19 @@
   margin: 0;
 }
 
-/* A picture a table cell names, shown small under its chip. One fixed box
-   keeps the rows even; a tall page shows its top, where it starts. */
+/* A picture a reply names, shown small: under its chip in a table cell, and
+   in one wrapping row under any other block. One fixed box keeps them even;
+   a tall page shows its top, where it starts. */
 .chat-media-thumb {
-  display: block;
-  margin-top: 6px;
+  display: inline-block;
+  margin: 6px 8px 0 0;
+  vertical-align: top;
   line-height: 0;
+}
+
+td .chat-media-thumb {
+  display: block;
+  margin-right: 0;
 }
 
 .prose-chat .chat-media-thumb > img {

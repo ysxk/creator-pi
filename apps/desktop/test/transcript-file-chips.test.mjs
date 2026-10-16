@@ -94,7 +94,10 @@ test("Markdown file anchors use the same project-file opener as inline reference
   const imageStart = markdown.indexOf("/**\n * Local image references", anchorStart);
   assert.ok(anchorStart >= 0 && imageStart > anchorStart);
   const anchor = markdown.slice(anchorStart, imageStart);
-  assert.match(anchor, /handleMarkdownFileLinkClick\(e, href, root, baseDir, openFileRef\)/);
+  // In a reply a picture opens the image viewer (D686); every other file, and
+  // a picture the host cannot find, goes on to the same opener a chip uses.
+  assert.match(anchor, /handleMarkdownFileLinkClick\(e, href, root, baseDir, \(ref, base\) =>\s*openReplyFileRef\(ref, base, trigger\)/);
+  assert.match(markdown, /const openReplyFileRef = useOpenReplyFileRef\(\);/);
 });
 
 test("a tool row and a tool result row open a file where the message body does", () => {

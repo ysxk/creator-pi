@@ -5,8 +5,9 @@
  * table leaves the reader a file name and nothing to look at. This pass finds
  * the file links the chat-link pass already made, keeps the ones that name a
  * clip or a recording the renderer can play or a vector drawing it can show,
- * and places a preview node under the block that mentions them. A picture a
- * table cell names gets a thumbnail in that cell instead. Whether the
+ * and places a preview node under the block that mentions them. A picture
+ * gets a thumbnail instead: in the table cell that names it, or in a row under
+ * the block. Whether the
  * file exists is not known here; the component that renders the node asks the
  * host and draws nothing for a name that resolves to no file.
  */
@@ -26,11 +27,11 @@ const AUDIO_RE = /\.(?:mp3|wav|m4a|flac|ogg|oga|aac)$/i;
 /** Named drawings. Raster images are shown where the reply embeds them. */
 const VECTOR_IMAGE_RE = /\.svg$/i;
 /**
- * Pictures a table cell shows as a thumbnail beside their name. A table is how
- * a batch of outputs is listed, and a small picture in the row is what tells
- * them apart; a name in prose stays a chip.
+ * Pictures a reply shows as a thumbnail where it names them, and opens in the
+ * image viewer when the name is clicked. A table is how a batch of outputs is
+ * listed, and a small picture is what tells them apart.
  */
-const CELL_IMAGE_RE = /\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i;
+const IMAGE_RE = /\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i;
 
 /** What a path would preview as, or null when it is not previewed. */
 export function chatMediaKind(path: string): ChatMediaKind | null {
@@ -40,9 +41,9 @@ export function chatMediaKind(path: string): ChatMediaKind | null {
   return null;
 }
 
-/** Whether a table cell that names this path shows it as a thumbnail. */
-export function isChatCellImage(path: string): boolean {
-  return CELL_IMAGE_RE.test(path);
+/** Whether a reply that names this path shows it as a picture. */
+export function isChatImagePath(path: string): boolean {
+  return IMAGE_RE.test(path);
 }
 
 /** Blocks a preview may sit inside, after the child that named the file. */
@@ -99,7 +100,7 @@ function placeCellThumbnails(table: MdastNode): Set<string> {
       next.push(child);
       if (child.type === "link" && typeof child.url === "string") {
         const path = localPathOfLink(child.url);
-        if (path && isChatCellImage(path) && !placed.has(path)) {
+        if (path && isChatImagePath(path) && !placed.has(path)) {
           placed.add(path);
           next.push(previewNode({ path, kind: "image" }, "thumb", position));
         }
@@ -120,15 +121,22 @@ function placeCellThumbnails(table: MdastNode): Set<string> {
   return placed;
 }
 
-function collectMentions(node: MdastNode, found: Map<string, ChatMediaRef>): void {
+function collectMentions(
+  node: MdastNode,
+  found: Map<string, ChatMediaRef>,
+  pictures: Set<string>,
+): void {
   if (NOT_A_MENTION.has(node.type)) return;
   if (node.type === "link" && typeof node.url === "string") {
     const ref = mediaRefOfLink(node.url);
     if (ref && !found.has(ref.path)) found.set(ref.path, ref);
+    // A drawing keeps its full preview; any other picture gets a thumbnail.
+    const path = localPathOfLink(node.url);
+    if (path && !ref && isChatImagePath(path)) pictures.add(path);
     return;
   }
   for (const child of node.children ?? []) {
-    if (child && typeof child.type === "string") collectMentions(child, found);
+    if (child && typeof child.type === "string") collectMentions(child, found, pictures);
   }
 }
 
@@ -138,7 +146,8 @@ function collectMentions(node: MdastNode, found: Map<string, ChatMediaRef>): voi
  * A list keeps its previews inside the item that named the file, and a quote
  * inside the quote, so a preview stays beside its mention. A table's pictures
  * become thumbnails in the cells that name them; its clips and recordings
- * follow the table, because a cell has no room for a player.
+ * follow the table, because a cell has no room for a player. Pictures any
+ * other block names follow it as one row of thumbnails.
  */
 export function appendChatMediaPreviews(tree: MdastNode | null | undefined): void {
   if (!tree || !FLOW_CONTAINERS.has(tree.type) || !tree.children) return;
@@ -156,11 +165,17 @@ export function appendChatMediaPreviews(tree: MdastNode | null | undefined): voi
     }
     const inCells = child.type === "table" ? placeCellThumbnails(child) : null;
     const found = new Map<string, ChatMediaRef>();
-    collectMentions(child, found);
+    const pictures = new Set<string>();
+    collectMentions(child, found, pictures);
+    // The preview answers for the block it follows, so it shares its span.
+    const position = (child as { position?: unknown }).position;
     for (const ref of found.values()) {
       if (inCells?.has(ref.path)) continue;
-      // The preview answers for the block it follows, so it shares its span.
-      next.push(previewNode(ref, "block", (child as { position?: unknown }).position));
+      next.push(previewNode(ref, "block", position));
+    }
+    for (const path of pictures) {
+      if (inCells?.has(path)) continue;
+      next.push(previewNode({ path, kind: "image" }, "thumb", position));
     }
   }
   tree.children = next;

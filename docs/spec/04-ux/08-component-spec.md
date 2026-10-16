@@ -1821,11 +1821,14 @@ Single message render — either user (plaintext) or assistant (markdown streami
   that opens in the same viewer — with the file's name under it. A list keeps a preview inside its item. A picture
   a table cell names (`png`, `jpg`, `gif`, `webp`, `avif`, `bmp`, `svg`) gets a
   120 × 90 thumbnail right after its name in that cell, top-cropped and opening
-  the same viewer; a table's clips and recordings follow the table (D684). A bare name is also looked for in the folders the reply names,
+  the same viewer; a table's clips and recordings follow the table (D684). A
+  picture any other block names gets the same thumbnail, in one wrapping row
+  under that block, and clicking a picture's name in a reply opens the viewer
+  on the file it completes to rather than the file view; a name the host
+  cannot find opens as a file, as before (D686). A bare name is also looked for in the folders the reply names,
   a name that matches no file draws nothing, and one file is previewed once
   per reply. Fenced code, remote URLs and `path:line` references are not
-  mentions, and outside a table cell a raster image is shown only where the
-  reply embeds it.
+  mentions.
   Unprefixed relative paths
   resolve from the workspace root; `./` and `../` resolve from the workspace
   root in chat, and from the viewed file's directory when previewing a
