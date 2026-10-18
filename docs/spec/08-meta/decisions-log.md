@@ -97,6 +97,7 @@ This log freezes previously open questions into concrete decisions.
 | D020 | Auto-update | **Post-MVP** |
 | D021 | First-run onboarding | **Inline checklist (not modal wizard)** |
 | D022 | Local telemetry | **Local logs only in MVP (no remote telemetry)** |
+| D664 | Sidebar running activity defaults | **When unset, the master and Count badge resolve on while Activity rail resolves off. Explicit saved values remain authoritative. The master continues gating both affordances; turning it off does not rewrite either child preference. No schema or migration change.** |
 
 
 ## C. Provider & model coverage decisions (0.3.4)
