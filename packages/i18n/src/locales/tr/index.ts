@@ -625,6 +625,7 @@ export const tr = {
     output: "Çıktı",
     stop: "Durdur",
     stopping: "Durduruluyor…",
+    dismiss: "Kapat",
   },
   planHistory: {
     pending: "Onay bekleniyor",

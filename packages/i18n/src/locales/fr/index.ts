@@ -616,6 +616,7 @@ export const fr = {
     output: "Sortie",
     stop: "Arrêter",
     stopping: "Arrêt…",
+    dismiss: "Fermer",
   },
   planHistory: {
     pending: "En attente d’approbation",

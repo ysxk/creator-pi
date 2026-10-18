@@ -616,6 +616,7 @@ export const de = {
     output: "Ausgabe",
     stop: "Stoppen",
     stopping: "Stoppe…",
+    dismiss: "Schließen",
   },
   planHistory: {
     pending: "Genehmigung ausstehend",
