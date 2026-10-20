@@ -2,7 +2,7 @@
 
 > **Archive note (2026-10-16).** This dated design is a historical proposal, kept
 > for context. Its `thinkingDisplayMode: detailed | compact` setting and single
-> whole-process container are superseded by D660 and the amended
+> whole-process container are superseded by UD661 and the amended
 > [ADR turn-process-and-thinking-display](../../adr/turn-process-and-thinking-display.md):
 > the process is now segmented, Bash/run aliases stay outside every folded
 > container, and reasoning visibility is the independent boolean

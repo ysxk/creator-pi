@@ -6,6 +6,10 @@
 
 This log freezes previously open questions into concrete decisions.
 
+IDs with a `U` prefix (UD656, UD658, …) are upstream PI-Desktop decisions
+picked into this fork. Upstream numbers its own decisions from D656 onward too,
+so the prefix keeps them apart from this fork's D656 and later.
+
 ## A. High-priority architecture decisions
 
 | ID | Topic | Decision | Rationale |
@@ -80,6 +84,10 @@ This log freezes previously open questions into concrete decisions.
 | D685 | A model watches and listens through tools of their own | **Amend D660 and D667. `Read` no longer answers a video or an audio file with a reference: it refuses both as `TOOL_BINARY_CONTENT` (`… is a video file (.mp4) and has no text to read`). Two read-only host tools take them instead: `ViewVideo` and `ViewAudio` (`path`), under `Read`'s path policy, risk, budget class and contract-mode allowance, answering with the same reference after the same container check. The runtime declares each one only for a session model that can receive that medium in a tool result (the media modality, a Gemini or Chat Completions wire API, and image input on); a declared tool is core in every mode, `Read`'s description points the medium at it, and the system prompt gains a short *Watching and listening* block that says to use it instead of extracting frames or transcribing with shell tools. A model without the medium gets neither tool and no word about them. A delegate never inherits or declares either tool. The transcript shows the calls as *Watched* / *Listened to* rows.** | With the media folded into `Read`, a model that could watch still treated a clip as a file to take apart, extracting frames with ffmpeg before it ever read the sentence in `Read`'s description. A tool named for the job, plus a prompt line, is what such a model reaches for. |
 | D686 | A reply's pictures are looked at, not opened as files | **Amend D663 and D684. A local picture (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`) an assistant reply names outside a table cell now gets the D684 thumbnail too: the thumbnails follow the block that names them as one wrapping row (inside the item for a list), after any clip, recording or drawing preview of that block; a drawing (`svg`) outside a table keeps its full preview. One picture still gets one thumbnail per reply, at its first mention. Clicking a picture's name in a reply (its chip or a Markdown link) opens the reply's image viewer on the file `fs/resolveRef` completes it to, with the reply's other pictures to step through, instead of the bundled file view; a name the host cannot resolve opens as a file as before, and outside a reply nothing changes. A chip inside the link the file-link pass made no longer opens its file twice.** | A picture a reply only named opened in the file view, which did not always show it; the viewer is where a reply's pictures are already looked at, and a picture named in a sentence was as worth seeing as one in a table. |
 | UD656 | Quarantine appends the host keeps refusing instead of stalling the outbox | **Amend ADR 0041 / D318 / D444 / D597: an append whose `session.appendMessage` or `session.recordUsage` call fails with an error the outbox cannot classify as a duplicate message id, a `PERMISSION_DENIED:` poison row, or a foreign-key orphan is retried on a bounded backoff (5s, doubling to a 60s cap) instead of ending the flush. The fifth consecutive failure on that head moves it into an application-owned dead-letter file, `session-message-outbox.dead-letter.json`, with its payload, session id, quarantine timestamp, and host error; only the newest 256 quarantined appends are kept, and the oldest is discarded with a warn. The flush then continues with the next entry, so one refused append can no longer hold the FIFO head, fill the 1024-entry cap, or fail every session's writes. Quarantined appends are never replayed automatically, and `session.delete` drops that session's quarantined appends too. No protocol version, storage schema, or queued-outbox format change.** | A `stream did not contain valid UTF-8` append stayed at the FIFO head for 14.8 hours while `session.persistence.outbox.is.full` fired 5990 times, so every session's appends failed until restart. Only three error classes had a drain, and every other error was treated as transient forever (#1560). |
+| UD659 | Reopen archived projects in the sidebar | **Amend D093 / D455: successful explicit project activation clears the normalized path's renderer-local archived flag and persists it, so Open from Project archive, reopening the same folder through Add project, and opening a project session reveal the project in the home sidebar. Selecting a row for inspection and ordinary session refreshes do not alter archive state. No host/project/session storage or protocol change. See ADR 0294, E2E-264, and issue #1653.** | Reopening a project changed the active workspace but left its path-keyed archived presentation flag set, hiding it from the sidebar after the user explicitly reopened it. |
+| UD660 | Composer file menu rows always show the full relative path | **Amend the `@` file-completion row presentation of D124 (specs `04-ux/08-component-spec.md` §11.8, `04-ux/09-interaction-patterns.md` §8a.1, E2E-102a): every row renders the leaf name — directories keep the trailing `/` — followed by the entry's complete workspace-relative path in a de-emphasized mono span that carries the raw `entry.path` without a trailing slash. The span takes the row's remaining width and ellipsizes before the leaf name can, and no row overflows the menu. The tooltip keeps the complete relative path and the accessible name becomes the path alone, because the visible row already includes the leaf name. D209/D362 chip rendering, completion, insertion, and serialization are unchanged; no earlier decision owned the old leaf-only row wording, so no entry is marked amended.** | Duplicate leaf names in different directories were indistinguishable until hover, and the relative location — often the actual intent of an `@` reference — was invisible in the persistent row. |
+| UD661 | Segmented turn process and independent thinking preference | **Supersede the `Detailed` / `Compact` display-mode behavior and the single whole-process disclosure recorded by D633 / D651 and the `turn-process-and-thinking-display` ADR: a turn renders as chronological collapsible process segments, Bash and run aliases stay outside every folded container (the turn-level process disclosure and any ordinary activity group) and remain visible even when every group is collapsed, and process/group folding defaults are independent of the thinking preference. The preference is the optional boolean `AppSettings.showThinking`; absent or non-boolean values fall back to the legacy `thinkingDisplayMode` field (`compact` hides, `detailed`/unknown/absent shows), which is retained only for persisted-settings compatibility. `showThinking` joins the portable application fields so it synchronizes like the legacy field; no other host protocol, persistence schema, permission, or plugin contract change. See the amended ADR, `04-ux/06-settings-ia.md`, `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and E2E-CHAT-turn-process-and-thinking-display.** | One flat container left long tool/search runs hard to scan and forced reasoning visibility and process folding into the same two-valued switch; an independent boolean plus always-visible Bash rows keeps shell-heavy turns readable without hiding the answer. |
+| UD664 | Sidebar running activity defaults | **When unset, the master and Count badge resolve on while Activity rail resolves off. Explicit saved values remain authoritative. The master continues gating both affordances; turning it off does not rewrite either child preference. No schema or migration change.** | Running work stays visible through a quiet count, while the animated rail is something a user opts into. |
 
 ## B. Secondary implementation defaults
 
@@ -97,7 +105,6 @@ This log freezes previously open questions into concrete decisions.
 | D020 | Auto-update | **Post-MVP** |
 | D021 | First-run onboarding | **Inline checklist (not modal wizard)** |
 | D022 | Local telemetry | **Local logs only in MVP (no remote telemetry)** |
-| D664 | Sidebar running activity defaults | **When unset, the master and Count badge resolve on while Activity rail resolves off. Explicit saved values remain authoritative. The master continues gating both affordances; turning it off does not rewrite either child preference. No schema or migration change.** |
 
 
 ## C. Provider & model coverage decisions (0.3.4)
@@ -514,7 +521,6 @@ section mirrors only marketplace/catalog items still blocking nothing.
 | D152 | Direct runtime stream rendering | **Assistant content renders each runtime stream chunk directly through the incremental Markdown block cache. The renderer does not add a requestAnimationFrame typewriter state loop. KaTeX's Vite-inlined fonts remain local-only assets and are admitted by the narrow `font-src 'self' data:` CSP directive.** | The duplicate animation loop could trip React's nested-update guard during sustained streams, while the previous CSP blocked bundled math fonts and produced console errors. |
 | D153 | Reasoning sessions default to maximum thinking | *(superseded by D303)* **A newly created session whose inherited default model supports reasoning starts at the highest canonical entry in that model's pi-published `supportedThinkingLevels`. Non-reasoning models and missing capability metadata start at `off`; existing sessions retain their durable choice. This refines D096 without adding a provider override.** | Reasoning-capable models should use their strongest available effort by default while preserving explicit per-session choices and pi-ai's model authority. |
 | D264 | Composer typing avoids full sorts and redundant DOM writes | **The `@` file menu picks its visible rows with a bounded top-K selection over the match list instead of sorting every match; the selection returns exactly the row set and order a full sort produced, and the small, kind-grouped command list keeps its full sort. Composer auto-resize and `--composer-dock-height` publication are idempotent: an unchanged height performs no DOM write and no document-wide style invalidation, and the `height: auto` measurement probe is taken only when the box may need to shrink. Growth through seven rows, internal scrolling past the seventh, and contraction on delete or submit are unchanged. Draft file-reference state and the cursor keep their identity and value when a keystroke changes neither, so the draft-cache serialization effect and autocomplete trigger detection stop re-running per keystroke. No IPC, storage, host-protocol, or schema change.** | With a large workspace and the `@` menu open, every keystroke paid a full sort over the whole 8000-entry file index to show 50 rows, plus a forced synchronous reflow from the measurement probe, while a fresh `fileReferences` array identity per keystroke re-ran the draft-cache serialization effect. The cost was typing latency, not correctness; ordering equivalence with the full sort is covered by unit tests. |
-| D658 | Composer file menu rows always show the full relative path | **Amend the `@` file-completion row presentation of D124 (specs `04-ux/08-component-spec.md` §11.8, `04-ux/09-interaction-patterns.md` §8a.1, E2E-102a): every row renders the leaf name — directories keep the trailing `/` — followed by the entry's complete workspace-relative path in a de-emphasized mono span that carries the raw `entry.path` without a trailing slash. The span takes the row's remaining width and ellipsizes before the leaf name can, and no row overflows the menu. The tooltip keeps the complete relative path and the accessible name becomes the path alone, because the visible row already includes the leaf name. D209/D362 chip rendering, completion, insertion, and serialization are unchanged; no earlier decision owned the old leaf-only row wording, so no entry is marked amended.** | Duplicate leaf names in different directories were indistinguishable until hover, and the relative location — often the actual intent of an `@` reference — was invisible in the persistent row. |
 
 
 ## T. Release delivery decisions
@@ -7988,21 +7994,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue. See ADR
   0041, `03-runtime/04-data-storage.md`, and `03-runtime/06-host-rpc-protocol.md`.
 
-## 2026-10-13 — Open local files in the embedded Browser (D657)
-
-- D657 amends ADR 0170: explicit absolute paths and `file:` URLs can open any
-  existing regular local file, and local-file pages can follow links to other
-  local files. Relative paths remain workspace-rooted. HTTP(S) pages cannot
-  navigate outside the workspace through a file link.
-- The public `pi.browser.navigate` API follows the same policy under its
-  existing high-risk `browser.cdp` permission. `BrowserPreview` and the sidecar
-  retain workspace-rooted validation.
-- Covered by `apps/desktop/test/browser-pane-navigation.test.mjs`,
-  `apps/desktop/test/browser-local-file-feedback.test.mjs`, and E2E-059. See
-  ADR 0328, `04-ux/08-component-spec.md`, `07-plugins/03-plugin-api.md`, and
-  `05-security/01-security.md`.
-
-## 2026-10-13 — Session identity on endpoints the adapters leave anonymous (D658)
+## 2026-10-13 — Session identity on endpoints the adapters leave anonymous (UD658)
 
 - Agent-runtime stamps a per-session identity onto requests bound for an endpoint
   the user pointed at themselves — a provider row whose base URL host is not a
@@ -8029,9 +8021,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `03-runtime/02-agent-runtime.md` §6.3, and
   `03-runtime/11-provider-model-system.md`.
 
-## 2026-10-16 — Segmented turn process and independent thinking preference (D660)
+## 2026-10-16 — Segmented turn process and independent thinking preference (UD661)
 
-- D660 supersedes the `Detailed` / `Compact` display-mode behavior and the single
+- UD661 supersedes the `Detailed` / `Compact` display-mode behavior and the single
   whole-process disclosure recorded by D633 / D651 and the
   `turn-process-and-thinking-display` ADR. A turn now renders as chronological
   collapsible process segments; the trailing answer, assistant errors, stopped

@@ -5214,7 +5214,7 @@ eleven-tool-round desktop paths are verified by
     空格引用，代理可以正常读取两个选定的文件。
 - **链接规格**：`04-ux/08-component-spec.md` §11.8，
   `04-ux/09-interaction-patterns.md` §8a、`03-runtime/01-ipc-protocol.md` §13c、
-  `08-meta/decisions-log.md`（D124、D209、D362、D658）、ADR 0024、ADR 0070
+  `08-meta/decisions-log.md`（D124、D209、D362、UD660）、ADR 0024、ADR 0070
 - **接受**：C（对话和直播），质量
 - **里程碑**：M5
 - **状态**：单位覆盖
@@ -9636,7 +9636,7 @@ host-created files. The full app's file-preview viewer is covered separately.
   3. 再次归档，打开“添加项目”，选择同一目录并创建。
   4. 再次归档，从项目归档页打开其会话。
 - **预期**：每次激活成功后都会清除该路径的归档展示状态、返回聊天并使项目重新显示在侧栏。仅选中详情行而不激活、普通会话刷新都不会更改归档状态。重新选择同一目录会复用现有项目组，不会复制项目或会话数据。
-- **关联规格**：`04-ux/06-settings-ia.md`、`04-ux/09-interaction-patterns.md`、ADR 0294、D659、issue #1653。
+- **关联规格**：`04-ux/06-settings-ia.md`、`04-ux/09-interaction-patterns.md`、ADR 0294、UD659、issue #1653。
 - **验收**：仅在 Host 项目激活成功后，渲染层才恢复该规范化路径的本地归档元数据。
 - **状态**：`apps/desktop/test/app-store-sidebar.test.mjs` 与 `apps/desktop/test/project-create-dialog.test.mjs` 有源码契约覆盖；完整 UI 场景仍为草稿，仅在明确请求且环境可用时运行。
 

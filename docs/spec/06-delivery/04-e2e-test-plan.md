@@ -8530,7 +8530,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     the agent can read both selected files normally.
 - **Specs linked**: `04-ux/08-component-spec.md` §11.8,
   `04-ux/09-interaction-patterns.md` §8a, `03-runtime/01-ipc-protocol.md` §13c,
-  `08-meta/decisions-log.md` (D124, D209, D362, D658), ADR 0024, ADR 0070
+  `08-meta/decisions-log.md` (D124, D209, D362, UD660), ADR 0024, ADR 0070
 - **Acceptance**: C (conversation & stream), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered
@@ -17657,7 +17657,7 @@ host-created files. The full app's file-preview viewer is covered separately.
   session refreshes leave the archive state unchanged. Reopening the same
   folder reuses the existing group without duplicating project or session data.
 - **Specs linked**: `04-ux/06-settings-ia.md`,
-  `04-ux/09-interaction-patterns.md`, ADR 0294, D659, issue #1653.
+  `04-ux/09-interaction-patterns.md`, ADR 0294, UD659, issue #1653.
 - **Acceptance**: Renderer project activation restores the normalized path's
   local archive metadata only after the host project activation succeeds.
 - **Status**: Source-contract coverage in
