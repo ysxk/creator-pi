@@ -516,4 +516,11 @@ fn a_crash_torn_json_line_is_skipped_by_paged_reads_after_the_next_append() {
             .unwrap(),
         Some(layout.message_count() - 1)
     );
+    // Locating a message before the torn line (a search jump, `messageAround`)
+    // scans back across it and still finds the message.
+    assert_eq!(
+        crate::transcripts::find_message_position(dir.path(), "layout-regression", &layout, "m1")
+            .unwrap(),
+        Some(0)
+    );
 }

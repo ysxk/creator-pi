@@ -177,7 +177,8 @@ pub struct TranscriptRead {
 }
 
 /// Resolve a stable ID without materializing historical message bodies. The
-/// reverse scan agrees with last-write-wins transcript deduplication.
+/// reverse scan agrees with last-write-wins transcript deduplication. For
+/// navigation only: an undecodable line is skipped, as the window readers do.
 pub fn find_message_position(
     data_dir: &Path,
     session_id: &str,
@@ -196,12 +197,15 @@ pub fn find_message_position(
         match serde_json::from_str::<Identity>(&line) {
             Ok(identity) if identity.id == message_id => return Ok(Some(position)),
             Ok(_) => {}
-            Err(error) if invalid_utf8 => {
-                tracing::warn!(%error, "skipping invalid indexed transcript identity");
+            // Every caller navigates (a search jump, `messageAround`) and
+            // writes nothing, so a damaged line is skipped the way the window
+            // readers skip it: `read_layout_line` already proved it is a whole
+            // message line, so this is a torn write or invalid UTF-8, not a
+            // stale layout. A write path that must not guess past a record it
+            // cannot read needs its own strict lookup.
+            Err(error) => {
+                tracing::warn!(%error, offset = *offset, invalid_utf8, "skipping undecodable indexed transcript identity");
             }
-            // A lookup decides which record a write touches, so it fails
-            // rather than guess past a record it cannot read.
-            Err(error) => return Err(error).context("decode indexed transcript message identity"),
         }
     }
     Ok(None)
@@ -2426,7 +2430,7 @@ mod tests {
     }
 
     #[test]
-    fn indexed_message_lookup_does_not_hide_malformed_json() {
+    fn indexed_message_lookup_skips_malformed_json() {
         let dir = tempdir().unwrap();
         append_message(dir.path(), "s1", "2026-07-26T00:00:00Z", &record("m1", "x")).unwrap();
         let path = transcript_path(dir.path(), "s1").unwrap();
@@ -2435,7 +2439,14 @@ mod tests {
             .unwrap();
         let layout = refresh_layout(dir.path(), "s1", TranscriptLayout::default()).unwrap();
 
-        assert!(find_message_position(dir.path(), "s1", &layout, "absent").is_err());
+        assert_eq!(
+            find_message_position(dir.path(), "s1", &layout, "absent").unwrap(),
+            None
+        );
+        assert_eq!(
+            find_message_position(dir.path(), "s1", &layout, "m1").unwrap(),
+            Some(0)
+        );
     }
 
     #[test]
