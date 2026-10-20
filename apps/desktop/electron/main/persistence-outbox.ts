@@ -38,6 +38,11 @@ type OutboxOptions = {
   now?: () => number;
   /** Quarantined appends retained on disk, oldest discarded first. */
   maxDeadLetters?: number;
+  /**
+   * Runs `run` once after `delayMs` and returns a cancel function; a test seam
+   * for the backoff retry. Defaults to an unref'd `setTimeout`.
+   */
+  schedule?: (run: () => void, delayMs: number) => () => void;
 };
 
 const MAX_ENTRIES = 1024;
@@ -67,6 +72,9 @@ export class PersistenceOutbox {
   private readonly logger: OutboxLogger;
   private readonly now: () => number;
   private readonly maxDeadLetters: number;
+  private readonly schedule: (run: () => void, delayMs: number) => () => void;
+  /** Cancels the one pending backoff retry, if any. */
+  private cancelRetry: (() => void) | null = null;
   private entries: MessageAppend[] = [];
   /**
    * Appends taken out of the queue while their session's transcript is being
@@ -93,6 +101,12 @@ export class PersistenceOutbox {
     this.logger = logger;
     this.now = options.now ?? Date.now;
     this.maxDeadLetters = options.maxDeadLetters ?? MAX_DEAD_LETTERS;
+    this.schedule = options.schedule ?? ((run, delayMs) => {
+      const timer = setTimeout(run, delayMs);
+      // A retry must not keep the app alive; shutdown flushes on its own.
+      timer.unref?.();
+      return () => clearTimeout(timer);
+    });
     this.loaded = this.load();
   }
 
@@ -206,6 +220,28 @@ export class PersistenceOutbox {
     return this.entries.length;
   }
 
+  /** Stop the pending backoff retry (shutdown). Queued appends stay on disk. */
+  close(): void {
+    this.cancelRetry?.();
+    this.cancelRetry = null;
+  }
+
+  /**
+   * Make sure the head that is backing off gets another attempt when its
+   * window ends, even if nothing else is enqueued or flushed meanwhile. One
+   * timer at most; it re-reads the host when it fires, so a replaced host is
+   * used, and a flush that finds nothing to do simply returns.
+   */
+  private scheduleRetry(getHost: () => HostProcess | null): void {
+    if (!this.headRetry) return;
+    this.cancelRetry?.();
+    const delay = Math.max(0, this.headRetry.nextAttemptAt - this.now());
+    this.cancelRetry = this.schedule(() => {
+      this.cancelRetry = null;
+      void this.flush(getHost);
+    }, delay);
+  }
+
   private async flushLoop(getHost: () => HostProcess | null): Promise<void> {
     while (this.entries.length > 0) {
       const current = this.entries[0];
@@ -219,6 +255,7 @@ export class PersistenceOutbox {
         this.headRetry.host === currentHost &&
         this.headRetry.nextAttemptAt > this.now()
       ) {
+        if (!this.cancelRetry) this.scheduleRetry(getHost);
         return;
       }
       try {
@@ -283,12 +320,18 @@ export class PersistenceOutbox {
               retryInMs: this.headRetry ? this.headRetry.nextAttemptAt - this.now() : 0,
               data: String(error),
             });
+            this.scheduleRetry(getHost);
             return;
           }
           // An error the outbox cannot classify as permanent or as a
           // duplicate recurs on every retry. Quarantine the head instead of
           // blocking the whole application queue behind it forever (#1560).
-          await this.quarantine(current, attempts, error);
+          if (!(await this.quarantine(current, attempts, error))) {
+            // The copy could not be saved, so the head stays queued and
+            // comes back after the backoff like any other failure.
+            this.scheduleRetry(getHost);
+            return;
+          }
           continue;
         }
       }
@@ -298,6 +341,8 @@ export class PersistenceOutbox {
       this.headRetry = null;
       await this.persist();
     }
+    // Drained: nothing is left for a pending retry to do.
+    this.close();
   }
 
   /** Count one failure of the given head and schedule its next attempt. */
@@ -308,18 +353,37 @@ export class PersistenceOutbox {
     return attempts;
   }
 
-  /** Move a head the host keeps refusing into the dead-letter file. */
-  private async quarantine(entry: MessageAppend, attempts: number, error: unknown): Promise<void> {
-    this.deadLetters.push({
-      ...entry,
-      quarantinedAt: new Date(this.now()).toISOString(),
-      reason: String(error),
-    });
-    while (this.deadLetters.length > this.maxDeadLetters) {
-      const dropped = this.deadLetters.shift();
+  /**
+   * Move a head the host keeps refusing into the dead-letter file. The copy is
+   * written first and the queue entry removed only after it is on disk, so a
+   * failed write or an exit in between never leaves the append in neither
+   * place. Returns false, with the head still queued, when the copy failed.
+   */
+  private async quarantine(entry: MessageAppend, attempts: number, error: unknown): Promise<boolean> {
+    const next: QuarantinedAppend[] = [
+      ...this.deadLetters,
+      { ...entry, quarantinedAt: new Date(this.now()).toISOString(), reason: String(error) },
+    ];
+    const discarded = next.length > this.maxDeadLetters
+      ? next.splice(0, next.length - this.maxDeadLetters)
+      : [];
+    try {
+      await this.persistDeadLetters(next);
+    } catch (writeError) {
+      this.logger("error", "session persistence flush could not save the dead-letter copy; the entry stays queued", {
+        key: entry.key,
+        sessionId: entry.sessionId,
+        attempts,
+        file: this.deadLetterPath,
+        data: String(writeError),
+      });
+      return false;
+    }
+    this.deadLetters = next;
+    for (const dropped of discarded) {
       this.logger("warn", "session persistence outbox dead letter discarded", {
-        key: dropped?.key,
-        sessionId: dropped?.sessionId,
+        key: dropped.key,
+        sessionId: dropped.sessionId,
         max: this.maxDeadLetters,
         file: this.deadLetterPath,
       });
@@ -334,7 +398,7 @@ export class PersistenceOutbox {
     if (this.entries[0] === entry) this.entries.shift();
     this.headRetry = null;
     await this.persist();
-    await this.persistDeadLetters();
+    return true;
   }
 
   private async load(): Promise<void> {
@@ -404,10 +468,10 @@ export class PersistenceOutbox {
     await write;
   }
 
-  private async persistDeadLetters(): Promise<void> {
+  private async persistDeadLetters(deadLetters = this.deadLetters): Promise<void> {
     const write = this.persistChain.then(async () => {
       await mkdir(dirname(this.deadLetterPath), { recursive: true });
-      if (this.deadLetters.length === 0) {
+      if (deadLetters.length === 0) {
         try {
           await writeFile(this.deadLetterPath, "[]\n", "utf8");
         } catch (error) {
@@ -415,7 +479,7 @@ export class PersistenceOutbox {
         }
         return;
       }
-      await writeFile(this.tempDeadLetterPath, `${JSON.stringify(this.deadLetters)}\n`, "utf8");
+      await writeFile(this.tempDeadLetterPath, `${JSON.stringify(deadLetters)}\n`, "utf8");
       await rename(this.tempDeadLetterPath, this.deadLetterPath);
     });
     this.persistChain = write.catch(() => undefined);

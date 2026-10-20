@@ -198,6 +198,9 @@ export function registerShutdownHandlers({
         if (persistenceTimer) clearTimeout(persistenceTimer);
       }
       await persistenceOutbox.flush(getHost);
+      // Whatever is still queued stays on disk for the next launch; a retry
+      // timer must not fire against a host that is shutting down.
+      persistenceOutbox.close();
       const hostShutdown = getHost()?.dispose();
       const mcpShutdown = getMcpControl()?.stop();
       updater.dispose();

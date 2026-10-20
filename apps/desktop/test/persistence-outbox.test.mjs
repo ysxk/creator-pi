@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -656,4 +656,68 @@ test("a restarted host retries the paused head without waiting out the backoff (
   await outbox.flush(() => restarted);
   assert.equal(outbox.size(), 0, "a fresh host generation drains the paused head at once");
   assert.equal(calls.length, paused + 1);
+});
+
+test("a quarantine that cannot save its dead-letter copy keeps the append queued", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-"));
+  const now = { value: 0 };
+  const logs = [];
+  const options = { now: () => now.value, schedule: () => () => undefined };
+  const outbox = new PersistenceOutbox(dir, (level, message) => logs.push({ level, message }), options);
+  const host = mockHost(async () => {
+    throw new Error("Error: stream did not contain valid UTF-8");
+  });
+  await outbox.enqueue(
+    { key: "message:s1:torn", sessionId: "s1", message: { id: "torn", role: "tool", content: "x" } },
+    () => host,
+  );
+  // A directory where the dead-letter temp file goes makes that write fail.
+  const blocker = join(dir, `${DEAD_LETTER_FILE}.tmp`);
+  await mkdir(blocker);
+
+  assert.equal(await drain(outbox, host, now), 1, "the head stays queued when its copy cannot be saved");
+  assert.ok(logs.some((row) => row.level === "error" && /dead-letter copy/.test(row.message)));
+  const restarted = new PersistenceOutbox(dir, () => undefined, options);
+  await restarted.flush(() => null);
+  assert.equal(restarted.size(), 1, "a restart still finds it in the queue file");
+
+  await rm(blocker, { recursive: true });
+  assert.equal(await drain(outbox, host, now), 0, "once the copy saves, the head is quarantined");
+  const dead = JSON.parse(await readFile(join(dir, DEAD_LETTER_FILE), "utf8"));
+  assert.deepEqual(dead.map((entry) => entry.key), ["message:s1:torn"]);
+  assert.deepEqual(JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")), []);
+});
+
+test("a backed-off head is retried on its own when the backoff ends", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-"));
+  const now = { value: 0 };
+  const timers = [];
+  const outbox = new PersistenceOutbox(dir, () => undefined, {
+    now: () => now.value,
+    schedule: (run, delayMs) => {
+      const timer = { run, at: now.value + delayMs, cancelled: false };
+      timers.push(timer);
+      return () => { timer.cancelled = true; };
+    },
+  });
+  const calls = [];
+  const host = mockHost(async (_method, params) => {
+    calls.push(params.message.id);
+    if (calls.length === 1) throw new Error("host busy");
+  });
+  await outbox.enqueue({ key: "message:s1:a", sessionId: "s1", message: { id: "a" } }, () => host);
+  await settle();
+  // A later append arrives inside the backoff window and must not be lost.
+  await outbox.enqueue({ key: "message:s1:b", sessionId: "s1", message: { id: "b" } }, () => host);
+  await settle();
+  assert.deepEqual(calls, ["a"], "nothing is retried inside the backoff window");
+
+  const live = timers.filter((timer) => !timer.cancelled);
+  assert.equal(live.length, 1, "exactly one retry is scheduled");
+  now.value = live[0].at;
+  live[0].run();
+  for (let i = 0; i < 20 && outbox.size() > 0; i += 1) await settle();
+  assert.deepEqual(calls, ["a", "a", "b"], "the scheduled retry drains the queue without another enqueue");
+  assert.equal(outbox.size(), 0);
+  assert.equal(timers.filter((timer) => !timer.cancelled && timer.at > now.value).length, 0, "no timer is left once the queue is empty");
 });
