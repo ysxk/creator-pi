@@ -4283,9 +4283,6 @@ async fn handle_request(
                         timeout_ms: execution_timeout_ms,
                         cancellation,
                         output_tx: Some(tx.clone()),
-                        // No isolated worktrees in this build, so no extra
-                        // session variables (upstream passes PI_PORT here).
-                        extra_env: Vec::new(),
                         run_in_background: p.run_in_background,
                         app_state: Some(state.clone()),
                     });

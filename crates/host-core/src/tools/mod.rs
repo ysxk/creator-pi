@@ -218,10 +218,6 @@ pub(crate) struct ToolRunnerStartConfig {
     pub(crate) scratch_dir: Option<PathBuf>,
     #[serde(default)]
     pub(crate) env_path: Option<String>,
-    /// Session-scoped variables such as `PI_PORT` for an isolated worktree
-    /// (ADR 0329). Empty for every other call.
-    #[serde(default)]
-    pub(crate) extra_env: Vec<(String, String)>,
 }
 
 fn path_has_nul(path: &Path) -> bool {
@@ -770,8 +766,6 @@ pub struct BashExecutionOptions {
     pub timeout_ms: Option<u64>,
     pub cancellation: Option<watch::Receiver<bool>>,
     pub output_tx: Option<mpsc::UnboundedSender<String>>,
-    /// Extra environment for the command, e.g. `PI_PORT` (ADR 0329).
-    pub extra_env: Vec<(String, String)>,
     /// Start as a background task detached from the turn: no timeout, no
     /// abort wiring. The caller owns the registry; see `background_tasks`.
     pub run_in_background: bool,
@@ -789,7 +783,6 @@ impl BashExecutionOptions {
             timeout_ms,
             cancellation: None,
             output_tx: None,
-            extra_env: Vec::new(),
             run_in_background: false,
             app_state: None,
         }
@@ -4862,7 +4855,6 @@ mod tests {
                 timeout_ms: Some(1_000),
                 cancellation: None,
                 output_tx: None,
-                extra_env: Vec::new(),
                 run_in_background: false,
                 app_state: None,
             }),
@@ -4906,7 +4898,6 @@ mod tests {
                 timeout_ms: Some(15_000),
                 cancellation: None,
                 output_tx: None,
-                extra_env: Vec::new(),
                 run_in_background: false,
                 app_state: None,
             }),
@@ -4945,7 +4936,6 @@ mod tests {
                 timeout_ms: Some(15_000),
                 cancellation: None,
                 output_tx: None,
-                extra_env: Vec::new(),
                 run_in_background: false,
                 app_state: None,
             }),
@@ -5017,7 +5007,6 @@ mod tests {
             timeout_ms: None,
             cancellation: None,
             output_tx: Some(tx),
-            extra_env: Vec::new(),
             run_in_background: false,
             app_state: None,
         };
@@ -5045,7 +5034,6 @@ mod tests {
             timeout_ms: Some(5_000),
             cancellation: None,
             output_tx: None,
-            extra_env: Vec::new(),
             run_in_background: false,
             app_state: None,
         };

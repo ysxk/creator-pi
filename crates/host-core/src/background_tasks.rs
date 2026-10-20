@@ -244,7 +244,6 @@ fn resolve_runner_config(
             )
         }),
         env_path: tools::shell::user_login_path().map(str::to_string),
-        extra_env: Vec::new(),
     })
 }
 

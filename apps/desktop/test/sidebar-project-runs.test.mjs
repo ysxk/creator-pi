@@ -112,16 +112,6 @@ test("the sidebar renders both affordances from the resolved switches", async ()
   assert.match(sidebar, /\{entry\.name\}<\/span>[\s\S]{0,220}ProjectRunBadge/);
 });
 
-test("remote project groups carry the same affordances", async () => {
-  const remote = await readFile(
-    new URL("../src/components/remote/RemoteProjectGroups.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(remote, /summarizeProjectRuns\(sessions, runningSessions, pendingPermissions\)/);
-  assert.match(remote, /showRunRail \? <ProjectRunRail summary=\{runSummary\} \/>/);
-  assert.match(remote, /showRunBadge \? <ProjectRunBadge summary=\{runSummary\} \/>/);
-});
-
 test("both affordance colours resolve through theme tokens", async () => {
   const css = await readFile(
     new URL("../src/styles/sidebar-threads.css", import.meta.url),

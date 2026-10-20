@@ -391,6 +391,8 @@ test("an oversized row that cannot be reduced is dropped so later rows drain", a
     logs.filter((row) => row.message === "session persistence flush dropped oversized message").length,
     2,
   );
+});
+
 const DEAD_LETTER_FILE = "session-message-outbox.dead-letter.json";
 
 /** Let every pending microtask settle before counting host calls. */
