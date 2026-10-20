@@ -11,7 +11,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const patchDependencyCheck = join(here, "check-pi-dependencies.mjs");
 const patchCheck = join(here, "check-pi-patches.mjs");
 
-const TARGET = "1.1.0";
+const TARGET = "1.3.0";
 const PATCHED = [
   {
     name: "@earendil-works/pi-agent-core",
@@ -38,8 +38,8 @@ const PATCHED = [
     extra: "+export declare function estimateProjectedContextTokens(",
   },
 ];
+// Pi 1.2.0 dropped the chord package from the release group.
 const RELEASE_AGE_EXCLUDE = [
-  "chord",
   "pi-agent-core",
   "pi-ai",
   "pi-codemode",

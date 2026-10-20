@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  AssistantMessageFrameEncoder,
+  type AssistantMessageEvent,
   type AssistantMessageEventStream,
-  type AssistantMessageFrame,
   type Model,
 } from "@earendil-works/pi-ai";
 import { stream as streamAnthropic } from "@earendil-works/pi-ai/api/anthropic-messages";
@@ -15,10 +14,10 @@ import { stream as streamOpenAIResponses } from "@earendil-works/pi-ai/api/opena
 // reported it as a retriable provider failure that then reproduced on every
 // later turn of the session — a fork inherited it and a new session was clean.
 //
-// These tests drive the real stream decoders with a stubbed transport and feed
-// every event through the real frame encoder, because that pair is where the
-// failure lived. They guard `patches/@earendil-works__pi-ai@0.87.1.patch`; if
-// the patch is dropped, they fail again.
+// These tests drive the real stream decoders with a stubbed transport. Pi 1.3.0
+// removed the frame encoder where the failure lived, so they now read the
+// decoder's own events: an omitted field must neither throw nor settle as the
+// literal "undefined", whichever layer consumes the stream.
 
 const context = {
   messages: [
@@ -70,19 +69,17 @@ function fetchReturning(body: string): typeof fetch {
 type Outcome = {
   error: Error | undefined;
   eventTypes: string[];
-  frames: AssistantMessageFrame[];
+  frames: AssistantMessageEvent[];
 };
 
-/** Decode the stub body and run every decoder event through the frame encoder. */
+/** Decode the stub body and keep every decoder event. */
 async function drive(stream: AssistantMessageEventStream): Promise<Outcome> {
-  const encoder = new AssistantMessageFrameEncoder();
   const eventTypes: string[] = [];
-  const frames: AssistantMessageFrame[] = [];
+  const frames: AssistantMessageEvent[] = [];
   try {
     for await (const event of stream) {
       eventTypes.push(event.type);
-      const frame = encoder.encode(event);
-      if (frame !== undefined) frames.push(frame);
+      frames.push(event);
     }
     await stream.result();
   } catch (error) {
@@ -107,18 +104,20 @@ const responses = <T extends { type: string }>(events: readonly T[]) =>
     }),
   );
 
-/** Every delta a persisted frame claims, in order. */
-function frameDeltas(frames: AssistantMessageFrame[]): string[] {
+/** Every delta that carries text, in order; an omitted field carries none. */
+function frameDeltas(frames: AssistantMessageEvent[]): string[] {
   return frames.flatMap((frame) =>
-    frame.type === "text_delta" ||
-    frame.type === "thinking_delta" ||
-    frame.type === "toolcall_delta"
+    (frame.type === "text_delta" ||
+      frame.type === "thinking_delta" ||
+      frame.type === "toolcall_delta") &&
+    typeof frame.delta === "string" &&
+    frame.delta.length > 0
       ? [frame.delta]
       : [],
   );
 }
 
-function settledText(frames: AssistantMessageFrame[]): string | undefined {
+function settledText(frames: AssistantMessageEvent[]): string | undefined {
   for (const frame of frames) {
     if (frame.type === "text_end") return frame.content;
   }
@@ -189,7 +188,7 @@ const responsesCompleted = {
   output_index: 0,
 };
 
-describe("provider stream frames with an omitted empty string field (issue #883)", () => {
+describe("provider streams with an omitted empty string field (issue #883)", () => {
   describe("Anthropic Messages", () => {
     it("streams a text delta whose field is present", async () => {
       const outcome = await anthropic([

@@ -1,5 +1,5 @@
 diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
-index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87e5c8e4ab 100644
+index befb18b2e7d519b3731f6355921de1cb7892c7ac..2f6e64a477ac190f00915f17c3c5c5c0bf4f76c8 100644
 --- a/dist/api/anthropic-messages.js
 +++ b/dist/api/anthropic-messages.js
 @@ -1,3 +1,6 @@
@@ -9,16 +9,16 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
  import Anthropic, {} from "@anthropic-ai/sdk";
  import { ANTHROPIC_FEDERATION_RULE_ID_ENV, ANTHROPIC_IDENTITY_TOKEN_FILE_ENV, ANTHROPIC_ORGANIZATION_ID_ENV, ANTHROPIC_SERVICE_ACCOUNT_ID_ENV, ANTHROPIC_WORKSPACE_ID_ENV, } from "../env-api-keys.js";
  import { calculateCost } from "../models.js";
-@@ -375,8 +378,6 @@ async function* iterateAnthropicEvents(response, signal) {
+@@ -378,8 +381,6 @@ async function* iterateAnthropicEvents(response, signal) {
  }
  export const stream = (model, context, options) => {
      const stream = new AssistantMessageEventStream();
 -    const normalizedContext = resolveTranscript(context, getAnthropicCompat(model).supportsMidConvoSystemMessages);
 -    const currentTools = getCurrentTools(normalizedContext.messages);
      (async () => {
-         const providerThinkingLevel = model.compat?.supportsMidConvoEffort ? (options?.effort ?? "high") : undefined;
          const output = {
-@@ -397,7 +398,11 @@ export const stream = (model, context, options) => {
+             role: "assistant",
+@@ -398,7 +399,11 @@ export const stream = (model, context, options) => {
              stopReason: "pending",
              timestamp: Date.now(),
          };
@@ -30,16 +30,18 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
              let client;
              let isOAuth;
              let usageModel = model;
-@@ -435,6 +440,8 @@ export const stream = (model, context, options) => {
-                 ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
-                 maxRetries: 0,
-             };
-+            JSON.stringify(params);
-+            preparingRequest = false;
-             const response = await retryProviderRequest(() => client.beta.messages.create(params, requestOptions).asResponse(), {
-                 maxRetries: options?.maxRetries,
-                 maxRetryDelayMs: options?.maxRetryDelayMs,
-@@ -520,17 +527,50 @@ export const stream = (model, context, options) => {
+@@ -443,6 +448,10 @@ export const stream = (model, context, options) => {
+                 if (nextParams !== undefined) {
+                     params = { ...nextParams, stream: true };
+                 }
++                // A payload that cannot be serialized fails here, before the
++                // request, and is classified as a local error (PI-Desktop).
++                JSON.stringify(params);
++                preparingRequest = false;
+                 try {
+                     response = await retryProviderRequest(() => client.beta.messages.create(params, requestOptions).asResponse(), {
+                         maxRetries: options?.maxRetries,
+@@ -555,17 +564,50 @@ export const stream = (model, context, options) => {
                          output.content.push(block);
                          stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
                      }
@@ -92,7 +94,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
                                  partial: output,
                              });
                          }
-@@ -539,11 +579,11 @@ export const stream = (model, context, options) => {
+@@ -574,11 +616,11 @@ export const stream = (model, context, options) => {
                          const index = blocks.findIndex((b) => b.index === event.index);
                          const block = blocks[index];
                          if (block && block.type === "thinking") {
@@ -106,7 +108,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
                                  partial: output,
                              });
                          }
-@@ -552,12 +592,24 @@ export const stream = (model, context, options) => {
+@@ -587,12 +629,24 @@ export const stream = (model, context, options) => {
                          const index = blocks.findIndex((b) => b.index === event.index);
                          const block = blocks[index];
                          if (block && block.type === "toolCall") {
@@ -133,7 +135,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
                                  partial: output,
                              });
                          }
-@@ -567,7 +619,19 @@ export const stream = (model, context, options) => {
+@@ -602,7 +656,19 @@ export const stream = (model, context, options) => {
                          const block = blocks[index];
                          if (block && block.type === "thinking") {
                              block.thinkingSignature = block.thinkingSignature || "";
@@ -154,7 +156,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
                          }
                      }
                  }
-@@ -604,6 +668,12 @@ export const stream = (model, context, options) => {
+@@ -639,6 +705,12 @@ export const stream = (model, context, options) => {
                                  partial: output,
                              });
                          }
@@ -167,7 +169,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
                      }
                  }
                  else if (event.type === "message_delta") {
-@@ -676,13 +746,18 @@ export const stream = (model, context, options) => {
+@@ -711,13 +783,18 @@ export const stream = (model, context, options) => {
              stream.end();
          }
          catch (error) {
@@ -187,7 +189,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
              stream.push({ type: "error", reason: output.stopReason, error: output });
              stream.end();
          }
-@@ -710,7 +785,7 @@ function mapThinkingLevelToEffort(model, level) {
+@@ -745,7 +822,7 @@ function mapThinkingLevelToEffort(model, level) {
              return "high";
      }
  }
@@ -196,7 +198,7 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
      if (!getAnthropicFederation(model, options?.apiKey, options?.headers, options?.env)) {
          assertRequestAuth(model.provider, options?.apiKey, options?.headers);
      }
-@@ -744,7 +819,7 @@ export const streamSimple = (model, context, options) => {
+@@ -779,7 +856,7 @@ export const streamSimple = (model, context, options) => {
          thinkingEnabled: true,
          thinkingBudgetTokens: Math.min(adjusted.thinkingBudget, Math.max(0, maxTokens - 1024)),
      });
@@ -205,8 +207,8 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
  function isOAuthToken(apiKey) {
      return apiKey.includes("sk-ant-oat");
  }
-@@ -933,6 +1008,15 @@ function buildParams(model, context, isOAuthToken, options) {
-             params.tools = convertTools(tools, isOAuthToken, compat.supportsEagerToolInputStreaming, compat.supportsStrictTools, toolCacheControl);
+@@ -975,6 +1052,15 @@ function buildParams(model, context, isOAuthToken, options, disablePreferredStri
+             params.tools = convertToolDefinitions(tools, toolCacheControl);
          }
      }
 +    // Hosted web search (PI-Desktop): attach the server-side tool when the
@@ -218,10 +220,10 @@ index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87
 +            { type: "web_search_20250305", name: "web_search" },
 +        ];
 +    }
-     // Managed effort models always use adaptive thinking so prefix mismatches can
-     // be dropped instead of surfacing as persistent 400 responses.
-     if (model.compat?.supportsMidConvoEffort === true) {
-@@ -1141,6 +1225,15 @@ convertToolDefinitions) {
+     if (thinkingDisabled) {
+         // No effort is sent, so the model default applies. Anthropic rejects `block_binding`
+         // with disabled thinking.
+@@ -1176,6 +1262,15 @@ convertToolDefinitions) {
                          input: block.arguments ?? {},
                      });
                  }
@@ -339,10 +341,10 @@ index 4615b1e502429ca4fb911dd8318658265b429c8d..66929eeaf79f297544f34a2430745854
      const samplingParams = resolveSamplingParams(model, reasoningEffort ?? "off", options?.samplingParams);
      if (samplingParams) {
 diff --git a/dist/api/mistral-conversations.js b/dist/api/mistral-conversations.js
-index 2fc3ad343af090a919f5b71454b29f23b009fc21..b2bd5e6bcbbbb45aba2d2ae3e2c471c8f482543f 100644
+index 9038a1c498e0ea0d305fcfdc946455e72714683b..afbc300a273c9db9d1f94cf1761b6ef648e5a6c3 100644
 --- a/dist/api/mistral-conversations.js
 +++ b/dist/api/mistral-conversations.js
-@@ -658,6 +658,9 @@ function toChatMessages(messages, supportsImages) {
+@@ -674,6 +674,9 @@ function toChatMessages(messages, supportsImages) {
                      }
                      continue;
                  }
@@ -353,10 +355,10 @@ index 2fc3ad343af090a919f5b71454b29f23b009fc21..b2bd5e6bcbbbb45aba2d2ae3e2c471c8
                      id: block.id,
                      type: "function",
 diff --git a/dist/api/openai-codex-responses.js b/dist/api/openai-codex-responses.js
-index 6ee63ec3201e788c1843bb077ae263f91fc671ca..d8f572c2f0c9da27bd09d19393f8238c6fdd793a 100644
+index 42aac9d5f61edf7254c975d47abb42eca59bdad8..6001ce47a6f236eca6b85a3dfbe85d7bf45fc589 100644
 --- a/dist/api/openai-codex-responses.js
 +++ b/dist/api/openai-codex-responses.js
-@@ -411,6 +411,12 @@ function buildRequestBody(model, context, options, cacheSessionId, grammarToolIn
+@@ -412,6 +412,12 @@ function buildRequestBody(model, context, options, cacheSessionId, grammarToolIn
              supportsOpenAIGrammarTools,
          });
      }
@@ -370,10 +372,10 @@ index 6ee63ec3201e788c1843bb077ae263f91fc671ca..d8f572c2f0c9da27bd09d19393f8238c
          const effort = options.reasoningEffort === "none"
              ? model.thinkingLevelMap?.off === undefined
 diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
-index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a8403b9b4647 100644
+index 0eeaffa968628593cf6e9f8648650149a97ed55b..87c9df8c08d99ecb7df35d404d0e61b8f28a233e 100644
 --- a/dist/api/openai-completions.js
 +++ b/dist/api/openai-completions.js
-@@ -866,6 +866,8 @@ function addCacheControlToTextContent(message, cacheControl) {
+@@ -868,6 +868,8 @@ function addCacheControlToTextContent(message, cacheControl) {
      }
      return false;
  }
@@ -382,7 +384,7 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a840
  export function convertMessages(model, context, compat, options) {
      const normalizedContext = resolveTranscript(context, compat.supportsMidConvoSystemMessages);
      const params = [];
-@@ -939,6 +941,31 @@ export function convertMessages(model, context, compat, options) {
+@@ -941,6 +943,31 @@ export function convertMessages(model, context, compat, options) {
                              text: sanitizeSurrogates(item.text),
                          };
                      }
@@ -414,7 +416,7 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a840
                      else {
                          return {
                              type: "image_url",
-@@ -1044,21 +1071,27 @@ export function convertMessages(model, context, compat, options) {
+@@ -1046,21 +1073,27 @@ export function convertMessages(model, context, compat, options) {
              if (preservedReasoningDetails) {
                  assistantMsg.reasoning_details = preservedReasoningDetails;
              }
@@ -448,7 +450,7 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a840
              }
              params.push(assistantMsg);
          }
-@@ -1126,6 +1159,41 @@ export function convertMessages(model, context, compat, options) {
+@@ -1128,6 +1161,41 @@ export function convertMessages(model, context, compat, options) {
          }
          lastRole = msg.role;
      }
@@ -490,7 +492,7 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a840
      return params;
  }
  function convertTools(tools, compat) {
-@@ -1270,6 +1338,9 @@ function detectCompat(model) {
+@@ -1272,6 +1340,9 @@ function detectCompat(model) {
          requiresAssistantAfterToolResult: false,
          requiresThinkingAsText: false,
          requiresReasoningContentOnAssistantMessages: isDeepSeek,
@@ -500,7 +502,7 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a840
          thinkingFormat: isDeepSeek
              ? "deepseek"
              : isZai
-@@ -1323,6 +1394,8 @@ function getCompat(model) {
+@@ -1325,6 +1396,8 @@ function getCompat(model) {
          requiresThinkingAsText: model.compat.requiresThinkingAsText ?? detected.requiresThinkingAsText,
          requiresReasoningContentOnAssistantMessages: model.compat.requiresReasoningContentOnAssistantMessages ??
              detected.requiresReasoningContentOnAssistantMessages,
@@ -510,14 +512,14 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..47e430c8840609c420f7f4d4ccf7a840
          openRouterRouting: model.compat.openRouterRouting ?? {},
          vercelGatewayRouting: model.compat.vercelGatewayRouting ?? detected.vercelGatewayRouting,
 diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-shared.js
-index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36dd8c146b 100644
+index af5f042285334542b9b39239cd9ea540916a1c32..63457904969250a8805b66269c91ec2b53076206 100644
 --- a/dist/api/openai-responses-shared.js
 +++ b/dist/api/openai-responses-shared.js
 @@ -1,3 +1,4 @@
 +import { hostedSearchReplayProjection, validateHostedSearchMessages } from "../utils/hosted-search.js";
  import { calculateCost } from "../models.js";
  import { shortHash } from "../utils/hash.js";
- import { parseStreamingJson } from "../utils/json-parse.js";
+ import { parseStreamingJson, parseToolCallArguments } from "../utils/json-parse.js";
 @@ -62,6 +63,7 @@ function convertToolResultOutput(model, content) {
  // =============================================================================
  export function convertResponsesMessages(model, context, allowedToolCallProviders, options) {
@@ -526,7 +528,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
      const messages = [];
      const normalizeIdPart = (part) => {
          const sanitized = part.replace(/[^a-zA-Z0-9_-]/g, "_");
-@@ -202,6 +204,13 @@ export function convertResponsesMessages(model, context, allowedToolCallProvider
+@@ -208,6 +210,13 @@ export function convertResponsesMessages(model, context, allowedToolCallProvider
                          phase: parsedSignature?.phase,
                      });
                  }
@@ -540,7 +542,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
                  else if (block.type === "toolCall") {
                      const toolCall = block;
                      const [callId, itemIdRaw] = toolCall.id.split("|");
-@@ -406,6 +415,28 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -419,6 +428,28 @@ export async function processResponsesStream(openaiStream, output, stream, model
              stream.push({ type: "toolcall_start", contentIndex: slot.contentIndex, partial: output });
              return slot;
          }
@@ -569,7 +571,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
          return undefined;
      };
      const getOrCreateSlot = (outputIndex, item) => {
-@@ -487,11 +518,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -500,11 +531,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "thinking");
              if (!slot)
                  continue;
@@ -583,7 +585,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
                  partial: output,
              });
          }
-@@ -511,11 +542,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -524,11 +555,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "thinking");
              if (!slot)
                  continue;
@@ -597,7 +599,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
                  partial: output,
              });
          }
-@@ -523,23 +554,44 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -536,23 +567,44 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "text");
              if (!slot)
                  continue;
@@ -646,7 +648,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
                  partial: output,
              });
          }
-@@ -547,9 +599,9 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -560,9 +612,9 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "toolCall");
              if (!slot || slot.block.partialJson === undefined)
                  continue;
@@ -658,7 +660,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
          }
          else if (event.type === "response.function_call_arguments.done") {
              const slot = getSlot(event.output_index, "toolCall");
-@@ -635,9 +687,25 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -648,9 +700,25 @@ export async function processResponsesStream(openaiStream, output, stream, model
                  });
                  outputSlots.delete(event.output_index);
              }
@@ -685,7 +687,7 @@ index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36
          else if (event.type === "error") {
              throw new Error(`Error Code ${event.code}: ${event.message}` || "Unknown error");
 diff --git a/dist/api/openai-responses.js b/dist/api/openai-responses.js
-index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a70a106ca 100644
+index 2ab985c7da1e377bff0355a460e6f6ab5c70df66..c48a104d7a9fa354620ff293ce33df95775b3de7 100644
 --- a/dist/api/openai-responses.js
 +++ b/dist/api/openai-responses.js
 @@ -1,3 +1,5 @@
@@ -694,15 +696,15 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
  import OpenAI from "openai";
  import { clampThinkingLevel } from "../models.js";
  import { formatProviderError, normalizeProviderError } from "../utils/error-body.js";
-@@ -92,7 +94,6 @@ function getPromptCacheOptions(compat, cacheRetention) {
+@@ -105,7 +107,6 @@ function getPromptCacheOptions(compat, cacheRetention) {
   */
  export const stream = (model, context, options) => {
      const stream = new AssistantMessageEventStream();
 -    const normalizedContext = resolveTranscript(context, getCompat(model).supportsMidConvoSystemMessages);
      // Start async processing
      (async () => {
-         const output = {
-@@ -112,7 +113,9 @@ export const stream = (model, context, options) => {
+         const compat = getCompat(model);
+@@ -128,7 +129,9 @@ export const stream = (model, context, options) => {
              stopReason: "pending",
              timestamp: Date.now(),
          };
@@ -712,7 +714,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
              // Create OpenAI client
              const apiKey = getClientApiKey(model.provider, options?.apiKey, options?.headers);
              const cacheRetention = resolveCacheRetention(options?.cacheRetention, options?.env);
-@@ -130,6 +133,9 @@ export const stream = (model, context, options) => {
+@@ -145,6 +148,9 @@ export const stream = (model, context, options) => {
                  ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
                  maxRetries: 0,
              };
@@ -722,7 +724,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
              const { data: openaiStream, response } = await retryProviderRequest(() => client.responses.create(params, requestOptions).withResponse(), {
                  maxRetries: options?.maxRetries,
                  maxRetryDelayMs: options?.maxRetryDelayMs,
-@@ -156,6 +162,11 @@ export const stream = (model, context, options) => {
+@@ -171,6 +177,11 @@ export const stream = (model, context, options) => {
              stream.end();
          }
          catch (error) {
@@ -734,7 +736,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
              for (const block of output.content) {
                  delete block.index;
                  // Streaming scratch buffers are only used during parsing; never persist them.
-@@ -163,7 +174,7 @@ export const stream = (model, context, options) => {
+@@ -178,7 +189,7 @@ export const stream = (model, context, options) => {
                  delete block.customInput;
              }
              output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -743,7 +745,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
              // Sign in with ChatGPT shares the subscription's usage limit with other apps.
              output.errorMessage = errorMessage.includes("subscription_sharing_usage_limit_exceeded")
                  ? `${errorMessage}\nCheck your ChatGPT usage: ${CHATGPT_USAGE_URL}`
-@@ -174,7 +185,7 @@ export const stream = (model, context, options) => {
+@@ -189,7 +200,7 @@ export const stream = (model, context, options) => {
      })();
      return stream;
  };
@@ -752,7 +754,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
      getClientApiKey(model.provider, options?.apiKey, options?.headers);
      const base = {
          ...buildBaseOptions(model, context, options, options?.apiKey),
-@@ -186,7 +197,7 @@ export const streamSimple = (model, context, options) => {
+@@ -201,7 +212,7 @@ export const streamSimple = (model, context, options) => {
          ...base,
          reasoningEffort,
      });
@@ -761,7 +763,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
  function createClient(model, context, apiKey, optionsHeaders, fetch, sessionId) {
      const compat = getCompat(model);
      const headers = { "User-Agent": getPiUserAgent(), ...model.headers };
-@@ -260,6 +271,12 @@ function buildParams(model, context, options, compat = getCompat(model), grammar
+@@ -276,6 +287,12 @@ function buildParams(model, context, options, compat, grammarToolInputProperties
              supportsOpenAIGrammarTools: compat.supportsOpenAIGrammarTools,
          });
      }
@@ -774,7 +776,7 @@ index 2a6b4e408498e33fd7685471559fbd4696755f0a..9e44070d8dfb4fc66471590c7f86109a
      if (options?.toolChoice !== undefined) {
          params.tool_choice = options.toolChoice;
      }
-@@ -283,6 +300,10 @@ function buildParams(model, context, options, compat = getCompat(model), grammar
+@@ -300,6 +317,10 @@ function buildParams(model, context, options, compat, grammarToolInputProperties
          if (model.provider === "xai")
              params.include = ["reasoning.encrypted_content"];
      }
@@ -943,10 +945,10 @@ index 0823512eb83d74167335cde72ae21ea32384572e..3af4225621ba833fca78b3e942b02764
      return {
          type: "oauth",
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 75c0d7ba79dbf893724a302829011bc0f8ded282..b0bf6975cb155df67e7cad59e4c65d751f47ec8b 100644
+index 8024d0a7cf93366defb7d3f605ddc2d78ddebd87..79a53185218b11e741e7b2c1fd8c50837240ba3c 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -33,4 +33,7 @@ export * from "./utils/transcript.ts";
+@@ -32,4 +32,7 @@ export * from "./utils/transcript.ts";
  export * from "./utils/typebox-helpers.ts";
  export { uuidv7 } from "./utils/uuid.ts";
  export * from "./utils/validation.ts";
@@ -956,10 +958,10 @@ index 75c0d7ba79dbf893724a302829011bc0f8ded282..b0bf6975cb155df67e7cad59e4c65d75
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 diff --git a/dist/index.js b/dist/index.js
-index 4fafddad713ac5811fe2b1dfea629b4b8f6627e1..2e4ed41e548807b836625b35ba753a8422aea160 100644
+index b0a6bcd5db86f5e654caff0a859a44d1d9d5348c..35e5b22f2070ce9d535d2133b58f6f7bc1e64f07 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -20,4 +20,6 @@ export * from "./utils/transcript.js";
+@@ -19,4 +19,6 @@ export * from "./utils/transcript.js";
  export * from "./utils/typebox-helpers.js";
  export { uuidv7 } from "./utils/uuid.js";
  export * from "./utils/validation.js";
@@ -967,6 +969,40 @@ index 4fafddad713ac5811fe2b1dfea629b4b8f6627e1..2e4ed41e548807b836625b35ba753a84
 +export * from "./utils/hosted-search.js";
  //# sourceMappingURL=index.js.map
 \ No newline at end of file
+diff --git a/dist/providers/compat-schema.d.ts b/dist/providers/compat-schema.d.ts
+index e57ec0f22ddd363027f74043245a10ff4733a256..90328d1a816b33d5c42a36393ced353448af7aa6 100644
+--- a/dist/providers/compat-schema.d.ts
++++ b/dist/providers/compat-schema.d.ts
+@@ -71,6 +71,7 @@ export declare const OpenAICompletionsCompatSchema: Type.TObject<{
+     requiresAssistantAfterToolResult: Type.TOptional<Type.TBoolean>;
+     requiresThinkingAsText: Type.TOptional<Type.TBoolean>;
+     requiresReasoningContentOnAssistantMessages: Type.TOptional<Type.TBoolean>;
++    requiresNonEmptyReasoningReplay: Type.TOptional<Type.TBoolean>;
+     thinkingFormat: Type.TOptional<Type.TUnion<[Type.TLiteral<"openai">, Type.TLiteral<"openrouter">, Type.TLiteral<"deepseek">, Type.TLiteral<"together">, Type.TLiteral<"baseten">, Type.TLiteral<"zai">, Type.TLiteral<"qwen">, Type.TLiteral<"chat-template">, Type.TLiteral<"qwen-chat-template">, Type.TLiteral<"string-thinking">, Type.TLiteral<"ant-ling">]>>;
+     chatTemplateKwargs: Type.TOptional<Type.TRecord<"^.*$", Type.TUnion<[Type.TString, Type.TNumber, Type.TBoolean, Type.TNull, Type.TObject<{
+         $var: Type.TUnion<[Type.TLiteral<"thinking.enabled">, Type.TLiteral<"thinking.effort">, Type.TLiteral<"thinking.budget">]>;
+@@ -194,6 +195,7 @@ export declare const ProviderCompatSchema: Type.TObject<MergedCompatProperties<(
+     requiresAssistantAfterToolResult: Type.TOptional<Type.TBoolean>;
+     requiresThinkingAsText: Type.TOptional<Type.TBoolean>;
+     requiresReasoningContentOnAssistantMessages: Type.TOptional<Type.TBoolean>;
++    requiresNonEmptyReasoningReplay: Type.TOptional<Type.TBoolean>;
+     thinkingFormat: Type.TOptional<Type.TUnion<[Type.TLiteral<"openai">, Type.TLiteral<"openrouter">, Type.TLiteral<"deepseek">, Type.TLiteral<"together">, Type.TLiteral<"baseten">, Type.TLiteral<"zai">, Type.TLiteral<"qwen">, Type.TLiteral<"chat-template">, Type.TLiteral<"qwen-chat-template">, Type.TLiteral<"string-thinking">, Type.TLiteral<"ant-ling">]>>;
+     chatTemplateKwargs: Type.TOptional<Type.TRecord<"^.*$", Type.TUnion<[Type.TString, Type.TNumber, Type.TBoolean, Type.TNull, Type.TObject<{
+         $var: Type.TUnion<[Type.TLiteral<"thinking.enabled">, Type.TLiteral<"thinking.effort">, Type.TLiteral<"thinking.budget">]>;
+diff --git a/dist/providers/compat-schema.js b/dist/providers/compat-schema.js
+index 2d8e6c7a2bb6c76f1d7ad9ed84aa5cd56b659c4f..ffd149f377b0763541f5ce25d259f0bd22899d30 100644
+--- a/dist/providers/compat-schema.js
++++ b/dist/providers/compat-schema.js
+@@ -136,6 +136,9 @@ export const OpenAICompletionsCompatSchema = Type.Object({
+     requiresReasoningContentOnAssistantMessages: Type.Optional(Type.Boolean({
+         description: "Whether all replayed assistant messages must include an empty reasoning_content field when reasoning is enabled. Default: auto-detected from URL.",
+     })),
++    requiresNonEmptyReasoningReplay: Type.Optional(Type.Boolean({
++        description: "Whether a replayed assistant message that carries no reasoning must send a documented non-empty placeholder instead of an empty string. Some relays reject the empty echo. Default: false; only an explicit model.compat opt-in enables it.",
++    })),
+     thinkingFormat: Type.Optional(Type.Union([
+         Type.Literal("openai"),
+         Type.Literal("openrouter"),
 diff --git a/dist/providers/data/deepseek.json b/dist/providers/data/deepseek.json
 index 1443bb592b2913ba09579f3f555a2b09456e63cf..5fc0625778014863aa267ac5186db2cdf356d789 100644
 --- a/dist/providers/data/deepseek.json
@@ -975,10 +1011,10 @@ index 1443bb592b2913ba09579f3f555a2b09456e63cf..5fc0625778014863aa267ac5186db2cd
 -{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 +{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e290f7971b 100644
+index 022faa1969490ca91d67fffa20dab7c41c4384bd..993dbc12c0b7a2d7a1187a712210f718971d3c9e 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
-@@ -279,6 +279,16 @@ export interface ImageContent {
+@@ -262,6 +262,16 @@ export interface ImageContent {
      data: string;
      mimeType: string;
  }
@@ -995,9 +1031,9 @@ index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e2
  export interface ToolCall {
      type: "toolCall";
      id: string;
-@@ -288,6 +298,30 @@ export interface ToolCall {
-     /** OpenAI Responses namespace for calls to dynamically loaded or namespaced tools. */
-     namespace?: string;
+@@ -276,6 +286,30 @@ export interface ToolCall {
+      */
+     argumentsError?: string;
  }
 +export interface HostedSearchCitation {
 +    url: string;
@@ -1026,7 +1062,7 @@ index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e2
  export interface Usage {
      input: number;
      output: number;
-@@ -368,12 +402,12 @@ export interface SystemMessage {
+@@ -356,12 +390,12 @@ export interface SystemMessage {
  }
  export interface UserMessage {
      role: "user";
@@ -1041,7 +1077,7 @@ index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e2
      api: Api;
      provider: ProviderId;
      model: string;
-@@ -388,6 +422,8 @@ export interface AssistantMessage {
+@@ -376,6 +410,8 @@ export interface AssistantMessage {
      stopReason: StopReason;
      deferred?: DeferredHandle;
      errorMessage?: string;
@@ -1050,7 +1086,7 @@ index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e2
      rawStopReason?: string;
      /**
       * Provider indication of whether the model explicitly ended its turn.
-@@ -623,6 +659,10 @@ export type AssistantMessageEvent = {
+@@ -611,6 +647,10 @@ export type AssistantMessageEvent = {
      contentIndex: number;
      toolCall: ToolCall;
      partial: AssistantMessage;
@@ -1061,20 +1097,7 @@ index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e2
  } | {
      type: "done";
      reason: Extract<StopReason, "stop" | "length" | "toolUse" | "deferred">;
-@@ -657,6 +697,12 @@ export interface OpenAICompletionsCompat {
-     requiresThinkingAsText?: boolean;
-     /** Whether all replayed assistant messages must include an empty reasoning_content field when reasoning is enabled. Default: auto-detected from URL. */
-     requiresReasoningContentOnAssistantMessages?: boolean;
-+    /**
-+     * Whether a replayed assistant message that carries no reasoning must send a documented
-+     * non-empty placeholder instead of an empty string. Some relays reject the empty echo.
-+     * Default: false; only an explicit model.compat opt-in enables it.
-+     */
-+    requiresNonEmptyReasoningReplay?: boolean;
-     /** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "openrouter" uses reasoning: { effort }, "deepseek" uses thinking: { type } plus reasoning_effort when supported, "together" uses reasoning: { enabled } plus reasoning_effort when supported, "baseten" uses configurable chat_template_args plus reasoning_effort when supported, "zai" uses thinking: { type }, "qwen" uses top-level enable_thinking: boolean, "qwen-chat-template" uses chat_template_kwargs.enable_thinking and preserve_thinking, "chat-template" uses configurable chat_template_kwargs, "string-thinking" uses top-level thinking: string, and "ant-ling" uses reasoning: { effort } only when the mapped effort is non-null. Default: "openai". */
-     thinkingFormat?: "openai" | "openrouter" | "deepseek" | "together" | "baseten" | "zai" | "qwen" | "chat-template" | "qwen-chat-template" | "string-thinking" | "ant-ling";
-     /** Kwargs to send as `chat_template_kwargs` when `thinkingFormat` is `chat-template`. Use `{ "$var": "thinking.enabled" }`, `{ "$var": "thinking.effort" }`, or `{ "$var": "thinking.budget" }` for pi-controlled thinking values. */
-@@ -935,6 +981,8 @@ export interface Model<TApi extends Api> extends BaseModel<TApi> {
+@@ -642,6 +682,8 @@ export interface Model<TApi extends Api> extends BaseModel<TApi> {
       */
      type?: "chat";
      reasoning: boolean;
@@ -1083,183 +1106,6 @@ index b01603bff2e8dbaedcd4aa9ef5b2d3d1192697f8..e7f747f829f8df0d6cad956045be93e2
      /**
       * Maps pi thinking levels to provider/model-specific values.
       * Missing keys use provider defaults. null marks a level as unsupported.
-diff --git a/dist/utils/assistant-message-frame.d.ts b/dist/utils/assistant-message-frame.d.ts
-index 08207197acab532d0f5f596363700a2d15a687d8..0584f6898e1d842c4414869b9080505b63c3a7b7 100644
---- a/dist/utils/assistant-message-frame.d.ts
-+++ b/dist/utils/assistant-message-frame.d.ts
-@@ -1,4 +1,4 @@
--import type { AssistantMessage, AssistantMessageEvent, TextContent, ThinkingContent, ToolCall } from "../types.ts";
-+import type { AssistantMessage, AssistantMessageEvent, HostedSearchContent, TextContent, ThinkingContent, ToolCall } from "../types.ts";
- /**
-  * Compact, replayable assistant-message progress. Terminal settlement is
-  * intentionally excluded and must be persisted separately.
-@@ -53,6 +53,11 @@ export type AssistantMessageFrame = {
-     arguments: ToolCall["arguments"];
-     thoughtSignature?: string;
-     namespace?: string;
-+} | {
-+    type: "hosted_search_update";
-+    contentIndex: number;
-+    /** Complete detached snapshot, replacing the same search block on later updates. */
-+    content: HostedSearchContent;
- };
- /**
-  * Encodes one assistant stream. `partial` remains a shared live accumulator;
-diff --git a/dist/utils/assistant-message-frame.js b/dist/utils/assistant-message-frame.js
-index c0e00197b2bdd4c815106daa036d844c07aca800..a86f5939accd25110d7a4d1e0d268646691d321d 100644
---- a/dist/utils/assistant-message-frame.js
-+++ b/dist/utils/assistant-message-frame.js
-@@ -1,15 +1,30 @@
-+import { normalizeHostedSearchContent } from "./hosted-search.js";
- import { parseStreamingJson } from "./json-parse.js";
-+
-+// A gateway that re-serializes provider events with `omitempty` (Go) or drops
-+// `undefined` (JS) hands a text / thinking / tool-call delta over with the
-+// string field missing. The frame protocol requires a string there, and the only
-+// value that can be dropped that way is the empty one, so a non-string payload
-+// reads as "". Reading `.length` off it used to throw a bare TypeError that the
-+// runtime surfaced as a retriable provider failure and then reproduced on every
-+// later turn of the session.
-+function textValue(value) {
-+    return typeof value === "string" ? value : "";
-+}
-+function textLength(value) {
-+    return typeof value === "string" ? value.length : 0;
-+}
- function cloneTextContent(content) {
-     return {
-         type: "text",
--        text: content.text,
-+        text: textValue(content.text),
-         ...(content.textSignature === undefined ? {} : { textSignature: content.textSignature }),
-     };
- }
- function cloneThinkingContent(content) {
-     return {
-         type: "thinking",
--        thinking: content.thinking,
-+        thinking: textValue(content.thinking),
-         ...(content.thinkingSignature === undefined ? {} : { thinkingSignature: content.thinkingSignature }),
-         ...(content.redacted === undefined ? {} : { redacted: content.redacted }),
-     };
-@@ -24,6 +39,24 @@ function cloneToolCall(toolCall) {
-         ...(toolCall.namespace === undefined ? {} : { namespace: toolCall.namespace }),
-     };
- }
-+function cloneHostedSearchContent(content) {
-+    const block = normalizeHostedSearchContent(content);
-+    const base = { type: "hostedSearch", phase: block.phase, blockId: block.blockId };
-+    // Deep-copy declared wire/input fields so mutable partials and parser buffers cannot alter old frames.
-+    if (block.phase === "server_tool_use")
-+        return { ...base, name: block.name, input: structuredClone(block.input) };
-+    if (block.phase === "web_search_tool_result")
-+        return { ...base, ...(content.isError === undefined ? {} : { isError: block.isError }), wire: structuredClone(block.wire) };
-+    return {
-+        ...base,
-+        ...(block.status === undefined ? {} : { status: block.status }),
-+        ...(block.wire == null ? {} : { wire: structuredClone(block.wire) }),
-+    };
-+}
-+function assertSameHostedSearch(previous, current) {
-+    if (previous.phase !== current.phase || previous.blockId !== current.blockId)
-+        throw new Error("Hosted search update changes block identity");
-+}
- function cloneStartMessage(message) {
-     return {
-         role: "assistant",
-@@ -105,6 +138,19 @@ export class AssistantMessageFrameEncoder {
-         if (!this.started)
-             throw new Error(`Assistant message ${event.type} event appears before start`);
-         switch (event.type) {
-+            case "hosted_search_update": {
-+                const content = cloneHostedSearchContent(eventBlock(event));
-+                const state = this.blocks.get(event.contentIndex);
-+                if (state === undefined) {
-+                    this.startBlock(event.contentIndex, { kind: "hostedSearch", phase: content.phase, blockId: content.blockId });
-+                }
-+                else {
-+                    this.block(event.contentIndex, "hostedSearch");
-+                    assertSameHostedSearch(state, content);
-+                }
-+                // Search events are snapshots: completed wire data can arrive later without a synthetic end state.
-+                return { type: "hosted_search_update", contentIndex: event.contentIndex, content };
-+            }
-             case "text_start": {
-                 const content = eventBlock(event);
-                 if (content.type !== "text") {
-@@ -112,7 +158,7 @@ export class AssistantMessageFrameEncoder {
-                 }
-                 this.startBlock(event.contentIndex, {
-                     kind: "text",
--                    coveredChars: content.text.length,
-+                    coveredChars: textLength(content.text),
-                     deltaChars: 0,
-                 });
-                 return { type: "text_start", contentIndex: event.contentIndex, content: cloneTextContent(content) };
-@@ -139,7 +185,7 @@ export class AssistantMessageFrameEncoder {
-                 }
-                 this.startBlock(event.contentIndex, {
-                     kind: "thinking",
--                    coveredChars: content.thinking.length,
-+                    coveredChars: textLength(content.thinking),
-                     deltaChars: 0,
-                 });
-                 return {
-@@ -183,12 +229,13 @@ export class AssistantMessageFrameEncoder {
-                 const state = this.block(event.contentIndex, "toolCall");
-                 if (state.kind !== "toolCall")
-                     throw new Error("Unreachable tool-call encoder state");
-+                const delta = textValue(event.delta);
-                 if (state.caughtUp) {
--                    return event.delta.length === 0
-+                    return delta.length === 0
-                         ? undefined
--                        : { type: "toolcall_delta", contentIndex: event.contentIndex, delta: event.delta };
-+                        : { type: "toolcall_delta", contentIndex: event.contentIndex, delta };
-                 }
--                state.catchupJson += event.delta;
-+                state.catchupJson += delta;
-                 const argumentsValue = parseStreamingJson(state.catchupJson);
-                 if (serializedArguments(argumentsValue) !== state.snapshotArguments) {
-                     // Legacy grammar calls include the initial input in toolcall_start, but their
-@@ -254,12 +301,13 @@ export class AssistantMessageFrameEncoder {
-         const state = this.block(contentIndex, kind);
-         if (state.kind === "toolCall")
-             throw new Error("Unreachable text encoder state");
-+        const text = textValue(delta);
-         const deltaStart = state.deltaChars;
--        state.deltaChars += delta.length;
-+        state.deltaChars += text.length;
-         const covered = Math.max(0, state.coveredChars - deltaStart);
--        if (covered >= delta.length)
-+        if (covered >= text.length)
-             return undefined;
--        const uncovered = covered === 0 ? delta : delta.slice(covered);
-+        const uncovered = covered === 0 ? text : text.slice(covered);
-         return kind === "text"
-             ? { type: "text_delta", contentIndex, delta: uncovered }
-             : { type: "thinking_delta", contentIndex, delta: uncovered };
-@@ -311,6 +359,20 @@ export function reduceAssistantMessageFrames(frames) {
-             continue;
-         }
-         switch (frame.type) {
-+            case "hosted_search_update": {
-+                const content = cloneHostedSearchContent(frame.content);
-+                assertContentIndex(frame.contentIndex);
-+                if (frame.contentIndex >= message.content.length) {
-+                    // Preserve the original content index; appendBlock still rejects actual gaps.
-+                    appendBlock(message, states, frame.contentIndex, content, { kind: "hostedSearch", ended: false });
-+                }
-+                else {
-+                    const { block } = activeBlock(message, states, frame.contentIndex, "hostedSearch", frame.type);
-+                    assertSameHostedSearch(block, content);
-+                    message.content[frame.contentIndex] = content;
-+                }
-+                break;
-+            }
-             case "text_start":
-                 if (frame.content.type !== "text") {
-                     throw new Error(`text_start frame contains ${frame.content.type} content`);
 diff --git a/dist/utils/estimate.d.ts b/dist/utils/estimate.d.ts
 index 6dcca6eff16b95b83e047a6e27b65d9d7694bf2c..5ccaaf2358a0afeea3ce354e5799255ae8508f3d 100644
 --- a/dist/utils/estimate.d.ts
