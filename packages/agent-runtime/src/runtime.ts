@@ -1280,6 +1280,9 @@ const TOOL_PARAM_ALIASES: Record<string, Record<string, string>> = {
   Write: { ...PATH_ARG_ALIASES },
   Edit: { ...PATH_ARG_ALIASES },
   BrowserPreview: { ...PATH_ARG_ALIASES },
+  // Their schemas declare the same `file_path` alias; the host reads `path`.
+  [VIEW_VIDEO_TOOL_NAME]: { ...PATH_ARG_ALIASES },
+  [VIEW_AUDIO_TOOL_NAME]: { ...PATH_ARG_ALIASES },
   Glob: { query: "pattern" },
   Grep: { query: "pattern" },
 };

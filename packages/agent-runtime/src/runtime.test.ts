@@ -11908,6 +11908,36 @@ describe("DesktopAgentRuntime media tools (D685)", () => {
   const prompt = (runtime: DesktopAgentRuntime) =>
     (runtime as any).agent.state.systemPrompt as string;
 
+  it("folds the path aliases the media tools declare before the host sees the call", async () => {
+    const host = {
+      call: vi.fn().mockImplementation(async (method: string) =>
+        method === "project.instructions.resolve"
+          ? { entries: [] }
+          : { ok: true, content: "done" },
+      ),
+    };
+    const runtime = createRuntime({ provider: mediaProvider, host });
+    try {
+      const lastExecute = () =>
+        host.call.mock.calls
+          .filter((call: unknown[]) => call[0] === "tools.execute")
+          .at(-1)![1] as { toolName: string; args: Record<string, unknown> };
+      for (const name of ["ViewVideo", "ViewAudio"]) {
+        // The schema accepts `file_path`; the host reads only `path`.
+        expect((runtimeTool(runtime, name).parameters as any).properties.file_path).toMatchObject({
+          type: "string",
+        });
+        for (const alias of ["file_path", "filePath", "file"]) {
+          await runtimeTool(runtime, name).execute(`${name}-${alias}`, { [alias]: "media/clip" });
+          expect(lastExecute()).toMatchObject({ toolName: name, args: { path: "media/clip" } });
+          expect(lastExecute().args[alias]).toBeUndefined();
+        }
+      }
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("gives a model that takes video and audio both tools, as core tools, and says when to use them", async () => {
     for (const mode of ["agent", "plan"] as const) {
       const runtime = createRuntime({ provider: mediaProvider, mode });
