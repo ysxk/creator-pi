@@ -3,10 +3,9 @@
  *
  * A new service opens on the service chooser; picking a tile moves to the
  * form. Named services: paste a key and the recommended models are chosen as
- * soon as the service answers. The custom form keeps its name, URL,
- * authentication and API format on the common path. The service's own list is
- * on the left and the models this credential will run on the right, both
- * visible from the first paint: a
+ * soon as the service answers. Custom: name, URL, key and API format on the
+ * common path. The service's own list is on the left and the models this
+ * credential will run on the right, both visible from the first paint: a
  * recommended model is a starting point, never the only thing on screen.
  */
 import { useEffect, useRef, useState } from "react";
@@ -28,10 +27,7 @@ import { Button, Field, HelpIcon, Input, portalOverlay } from "../ui";
 import { ProviderHeadersEditor } from "./ProviderHeadersEditor";
 import { useProviderModels } from "./useProviderModels";
 import { ModelSelectionPanes, useModelSelection } from "./ModelSelectionPanes";
-import {
-  ProviderConnectionFields,
-  type ProviderAuthKind,
-} from "./ProviderConnectionFields";
+import { ProviderConnectionFields } from "./ProviderConnectionFields";
 import { useProbeFeedback } from "./useProbeFeedback";
 import { ServiceChooser } from "./ServiceChooser";
 import { PluginProviderKeySetupForm } from "./PluginProviderKeySetupForm";
@@ -134,10 +130,7 @@ export function ProviderSetupDialog({
   const [name, setName] = useState(() => initialDraft?.name ?? initialName(provider));
   const [baseUrl, setBaseUrl] = useState(() => initialDraft?.baseUrl ?? initialBaseUrl(provider));
   const [apiKey, setApiKey] = useState("");
-  const [authKind, setAuthKind] = useState<ProviderAuthKind>(() =>
-    provider?.authKind === "none" ? "none" : "api_key_and_base_url",
-  );
-  const [authKindTouched, setAuthKindTouched] = useState(false);
+  const [noApiKeyRequired, setNoApiKeyRequired] = useState(() => provider?.authKind === "none");
   const [apiStyle, setApiStyle] = useState<CatalogApiStyle>(() =>
     initialDraft?.apiStyle ?? normalizeApiStyle(provider?.apiStyle),
   );
@@ -293,10 +286,6 @@ export function ProviderSetupDialog({
     setApiStyleTouched(false);
     const preset = NAMED_ENDPOINT_PRESETS.find((item) => item.id === next);
     if (!preset) {
-      if (next !== CUSTOM_SERVICE) {
-        setAuthKind("api_key_and_base_url");
-        setAuthKindTouched(true);
-      }
       if (next === CUSTOM_SERVICE && apiStyle === OPENCODE_GO_API_STYLE) {
         setApiStyle("chat_completions");
       }
@@ -307,8 +296,6 @@ export function ProviderSetupDialog({
     if (!currentName || currentName === previous?.name) setName(preset.name);
     setBaseUrl(preset.baseUrl);
     setApiStyle(preset.apiStyle);
-    setAuthKind("api_key_and_base_url");
-    setAuthKindTouched(true);
     focusAfterServiceChange(next);
   };
 
@@ -402,8 +389,10 @@ export function ProviderSetupDialog({
           models: persisted,
           apiStyle: resolvedApiStyle,
           headers,
-          ...(authKindTouched ? { authKind } : {}),
-          ...(apiKey ? { secretValue: apiKey } : {}),
+          ...(custom && noApiKeyRequired !== (provider.authKind === "none")
+            ? { authKind: noApiKeyRequired ? "none" : "api_key_and_base_url" }
+            : {}),
+          ...(custom && noApiKeyRequired ? {} : apiKey ? { secretValue: apiKey } : {}),
         });
         await onSaved(result.provider ?? provider, persisted, imageModelIdsToSave);
       } else {
@@ -413,10 +402,10 @@ export function ProviderSetupDialog({
           type: "openai_compatible",
           protocol: "openai_compatible",
           baseUrl: providerBaseUrl,
-          authKind: custom ? authKind : "api_key_and_base_url",
+          authKind: custom && noApiKeyRequired ? "none" : "api_key_and_base_url",
           defaultModelId: persisted[0]?.id,
           models: persisted,
-          ...(apiKey && authKind !== "none" ? { secretValue: apiKey } : {}),
+          ...(custom && noApiKeyRequired ? {} : { secretValue: apiKey || undefined }),
           apiStyle: resolvedApiStyle,
           headers,
         });
@@ -522,11 +511,10 @@ export function ProviderSetupDialog({
             nameRef={nameRef}
             apiKey={apiKey}
             onApiKeyChange={setApiKey}
-            authKind={authKind}
-            onAuthKindChange={(next) => {
-              setAuthKind(next);
-              setAuthKindTouched(true);
-              if (next === "none") setApiKey("");
+            noApiKeyRequired={noApiKeyRequired}
+            onNoApiKeyRequiredChange={(required) => {
+              setNoApiKeyRequired(required);
+              if (required) setApiKey("");
             }}
             name={name}
             onNameChange={setName}

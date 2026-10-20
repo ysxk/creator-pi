@@ -144,8 +144,8 @@ export function PluginProviderKeySetupForm({
           nameRef={nameRef}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
-          authKind="api_key_and_base_url"
-          onAuthKindChange={() => {}}
+          noApiKeyRequired={false}
+          onNoApiKeyRequiredChange={() => {}}
           name={provider.name}
           onNameChange={() => {}}
           baseUrl={provider.baseUrl ?? ""}

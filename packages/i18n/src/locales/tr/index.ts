@@ -1415,7 +1415,7 @@ sklm: {
     editProviderTitle: "AI servisini düzenle",
     apiKeyKeepHint: "Kayıtlı anahtarı korumak için boş bırakın.",
     noApiKeyRequired: "API anahtarı gerekmiyor",
-    noApiKeyRequiredHint: "İsteklerde API anahtarı veya Authorization kimlik bilgisi bulunmaz. Kaydettiğinizde bu sağlayıcı için kayıtlı API anahtarı silinir.",
+    noApiKeyHint: "Yalnızca uç nokta kimlik doğrulaması olmadan istek kabul ediyorsa etkinleştirin.",
     apiStyle: "API biçimi",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",

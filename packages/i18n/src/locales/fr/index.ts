@@ -1412,7 +1412,7 @@ sklm: {
     "editProviderTitle": "Modifier le fournisseur d'IA",
     "apiKeyKeepHint": "Laissez vide pour conserver la clé enregistrée.",
     "noApiKeyRequired": "Aucune clé API requise",
-    "noApiKeyRequiredHint": "Les requêtes n'incluront aucune clé API ni aucun identifiant Authorization. L'enregistrement supprimera toute clé API déjà stockée pour ce fournisseur.",
+    "noApiKeyHint": "Activez cette option uniquement si le point de terminaison accepte les requêtes sans authentification.",
     "apiStyle": "Format API",
     "apiStyleChatCompletions": "Achèvements de discussion OpenAI",
     "apiStyleOpenCodeGo": "OpenCode Go",

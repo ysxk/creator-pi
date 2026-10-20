@@ -1432,7 +1432,7 @@ sklm: {
     editProviderTitle: "Edit AI provider",
     apiKeyKeepHint: "Leave blank to keep the saved key.",
     noApiKeyRequired: "No API key required",
-    noApiKeyRequiredHint: "Requests won't include an API-key or Authorization credential. Saving this setting removes any API key already stored for this provider.",
+    noApiKeyHint: "Enable this only when the endpoint accepts requests without authentication.",
     apiStyle: "API format",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",

@@ -1425,7 +1425,7 @@ sklm: {
     editProviderTitle: "AI 프로바이더 편집",
     apiKeyKeepHint: "저장된 키를 유지하려면 비워 두세요.",
     noApiKeyRequired: "API 키 필요 없음",
-    noApiKeyRequiredHint: "요청에 API 키나 Authorization 자격 증명을 포함하지 않습니다. 저장하면 이 프로바이더에 이미 저장된 API 키가 삭제됩니다.",
+    noApiKeyHint: "인증 없이 요청을 받는 엔드포인트에서만 사용하세요.",
     apiStyle: "API 형식",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",
