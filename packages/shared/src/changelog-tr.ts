@@ -2,6 +2,32 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.5",
+    "date": "2026-10-20",
+    "highlights": [
+      "Long Bash commands can run as background tasks that keep going after the turn ends; check their output or stop them from the bar above the composer.",
+      "Tool calls keep every argument when the text holds sequences like \\usepackage, and a call whose arguments arrive cut off is refused instead of running half-filled.",
+      "Switching models no longer hands the previous model's thinking to the new one as part of its answer.",
+      "Reasoning stays before the answer when a gateway sends both together, Claude accepts a failed tool result that carries an image, and Gemini, Mistral and Claude effort settings are corrected.",
+      "Requests to your own gateway or relay carry a per-session identity, so it can keep a conversation on one backend and reuse its prompt cache.",
+      "Custom endpoints can be set up without an API key, and no credential is sent, compaction requests included.",
+      "Switching to a conversation always opens it at its newest message.",
+      "Projects in the sidebar show how much work is running; last-reply dates can be turned on in Settings → Appearance → Sidebar.",
+      "A reply's pictures open in the image viewer, every picture it names gets a thumbnail, and pictures in a table show as thumbnails in their cells.",
+      "Models that take video or audio watch and listen through the new ViewVideo and ViewAudio tools.",
+      "The session checklist appears as an open plan card.",
+      "Bundled skills can be turned on or off in Settings, and their defaults restored.",
+      "MCP settings list every project's servers, and connection status is shown only for the project that is open.",
+      "@ file suggestions show each file's full relative path, and Bash commands and thinking show as separate rows.",
+      "Archived projects reopen from the sidebar, and a custom proxy URL is remembered when you switch network modes.",
+      "Conversation history stays readable after a crash leaves a damaged record, deleting a message keeps the live reply, and unsaved messages are no longer lost when a rewrite fails or the host keeps refusing them.",
+      "An oversized or broken picture from a tool no longer breaks the conversation.",
+      "MCP sign-in checks that the authorization response comes from the server the sign-in started with.",
+      "Browser actions time out and recover instead of hanging, and after you stop a turn the next one waits for it to settle; a background command stopped before it starts never runs.",
+      "Bundled dependencies carry their latest security fixes."
+    ]
+  },
+  {
     "version": "0.18.2",
     "date": "2026-10-14",
     "highlights": [
