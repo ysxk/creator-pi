@@ -469,3 +469,51 @@ fn remove_session_files_cleans_up_layout_cache_and_tmp() {
     assert!(!layout_tmp.exists());
     assert!(!legacy_tmp.exists());
 }
+
+#[test]
+fn a_crash_torn_json_line_is_skipped_by_paged_reads_after_the_next_append() {
+    // A write interrupted mid-record leaves valid UTF-8 that is not a whole
+    // JSON object. The next normal append starts a new line after it, so the
+    // fragment becomes a complete, undecodable message line in the history.
+    let dir = tempdir().unwrap();
+    let path = transcript_path(dir.path(), "layout-regression").unwrap();
+    write_transcript(
+        dir.path(),
+        "layout-regression",
+        CREATED_AT,
+        &[message("m1", "before")],
+    )
+    .unwrap();
+    let mut bytes = fs::read(&path).unwrap();
+    bytes.extend_from_slice(b"{\"type\":\"message\",\"id\":\"torn\",\"role\":\"us");
+    fs::write(&path, &bytes).unwrap();
+    append_message(
+        dir.path(),
+        "layout-regression",
+        CREATED_AT,
+        &message("m2", "after"),
+    )
+    .unwrap();
+
+    let layout =
+        refresh_layout(dir.path(), "layout-regression", TranscriptLayout::default()).unwrap();
+    let ids = |read: crate::transcripts::TranscriptRead| {
+        read.messages
+            .into_iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>()
+    };
+    let full =
+        read_transcript_window_with_layout(dir.path(), "layout-regression", &layout, 0, None)
+            .unwrap();
+    assert_eq!(ids(full), ["m1", "m2"]);
+    let page =
+        read_transcript_window_with_layout(dir.path(), "layout-regression", &layout, 0, Some(10))
+            .unwrap();
+    assert_eq!(ids(page), ["m1", "m2"]);
+    assert_eq!(
+        crate::transcripts::find_message_position(dir.path(), "layout-regression", &layout, "m2")
+            .unwrap(),
+        Some(layout.message_count() - 1)
+    );
+}

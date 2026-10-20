@@ -199,6 +199,8 @@ pub fn find_message_position(
             Err(error) if invalid_utf8 => {
                 tracing::warn!(%error, "skipping invalid indexed transcript identity");
             }
+            // A lookup decides which record a write touches, so it fails
+            // rather than guess past a record it cannot read.
             Err(error) => return Err(error).context("decode indexed transcript message identity"),
         }
     }
@@ -945,21 +947,21 @@ pub fn read_transcript_window_with_layout(
             .with_context(|| format!("read indexed transcript line in {}", path.display()))?;
         let trimmed = line.trim();
         if is_message {
+            // The boundary and kind were checked by `read_layout_line`, so an
+            // undecodable line is a damaged record (a torn write closed by the
+            // next append, or invalid UTF-8). Skip it the way the full-history
+            // reader does instead of failing the whole window.
             match serde_json::from_str::<MessageRecord>(trimmed) {
                 Ok(record) => out.messages.push(record),
-                Err(error) if invalid_utf8 => {
-                    tracing::warn!(path = %path.display(), %error, "skipping invalid indexed message line");
+                Err(error) => {
+                    tracing::warn!(path = %path.display(), offset, invalid_utf8, %error, "skipping undecodable indexed message line");
                 }
-                Err(error) => return Err(error).context("decode indexed transcript message"),
             }
         } else {
             match serde_json::from_str::<CompactionRecord>(trimmed) {
                 Ok(record) => out.compactions.push(record),
-                Err(error) if invalid_utf8 => {
-                    tracing::warn!(path = %path.display(), %error, "skipping invalid indexed compaction line");
-                }
                 Err(error) => {
-                    return Err(error).context("decode indexed transcript compaction");
+                    tracing::warn!(path = %path.display(), offset, invalid_utf8, %error, "skipping undecodable indexed compaction line");
                 }
             }
         }
