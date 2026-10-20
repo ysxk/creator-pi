@@ -250,7 +250,7 @@ token rather than introducing a decorative palette:
 | State | Semantic color | Shape / motion | Meaning |
 |---|---|---|---|
 | Selected | neutral accent | static outlined ring | current conversation |
-| In progress | warning orange | filled dot; two breathing cycles, then steady | agent is producing or executing |
+| In progress | running green | half arc turning on a faint ring (D691) | agent is producing or executing |
 | Completed | success green | check mark | latest unread task turn completed |
 | Failed | error red | circled alert mark | latest unread task turn failed |
 
@@ -265,11 +265,11 @@ session switch; other sessions remain unread. Outcomes already marked read
 never produce a terminal mark. Marking the row read, marking all rows read, or
 clearing the inbox also dismisses any matching task-native banner; a late event
 for that durable id cannot restore the mark, row, or banner. Reduced-motion mode
-disables the breathing animation while retaining its orange fill and localized
-accessible name. Running dots in task rows and related-session hover cards
-animate for two 1.6-second cycles when mounted or entering the running state,
-then remain steady until the status changes. They must not continuously
-submit frames while the rest of the window is idle.
+stops the arc turning while retaining its shape, color and localized
+accessible name. The task-row arc turns once a second and the related-session
+hover-card dot breathes, both only while the window is active: a blurred or
+hidden window pauses them (`--motion-play`), so they never submit frames while
+nobody can see them (D691).
 
 The same bound covers every idle-reachable status indicator, because any
 one of them keeps the transparent macOS window dirty and therefore

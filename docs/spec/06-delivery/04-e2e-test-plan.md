@@ -10859,12 +10859,12 @@ This test plan spec is accepted when:
 - In light and dark themes, keep session B selected while session A progresses
   through in-progress, completed, a new in-progress turn, failed, and aborted
   states. Repeat with reduced motion enabled and inspect keyboard focus.
-- Expect A to show an orange dot that breathes twice over 3.2 seconds and then
-  stays steady while in progress, a green check on completion, and a red circled
+- Expect A to show a green half arc turning on a faint ring while in progress
+  (still under reduced motion and while the window is inactive; D691), a green check on completion, and a red circled
   alert on failure. Starting a new turn clears A's earlier terminal mark; abort
   leaves no completed or failed mark.
 - Expect selected idle B to show a static accent-blue outlined ring and active
-  row background. If selected B starts work, its orange in-progress dot takes
+  row background. If selected B starts work, its turning in-progress arc takes
   precedence until the turn settles; its latest terminal result remains hidden
   behind the selected ring while selected.
 - Every indicator exposes localized In progress / Selected / Completed / Failed

@@ -431,7 +431,7 @@ visually distinct from list content.
 | Collapsed | Icon rail — hover shows tooltip with session title |
 | Active session | Accent-blue outlined status ring plus active row background |
 | Selecting session | Destination row receives the active treatment immediately while transcript/workspace resolution continues |
-| Session in progress | Orange breathing dot; static under reduced motion |
+| Session in progress | Green half arc turning on a faint ring; still under reduced motion or while the window is inactive (D691) |
 | Session completed | Green check mark from the latest unread task notification when the row is not selected |
 | Session failed | Red circled alert mark from the latest unread task notification when the row is not selected |
 | Hover row | Project headers and all conversation rows share one full-row `--ds-bg-hover` surface, radius and transition; selected conversation fill takes precedence |
@@ -1392,7 +1392,7 @@ near-zero duration. A folded group keeps its rows mounted, `aria-hidden`, and
 | Active | neutral-accent outlined ring, active bg highlight, text-primary |
 | Inactive | bg-secondary, text-secondary |
 | Hover (inactive) | bg-tertiary |
-| In progress | warning-orange breathing dot; no motion under reduced-motion |
+| In progress | green turning arc; no motion under reduced-motion (D691) |
 | Completed | success-green check mark |
 | Failed | error-red circled alert mark |
 | Pinned project | filled accent Star replaces the Folder glyph; ordered before unpinned projects within the selected sort |

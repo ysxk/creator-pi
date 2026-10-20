@@ -2,8 +2,8 @@
   Motion for work in flight.
 
   One rhythm for every "this is running" indicator: breathe in, breathe out,
-  rest. Only opacity and transform move, on a halo or marker that sits beside
-  a static shape, so the state is readable from any single frame. The loop
+  rest. Only opacity and transform move, so the state is readable from any
+  single frame. The loop
   runs only while the window is active (`use-window-activity.ts`): a blurred or
   hidden window pauses it through `--motion-play`, because on macOS every
   animated frame re-composites the transparent window (#1064).
@@ -12,22 +12,7 @@
   --motion-play: paused;
 }
 
-/* A halo behind a status dot. The rest at the end is deliberate: it is a
-   third of the cycle with no frame to draw. */
-@keyframes ds-breathe-halo {
-  0%,
-  70%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.64);
-  }
-  35% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* The mark itself, where there is no room for a halo. */
+/* A status mark that fades and returns. */
 @keyframes ds-breathe {
   0%,
   70%,
@@ -36,5 +21,12 @@
   }
   35% {
     opacity: 0.4;
+  }
+}
+
+/* A turning arc, where a busy row needs to stand out more than a breath. */
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
