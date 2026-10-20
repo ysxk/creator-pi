@@ -316,6 +316,12 @@ export async function transcriptLongHistoryProbe() {
       assert(sample.oldBodyReads === 0, `${item.summary.id}: reread ${sample.oldBodyReads} old bodies`);
       assert(sample.unchangedGroupRenders === 0, `${item.summary.id}: unchanged groups rerendered`);
       if (item.summary.id === "long-activity-group") {
+        // The streamed answer is the actual turn tail, so the preceding process
+        // chunk starts collapsed. Open each ancestor through its disclosure
+        // before testing the nested live tool update.
+        const processHeader = element<HTMLButtonElement>(".turn-process > .tool-activity-header");
+        if (processHeader.getAttribute("aria-expanded") !== "true") flushSync(() => processHeader.click());
+        await settled();
         const groupHeader = element<HTMLButtonElement>(".process-activity-group > .tool-activity-header");
         if (groupHeader.getAttribute("aria-expanded") !== "true") flushSync(() => groupHeader.click());
         await settled();
@@ -339,9 +345,9 @@ export async function transcriptLongHistoryProbe() {
         const liveToolId = `${item.summary.id}-tool-128`;
         const liveTool = element<HTMLButtonElement>(`[data-message-id="${liveToolId}"] .tool-row-header`);
         if (liveTool.getAttribute("aria-expanded") !== "true") flushSync(() => liveTool.click());
-        send(item.summary.id, { type: "tool_update", toolCallId: liveToolId, partialResult: { details: { output: "warm tool output" } } });
-        await until(() => host.querySelector(`[data-message-id="${liveToolId}"]`)?.textContent?.includes("warm tool output") === true,
-          "warm tool_update output", () => ({
+        send(item.summary.id, { type: "tool_update", toolCallId: liveToolId, partialResult: { details: { content: "warm Read content" } } });
+        await until(() => host.querySelector(`[data-message-id="${liveToolId}"]`)?.textContent?.includes("warm Read content") === true,
+          "warm Read tool_update content", () => ({
             message: useAppStore.getState().messages.find((message) => message.id === liveToolId),
             groupExpanded: groupHeader.getAttribute("aria-expanded"),
             toolExpanded: liveTool.getAttribute("aria-expanded"),
@@ -349,9 +355,9 @@ export async function transcriptLongHistoryProbe() {
           }));
         await settled();
         item.reads.count = 0; globalThis.__activityGroupRenders = [];
-        send(item.summary.id, { type: "tool_update", toolCallId: liveToolId, partialResult: { details: { output: "fresh non-tail tool output" } } });
-        await until(() => host.querySelector(`[data-message-id="${liveToolId}"]`)?.textContent?.includes("fresh non-tail tool output") === true,
-          "fresh tool_update output");
+        send(item.summary.id, { type: "tool_update", toolCallId: liveToolId, partialResult: { details: { content: "fresh non-tail Read content" } } });
+        await until(() => host.querySelector(`[data-message-id="${liveToolId}"]`)?.textContent?.includes("fresh non-tail Read content") === true,
+          "fresh non-tail Read tool_update content");
         await settled();
         assert(item.reads.count === 0, `tool_update reread ${item.reads.count} completed bodies`);
         assert(globalThis.__activityGroupRenders.length === 1, "tool_update must render exactly its changed group");
