@@ -716,7 +716,11 @@ test("a backed-off head is retried on its own when the backoff ends", async () =
   assert.equal(live.length, 1, "exactly one retry is scheduled");
   now.value = live[0].at;
   live[0].run();
-  for (let i = 0; i < 20 && outbox.size() > 0; i += 1) await settle();
+  // The retry writes the queue file between appends; under load that takes
+  // longer than a few event-loop turns, so wait on time, bounded.
+  for (let i = 0; i < 200 && (outbox.size() > 0 || calls.length < 3); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
   assert.deepEqual(calls, ["a", "a", "b"], "the scheduled retry drains the queue without another enqueue");
   assert.equal(outbox.size(), 0);
   assert.equal(timers.filter((timer) => !timer.cancelled && timer.at > now.value).length, 0, "no timer is left once the queue is empty");
