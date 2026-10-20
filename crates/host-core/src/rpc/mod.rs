@@ -3870,11 +3870,12 @@ async fn handle_request(
 
             // Register before permission evaluation so tools.abort can cancel
             // an approval wait as well as an already-spawned process.
+            // A background Bash call registers too: a Stop that arrived before
+            // the call (queued in `pending_bash_aborts`) or during its approval
+            // must keep it from starting. Once the task is handed to the
+            // background registry nothing listens to this receiver any more,
+            // so a later turn abort cannot kill the running task.
             let cancellation_receiver = if matches!(p.tool_name.as_str(), "Bash" | "GenerateImages")
-                // A background Bash task is detached from the turn: it never
-                // joins the per-tool-call cancellation registry, so
-                // tools.abort / agent.abort cannot kill it.
-                && !p.run_in_background
             {
                 let mut st = state.lock().await;
                 match st.register_bash_cancellation(&p.session_id, &p.tool_call_id) {
@@ -8710,6 +8711,81 @@ mod tests {
         .await
         .unwrap();
         assert!(after["requests"].as_array().unwrap().is_empty());
+        assert_bash_registry_empty(&state).await;
+    }
+
+    /// A Stop that reaches the host before the call does must keep a
+    /// background command from starting at all, exactly as for a foreground
+    /// one; only a task that already started outlives the turn.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn tools_abort_before_a_background_bash_call_keeps_it_from_running() {
+        let Some(shell_id) = available_test_shell_id() else {
+            return;
+        };
+        let data_dir = tempfile::tempdir().unwrap();
+        let project = data_dir.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        let marker = project.join("ran.txt");
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let session = sessions::create_session(
+            &app_state.db,
+            Some("Abort before background".into()),
+            Some("agent".into()),
+            None,
+            None,
+            Some(project.to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        sessions::configure_session_with_thinking(
+            &app_state.db,
+            &session.id,
+            "agent",
+            None,
+            None,
+            None,
+            Some("auto"),
+        )
+        .unwrap();
+        let state = Arc::new(Mutex::new(app_state));
+
+        let aborted = handle_request(
+            state.clone(),
+            "tools.abort",
+            json!({ "sessionId": session.id, "toolCallId": "early-background" }),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            aborted["found"], false,
+            "nothing was running yet; the stop is queued"
+        );
+
+        let result = handle_request(
+            state.clone(),
+            "tools.execute",
+            json!({
+                "sessionId": session.id,
+                "toolCallId": "early-background",
+                "toolName": "Bash",
+                "args": { "command": format!("printf ran > '{}'", marker.display()) },
+                "runInBackground": true,
+                "expectedCommandShellId": shell_id,
+                "expectedCommandShellDialect": crate::tools::shell::dialect_for_id(&shell_id),
+                "mode": "agent"
+            }),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["errorCode"], "TOOL_ABORTED");
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        assert!(
+            !marker.exists(),
+            "an aborted background command must not run"
+        );
         assert_bash_registry_empty(&state).await;
     }
 

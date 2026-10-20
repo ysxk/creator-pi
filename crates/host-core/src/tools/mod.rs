@@ -2809,6 +2809,15 @@ async fn tool_bash(
     // task outlives the turn by design and is reported via
     // `backgroundTasks.changed` / `backgroundTasks.*` RPC.
     if options.run_in_background {
+        // Honor a Stop that came before the spawn; after it, the task is
+        // detached from the turn by design.
+        if options
+            .cancellation
+            .as_ref()
+            .is_some_and(|cancellation| *cancellation.borrow())
+        {
+            return Err(("TOOL_ABORTED".into(), "bash aborted".into()));
+        }
         let Some(app_state) = options.app_state.as_ref() else {
             return Err((
                 "INVALID_ARGUMENT".into(),

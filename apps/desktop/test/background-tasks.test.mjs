@@ -75,12 +75,17 @@ test("a background Bash call returns a backgroundTaskId and never a blocking std
   assert.match(toolSources, /"backgroundTaskId": started/);
 });
 
-test("turn cancellation and timeout cannot reach a background task: it never registers a bash cancellation", () => {
+test("a Stop before the spawn keeps a background task from starting; after it the task outlives the turn", () => {
+  // Background Bash joins the cancellation registry like any Bash call, so a
+  // queued or approval-time Stop is honored before the spawn...
+  assert.doesNotMatch(rpcSources.replace(/\r/g, ""), /&& !p\.run_in_background/);
   assert.match(
-    rpcSources.replace(/\r/g, ""),
-    /cancellation_receiver = if matches!\(p\.tool_name\.as_str\(\), "Bash" \| "GenerateImages"\)[\s\S]*?&& !p\.run_in_background\n/,
+    toolSources.replace(/\r/g, ""),
+    /if options\.run_in_background \{[\s\S]*?\.cancellation[\s\S]*?TOOL_ABORTED[\s\S]*?spawn_background_task_detached\(/,
   );
-  assert.match(rpcSources.replace(/\r/g, ""), /"Bash" \| "GenerateImages"/);
+  // ...and the detached spawn is never handed that cancellation.
+  const spawnCall = toolSources.match(/spawn_background_task_detached\(([\s\S]*?)\)\s*\.await/)?.[1] ?? "";
+  assert.doesNotMatch(spawnCall, /cancellation/);
 });
 
 test("the registry keeps output bounded and stops everything on shutdown", () => {
