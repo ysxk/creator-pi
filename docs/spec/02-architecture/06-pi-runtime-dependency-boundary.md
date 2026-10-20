@@ -9,10 +9,10 @@ boundaries must keep that split clear as upstream packages evolve.
 ## 2. Current ownership
 
 The sidecar pins `@earendil-works/pi-agent-core`, `pi-ai`, and
-`pi-coding-agent` together at exactly `1.1.0`; Desktop's `pi-ai` and `pi-mcp`
+`pi-coding-agent` together at exactly `1.3.0`; Desktop's `pi-ai` and `pi-mcp`
 development dependencies use the same release. Target-release package patches
 remain narrow compatibility deltas and are listed with their audited behavior
-in `docs/project/pi-110-adoption.md`.
+in `docs/project/pi-130-adoption.md`.
 
 - `@earendil-works/pi-agent-core` supplies the agent loop and its stable agent,
   event, and tool types. Agent Runtime owns desktop-specific compaction,
@@ -25,13 +25,15 @@ in `docs/project/pi-110-adoption.md`.
   outcomes through the existing RPC contract.
 - `@earendil-works/pi-coding-agent` is a transitional dependency. Production
   imports are confined to native Pi session continuation and its session-file
-  manager; that native-session path still uses the package's AgentSession and
-  native session behavior. Trusted extensions receive a small compatibility
+  manager, plus the tool-result image normalizer (`tool-result-images`, an
+  entry point the Desktop patch exports) that every session applies to tool
+  pictures (D688); that native-session path still uses the package's
+  AgentSession and native session behavior. Trusted extensions receive a small compatibility
   shim from `extensions/loader.ts`. The normal Desktop agent runtime,
   host-core checkpoint-compaction path, and durable session store do not use
   the package's AgentSession.
 
-The extension shim is a versioned compatibility subset, not the full 1.1.0
+The extension shim is a versioned compatibility subset, not the full 1.3.0
 coding-agent API. Its legacy `VERSION` marker remains sourced from
 `TRUSTED_EXTENSION_KERNEL_VERSION` and intentionally identifies the modeled
 0.87.1 extension surface.

@@ -9,6 +9,10 @@ JavaScript 包。上游包演进时，必须保持这一职责划分清晰。
 
 ## 2. 当前职责
 
+sidecar 将 `@earendil-works/pi-agent-core`、`pi-ai` 和 `pi-coding-agent` 一起锁定在
+`1.3.0`；Desktop 的 `pi-ai` 和 `pi-mcp` 使用同一版本。补丁及其审计行为见
+`docs/project/pi-130-adoption.md`。
+
 - `@earendil-works/pi-agent-core` 提供 Agent 循环，以及稳定的 agent、event、tool
   类型。Agent Runtime 自行维护桌面专用的上下文投影、压缩和 prompt 模板展开。
 - `@earendil-works/pi-ai` 提供提供商传输、认证、消息类型、请求重试和 token 估算。
@@ -16,7 +20,9 @@ JavaScript 包。上游包演进时，必须保持这一职责划分清晰。
 - Rust `host-core` 仍然是 SQLite 和权威持久会话状态的唯一所有者。Node sidecar
   通过现有 RPC 契约请求持久化检查点和工具结果。
 - `@earendil-works/pi-coding-agent` 是过渡期依赖。生产代码仅在原生 Pi 会话续接及
-其 session-file manager 中使用；该路径仍使用包内 `AgentSession` 和原生会话行为。
+其 session-file manager 中使用，外加每个会话都会对工具图片调用的图片规范化函数
+（`tool-result-images`，由 Desktop 补丁导出，D688）；原生会话路径仍使用包内
+`AgentSession` 和原生会话行为。
 可信扩展由 `extensions/loader.ts` 提供小型兼容 shim。Desktop 常规 Agent 运行时、
 host-core 检查点压缩路径和持久会话存储不使用其 `AgentSession`。
 
