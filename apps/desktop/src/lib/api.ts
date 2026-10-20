@@ -1179,6 +1179,8 @@ export const api = {
       statuses: McpServerStatus[];
       /** The open project whose MCP runtime reported `statuses`. */
       statusProjectPath?: string | null;
+      /** Ids of that project's own project-level servers. */
+      statusProjectServerIds?: string[];
     }>(
       IPC.invoke.mcpList,
       query,

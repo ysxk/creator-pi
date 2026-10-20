@@ -9,7 +9,7 @@ test("a runtime status belongs only to the project the runtime is running", () =
   const view = {
     statuses: [status("files", 7)],
     statusProjectPath: "/work/a",
-    projectServerIds: { "/work/a": ["files"], "/work/b": ["files"] },
+    statusProjectServerIds: ["files"],
     rowStatuses: {},
   };
   assert.equal(mcpRowStatus(view, server("files"), "project", "/work/a")?.toolCount, 7);
@@ -29,7 +29,7 @@ test("a global server takes the runtime status unless the running project shadow
   const view = {
     statuses: [status("search", 3)],
     statusProjectPath: "/work/a",
-    projectServerIds: { "/work/a": [] },
+    statusProjectServerIds: [],
     rowStatuses: {},
   };
   assert.equal(mcpRowStatus(view, server("search"), "global")?.toolCount, 3);
@@ -40,7 +40,7 @@ test("a row's own test or sign-in result wins, keyed by project and level", () =
   const view = {
     statuses: [status("files", 7)],
     statusProjectPath: "/work/a",
-    projectServerIds: { "/work/a": ["files"], "/work/b": ["files"] },
+    statusProjectServerIds: ["files"],
     rowStatuses: { [mcpRowKey("project", "files", "/work/b")]: status("files", 2) },
   };
   assert.equal(mcpRowStatus(view, server("files"), "project", "/work/b")?.toolCount, 2);
@@ -53,9 +53,22 @@ test("project paths match with or without a trailing separator", () => {
   const view = {
     statuses: [status("files", 7)],
     statusProjectPath: "/work/a/",
-    projectServerIds: { "/work/a": ["files"] },
+    statusProjectServerIds: ["files"],
     rowStatuses: {},
   };
   assert.equal(mcpRowStatus(view, server("files"), "project", "/work/a")?.toolCount, 7);
   assert.equal(mcpRowStatus(view, server("files"), "global"), undefined);
+});
+
+test("the open project's own servers come with the statuses, not from the filtered list", () => {
+  // The page is narrowed to project B, so project A (the one running) is not
+  // among the listed groups; its own `files` still shadows the global one.
+  const view = {
+    statuses: [status("files", 7)],
+    statusProjectPath: "/work/a",
+    statusProjectServerIds: ["files"],
+    rowStatuses: {},
+  };
+  assert.equal(mcpRowStatus(view, server("files"), "global"), undefined);
+  assert.equal(mcpRowStatus({ ...view, statusProjectServerIds: [] }, server("files"), "global")?.toolCount, 7);
 });

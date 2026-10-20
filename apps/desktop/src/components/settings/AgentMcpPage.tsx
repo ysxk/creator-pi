@@ -82,6 +82,8 @@ type McpCollection = {
   statuses: McpServerStatus[];
   /** The open project whose runtime reported `statuses`. */
   statusProjectPath: string | null;
+  /** That project's own server ids, whatever the page is filtered to. */
+  statusProjectServerIds: string[];
 };
 
 const EMPTY_MCP_COLLECTION: McpCollection = {
@@ -89,6 +91,7 @@ const EMPTY_MCP_COLLECTION: McpCollection = {
   projects: [],
   statuses: [],
   statusProjectPath: null,
+  statusProjectServerIds: [],
 };
 
 export function AgentMcpPage() {
@@ -123,10 +126,17 @@ export function AgentMcpPage() {
       // returns the same set; the global call's copy is enough.
       statuses: global.statuses ?? [],
       statusProjectPath: global.statusProjectPath ?? null,
+      statusProjectServerIds: global.statusProjectServerIds ?? [],
     };
   }, [listedProjectPaths, selectedProjectPath]);
   const {
-    data: { global: globalServers, projects: projectGroups, statuses, statusProjectPath },
+    data: {
+      global: globalServers,
+      projects: projectGroups,
+      statuses,
+      statusProjectPath,
+      statusProjectServerIds,
+    },
     setData: setServers,
     loading,
     refreshing,
@@ -167,12 +177,10 @@ export function AgentMcpPage() {
     () => ({
       statuses,
       statusProjectPath,
-      projectServerIds: Object.fromEntries(
-        projectGroups.map((group) => [group.projectPath, group.servers.map((row) => row.id)]),
-      ),
+      statusProjectServerIds,
       rowStatuses,
     }),
-    [projectGroups, rowStatuses, statusProjectPath, statuses],
+    [rowStatuses, statusProjectPath, statusProjectServerIds, statuses],
   );
   /** Record a fresh status where this row reads it from. */
   const storeRowStatus = (

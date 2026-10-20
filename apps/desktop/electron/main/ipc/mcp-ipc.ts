@@ -64,13 +64,23 @@ handle(IPC.invoke.mcpList, async (query: Partial<AgentCapabilityQuery> = {}) => 
     // page lists other projects too, so it is told which project that is.
     const statusProjectPath = currentWorkspacePath();
     await refreshUserMcp(statusProjectPath);
+    // The open project's own servers decide which global rows it shadows.
+    // The page may be filtered to other projects, so they come from here.
+    const statusProjectServerIds = statusProjectPath
+      ? ((
+          await host.call<{ servers: McpServerRecord[] }>("mcp.list", {
+            level: "project",
+            projectPath: statusProjectPath,
+          })
+        ).servers ?? []).map((server) => server.id)
+      : [];
     const statuses = await Promise.all(
       (await userMcp.refreshStatuses()).map(async (status) => ({
         ...status,
         hasOauth: oauth ? await oauth.hasOAuth(status.serverId) : false,
       })),
     );
-    return { servers: result.servers ?? [], statuses, statusProjectPath };
+    return { servers: result.servers ?? [], statuses, statusProjectPath, statusProjectServerIds };
   });
 
   handle(IPC.invoke.mcpUpsert, async (server: McpServerInput) => {

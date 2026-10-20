@@ -12,8 +12,12 @@ export type McpStatusView = {
   statuses: readonly McpServerStatus[];
   /** The project that runtime belongs to; null when no project is open. */
   statusProjectPath: string | null;
-  /** Server ids each listed project defines at project level. */
-  projectServerIds: Readonly<Record<string, readonly string[]>>;
+  /**
+   * Ids of the project-level servers the open project defines, reported with
+   * the statuses. It must not be read from the page's own lists: those are
+   * filtered to the projects the user picked, which may leave the open one out.
+   */
+  statusProjectServerIds: readonly string[];
   /** Results of test / sign-in on rows the runtime does not run. */
   rowStatuses: Readonly<Record<string, McpServerStatus>>;
 };
@@ -35,7 +39,7 @@ export function mcpRowKey(level: AgentCapabilityLevel, id: string, projectPath?:
  * while the open project has no server of that id.
  */
 export function mcpRowIsRuntimeOwned(
-  view: Pick<McpStatusView, "statusProjectPath" | "projectServerIds">,
+  view: Pick<McpStatusView, "statusProjectPath" | "statusProjectServerIds">,
   id: string,
   level: AgentCapabilityLevel,
   projectPath?: string,
@@ -44,10 +48,7 @@ export function mcpRowIsRuntimeOwned(
     return samePath(projectPath, view.statusProjectPath);
   }
   if (!view.statusProjectPath) return true;
-  const open = Object.entries(view.projectServerIds).find(([path]) =>
-    samePath(path, view.statusProjectPath),
-  );
-  return !(open?.[1] ?? []).includes(id);
+  return !view.statusProjectServerIds.includes(id);
 }
 
 export function mcpRowStatus(
