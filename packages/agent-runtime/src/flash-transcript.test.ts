@@ -136,8 +136,10 @@ describe("Flash reasoning after Desktop session restoration", () => {
       if (sameModel) {
         expect(assistant).toMatchObject({ content: "answer", reasoning_content: "private plan" });
       } else {
-        expect(assistant?.content).toContain("private plan");
-        expect(assistant).not.toMatchObject({ reasoning_content: "private plan" });
+        // Pi 1.3.0 drops another account's or model's thinking on replay
+        // instead of turning it into answer text; the answer itself stays.
+        expect(assistant?.content).toContain("answer");
+        expect(JSON.stringify(assistant)).not.toContain("private plan");
       }
     } finally { await runtime.dispose(); }
   });
