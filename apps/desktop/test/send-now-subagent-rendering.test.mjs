@@ -43,13 +43,11 @@ test("a steering response keeps the earlier delegation card live until parent se
         createElement(TranscriptHistory, { entries: history, isRunning: true, liveDelegations }))));
     const live = render(collectLiveDelegationEntries(history, entries.at(-1), true));
     assert.match(live, /Subagent working/);
-    // This build's delegation card carries no per-card Stop button (stopping
-    // lives in the composer), so the card's running state stands in for it.
-    assert.match(live, /outcome-running/);
+    assert.match(live, /Stop explorer/);
     assert.doesNotMatch(live, /Subagent finished with warnings/);
     const settled = render(collectLiveDelegationEntries(history, entries.at(-1), false));
     assert.doesNotMatch(settled, /Subagent working/);
-    assert.doesNotMatch(settled, /outcome-running/);
+    assert.doesNotMatch(settled, /Stop explorer/);
     const beforeReply = entries.slice(0, -1);
     assert.equal(collectLiveDelegationEntries(beforeReply.slice(0, -1), beforeReply.at(-1), true).has("task"), true);
     const nextUser = { kind: "message", message: message("next", "user", "Next task.") };
@@ -65,6 +63,6 @@ test("a steering response keeps the earlier delegation card live until parent se
         createElement(TranscriptHistory, { entries: completeHistory, isRunning: true,
           liveDelegations: collectLiveDelegationEntries(completeHistory, completeEntries.at(-1), true) }))));
     assert.match(completedHtml, /Subagent completed/);
-    assert.doesNotMatch(completedHtml, /outcome-running/);
+    assert.doesNotMatch(completedHtml, /Stop explorer/);
   } finally { await vite.close(); }
 });

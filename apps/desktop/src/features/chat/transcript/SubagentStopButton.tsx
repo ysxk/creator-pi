@@ -1,3 +1,4 @@
+import { useSlotSessionId } from "../../../plugins/renderer-slots/use-slots";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useTranslation } from "react-i18next";
@@ -24,8 +25,11 @@ export function SubagentStopButton({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const sessionId = useAppStore(state => state.activeSessionId);
-  const source = useAppStore(state => state.sessions.find(session => session.id === state.activeSessionId)?.source);
+  // A card belongs to the conversation of the pane that renders it, which is
+  // not always the selected one; fall back to the selection outside a pane.
+  const paneSessionId = useSlotSessionId();
+  const sessionId = useAppStore(state => paneSessionId || state.activeSessionId);
+  const source = useAppStore(state => state.sessions.find(session => session.id === sessionId)?.source);
   const busy = useStops(state => sessionId ? state.busy[sessionId] : undefined);
   const pending = useStops(state => sessionId ? state.pending[sessionId] : undefined);
   const stopping = delegationId ? pending?.includes(delegationId) : false;
