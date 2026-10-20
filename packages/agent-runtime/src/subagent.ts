@@ -60,6 +60,7 @@ import { clampThinkingLevel } from "./thinking-level.js";
 import { subagentModelBinding, type SubagentProviderRetryState } from "./subagent-model-binding.js";
 import { contextBudgetFor } from "./context-budget.js";
 import { convertToLlm } from "./pi-runtime-messages.js";
+import { normalizeMessagePictures, normalizeToolResultPictures } from "./tool-result-pictures.js";
 import {
   delegateRetentionMode,
   delegateSummaryModels,
@@ -281,8 +282,8 @@ export class SubagentRun {
     this.agent = new Agent({
       streamFn: binding.streamFn,
       getApiKey: binding.getApiKey,
-      convertToLlm: (messages) =>
-        convertToLlm(this.dedupeToolCalls(messages)),
+      convertToLlm: async (messages) =>
+        convertToLlm(this.dedupeToolCalls(await normalizeMessagePictures(messages))),
       // The same turn-boundary context protection the session has (ADR 0299):
       // re-estimate at each boundary, compact before the next request, degrade
       // before failing. The budget derives from this run's resolved model.
@@ -746,11 +747,15 @@ export class SubagentRun {
   ): Promise<AfterToolCallResult | undefined> {
     const parent = this.opts.resolveToolOutcome?.(context);
     const terminate = parent?.terminate === true;
-    if (!parent?.isError && !terminate) return undefined;
     if (terminate && parent?.error) this.mutationTermination = parent.error;
+    // A delegate's pictures reach the provider the same way the parent's do.
+    const content = context.result?.content;
+    const safe = Array.isArray(content) ? await normalizeToolResultPictures(content) : content;
+    if (!parent?.isError && !terminate && safe === content) return undefined;
     return {
       ...(parent?.isError ? { isError: true } : {}),
       ...(terminate ? { terminate: true } : {}),
+      ...(safe !== content ? { content: safe } : {}),
     };
   }
 

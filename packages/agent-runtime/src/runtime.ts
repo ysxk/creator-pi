@@ -149,6 +149,7 @@ import {
   estimateTokens,
 } from "./pi-runtime-estimates.js";
 import { convertToLlm } from "./pi-runtime-messages.js";
+import { normalizeMessagePictures, normalizeToolResultPictures } from "./tool-result-pictures.js";
 import type {
   CompactionEntry,
   CompactionPreparation,
@@ -2246,8 +2247,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             sessionId: this.sessionId, turnId: this.turnId, message,
           });
         });
+        // Restored history may hold pictures from before they were checked.
+        const safe = await normalizeMessagePictures(messages);
         return alignRetainedReasoningIdentity(
-          convertToLlm(this.dropDuplicateToolCalls(messages)), this.reasoningReplayIdentity(),
+          convertToLlm(this.dropDuplicateToolCalls(safe)), this.reasoningReplayIdentity(),
         );
       },
       prepareRequest: ({ context }) => this.prepareToolDeclarations(context),
@@ -2506,8 +2509,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   ): Promise<AfterToolCallResult | undefined> {
     const own = this.resolveOwnToolOutcome(context);
     const fromExtensions = await this.extensionToolResult(context, own);
-    if (!fromExtensions) return own;
-    return { ...(own ?? {}), ...fromExtensions };
+    const merged: AfterToolCallResult | undefined = fromExtensions
+      ? { ...(own ?? {}), ...fromExtensions }
+      : own;
+    // Last, so an extension's replacement content is checked too: what this
+    // returns is what history keeps and every later request carries.
+    const content = merged?.content ?? context.result?.content;
+    if (!Array.isArray(content)) return merged;
+    const safe = await normalizeToolResultPictures(content);
+    return safe === content ? merged : { ...(merged ?? {}), content: safe };
   }
 
   /** `tool_call` hook: an extension may block a call with a reason (spec 16 §6). */

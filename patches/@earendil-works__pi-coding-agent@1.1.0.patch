@@ -485,3 +485,30 @@ index 37d8a2474d425e6ac8648745c02d1a247244cbd3..b194f69e3d5073a4c5177a0dfb2b6710
              continue;
          }
          if (processed.data === block.data && processed.mimeType === block.mimeType && processed.hints.length === 0) {
+diff --git a/examples/extensions/custom-provider-anthropic/package-lock.json b/examples/extensions/custom-provider-anthropic/package-lock.json
+deleted file mode 100644
+index c42cc37205ed3120ac234575dba2de27052d8afe..0000000000000000000000000000000000000000
+diff --git a/examples/extensions/gondolin/package-lock.json b/examples/extensions/gondolin/package-lock.json
+deleted file mode 100644
+index d47e327924bcf79aaeb8ac2c0035c0f4a978cbd0..0000000000000000000000000000000000000000
+diff --git a/examples/extensions/sandbox/package-lock.json b/examples/extensions/sandbox/package-lock.json
+deleted file mode 100644
+index d67e9229aaf4603c92ead47b00e3cf83d2e9913e..0000000000000000000000000000000000000000
+diff --git a/examples/extensions/with-deps/package-lock.json b/examples/extensions/with-deps/package-lock.json
+deleted file mode 100644
+index 4b2a877a14d66c9aed27865bf9ff7ba4a545994a..0000000000000000000000000000000000000000
+diff --git a/package.json b/package.json
+index cdb88d0c992693856512ce4520a7eb797382fb1c..994e18b8db86a53f26b9b22558624258e929d9d1 100644
+--- a/package.json
++++ b/package.json
+@@ -16,6 +16,10 @@
+ 			"types": "./dist/index.d.ts",
+ 			"import": "./dist/index.js"
+ 		},
++		"./tool-result-images": {
++			"types": "./dist/utils/tool-result-images.d.ts",
++			"import": "./dist/utils/tool-result-images.js"
++		},
+ 		"./rpc-entry": {
+ 			"import": "./dist/bundle/rpc-entry.js"
+ 		},

@@ -3771,6 +3771,61 @@ describe("DesktopAgentRuntime thinking configuration", () => {
     await runtime.dispose();
   });
 
+  it("keeps an undecodable tool picture out of history and every request, sparing media", async () => {
+    // Not a PNG at all: pi's normalizer cannot decode it (the real one runs).
+    const bad = Buffer.from("this is not a png").toString("base64");
+    const clip = { type: "image", data: "AAAA", mimeType: "video/mp4" };
+    const runtime = createRuntime({
+      history: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "",
+          toolCalls: [{ id: "shot-1", name: "mcp__shot", args: {} }],
+          createdAt: new Date().toISOString(),
+          status: "complete",
+        },
+        {
+          id: "shot-1",
+          role: "tool",
+          content: "",
+          toolCallId: "shot-1",
+          toolName: "mcp__shot",
+          toolStatus: "success",
+          toolResult: { content: [{ type: "image", data: bad, mimeType: "image/png" }] },
+          createdAt: new Date().toISOString(),
+          status: "complete",
+        },
+      ],
+    } as never);
+    try {
+      const agent = (runtime as any).agent;
+      // A live call: what afterToolCall returns is what history keeps.
+      const after = await (runtime as any).afterToolCall({
+        toolCall: { id: "live-1", name: "mcp__shot", arguments: {} },
+        args: {},
+        isError: false,
+        result: {
+          content: [
+            { type: "text", text: "captured" },
+            { type: "image", data: bad, mimeType: "image/png" },
+            clip,
+          ],
+        },
+      });
+      expect(JSON.stringify(after.content)).not.toContain(bad);
+      expect(after.content).toContainEqual({ type: "text", text: "captured" });
+      expect(after.content).toContainEqual(clip);
+
+      // Restored history: the request built from it carries no bad bytes.
+      expect(JSON.stringify(agent.state.messages)).toContain(bad);
+      const request = await agent.convertToLlm(agent.state.messages);
+      expect(JSON.stringify(request)).not.toContain(bad);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("restores assistant thinking blocks into the pi transcript", async () => {
     const runtime = createRuntime({
       history: [
