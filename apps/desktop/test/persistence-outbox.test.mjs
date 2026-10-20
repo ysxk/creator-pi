@@ -92,6 +92,56 @@ test("transcript replacement waits for an in-flight append before dropping the s
   assert.equal(outbox.size(), 0);
 });
 
+test("a failed transcript rewrite gives back the appends it held, on disk too", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-replace-"));
+  const outbox = new PersistenceOutbox(dir, silent);
+  const file = join(dir, "session-message-outbox.json");
+  const queued = {
+    key: "message:s1:tool-1",
+    sessionId: "s1",
+    message: { id: "tool-1", role: "tool", content: "only copy of this result" },
+  };
+  // The host is down, so the drain before the rewrite cannot write it.
+  await outbox.enqueue(queued, () => null);
+
+  const lease = await outbox.prepareSessionReplacement("s1", () => null);
+  assert.equal(outbox.size(), 0, "a held append is not flushed into the rewrite");
+  assert.deepEqual(
+    JSON.parse(await readFile(file, "utf8")).map((entry) => entry.key),
+    [queued.key],
+    "the held append stays on disk until the rewrite settles",
+  );
+
+  await lease.rollback();
+  assert.equal(outbox.size(), 1, "a failed rewrite gives the append back");
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")).map((entry) => entry.key), [queued.key]);
+
+  const calls = [];
+  await outbox.flush(() => mockHost(async (_method, params) => { calls.push(params.message.id); }));
+  assert.deepEqual(calls, ["tool-1"]);
+  assert.equal(outbox.size(), 0);
+});
+
+test("a committed transcript rewrite discards the appends it held", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-replace-"));
+  const outbox = new PersistenceOutbox(dir, silent);
+  await outbox.enqueue(
+    { key: "message:s1:old", sessionId: "s1", message: { id: "old", role: "assistant", content: "x" } },
+    () => null,
+  );
+  await outbox.enqueue(
+    { key: "message:s2:other", sessionId: "s2", message: { id: "other", role: "assistant", content: "y" } },
+    () => null,
+  );
+  const lease = await outbox.prepareSessionReplacement("s1", () => null);
+  await lease.commit();
+  assert.equal(outbox.size(), 1, "only the other session's append remains");
+  assert.deepEqual(
+    JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")).map((entry) => entry.key),
+    ["message:s2:other"],
+  );
+});
+
 function mockHost(handler) {
   return {
     isAvailable: () => true,

@@ -189,6 +189,12 @@ renderer-facing status):
   before the fence are discarded, including callbacks delivered while the
   rewrite was running. If the rewrite fails, callbacks buffered by the fence
   are replayed against the unchanged transcript.
+- The drain can end before every queued append is written (the host is down,
+  or the head is backing off). Those appends are held back from the flush
+  while the rewrite runs and stay in the outbox file. A successful rewrite
+  discards them, with the session's quarantined appends; a failed one puts
+  them back at the front of the queue, ahead of the callbacks the fence
+  replays.
 - Host-core's stdin/stdout control path uses one dedicated OS thread per
   direction rather than Tokio's dynamic blocking pool. Transient pipe resource
   errors are retried; control-thread creation failures are surfaced as a boot

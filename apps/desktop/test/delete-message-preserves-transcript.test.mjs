@@ -38,13 +38,13 @@ test("sessionReplaceMessages and sessionActivateRevision share one rewrite bound
   // operations, then drain the outbox before the callers' rewrite runs (#1612, #1613).
   assert.match(
     sessionIpcSource,
-    /const\s+runTranscriptRewrite\s*=\s*async[\s\S]*?acquireSessionOperation\(sessionId\)[\s\S]*?activeTurns\.has\(sessionId\)[\s\S]*?AGENT_BUSY[\s\S]*?await\s+persistenceOutbox\.prepareSessionReplacement\(sessionId,[\s\S]*?finally\s*\{[\s\S]*?releaseSessionOperation\(\);/,
+    /const\s+runTranscriptRewrite\s*=\s*async[\s\S]*?acquireSessionOperation\(sessionId\)[\s\S]*?activeTurns\.has\(sessionId\)[\s\S]*?AGENT_BUSY[\s\S]*?outboxLease\s*=\s*await\s+persistenceOutbox\.prepareSessionReplacement\(sessionId,[\s\S]*?finally\s*\{[\s\S]*?releaseSessionOperation\(\);/,
     "the rewrite gate must serialize per session, refuse running turns, and drain the outbox",
   );
   assert.match(
     sessionIpcSource,
-    /beginTranscriptRewrite\(sessionId\)[\s\S]*?await\s+persistenceOutbox\.prepareSessionReplacement[\s\S]*?const\s+result\s*=\s*await\s+run\(\);[\s\S]*?rewriteFence\.commit\(\);[\s\S]*?catch\s*\(error\)\s*\{\s*rewriteFence\?\.rollback\(\);/,
-    "the rewrite gate must fence late appends before draining and settle the fence according to the host rewrite result",
+    /beginTranscriptRewrite\(sessionId\)[\s\S]*?await\s+persistenceOutbox\.prepareSessionReplacement[\s\S]*?const\s+result\s*=\s*await\s+run\(\);[\s\S]*?await\s+outboxLease\.commit\(\)[\s\S]*?rewriteFence\.commit\(\);[\s\S]*?catch\s*\(error\)\s*\{[\s\S]*?await\s+outboxLease\?\.rollback\(\)[\s\S]*?rewriteFence\?\.rollback\(\);/,
+    "the rewrite gate must fence late appends before draining, and settle the held outbox appends and the fence according to the host rewrite result",
   );
 
   // Both rewrite entrances route through the gate — activation had no drain
