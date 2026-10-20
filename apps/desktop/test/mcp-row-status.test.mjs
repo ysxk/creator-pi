@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mcpRowKey, mcpRowStatus } from "../src/lib/mcp-row-status.ts";
+import { mcpRowKey, mcpRowResult, mcpRowStatus } from "../src/lib/mcp-row-status.ts";
 
 const status = (serverId, toolCount) => ({ serverId, state: "ready", toolCount, updatedAt: 1 });
 const server = (id) => ({ id, transport: "stdio", enabled: true });
@@ -41,7 +41,9 @@ test("a row's own test or sign-in result wins, keyed by project and level", () =
     statuses: [status("files", 7)],
     statusProjectPath: "/work/a",
     statusProjectServerIds: ["files"],
-    rowStatuses: { [mcpRowKey("project", "files", "/work/b")]: status("files", 2) },
+    rowStatuses: {
+      [mcpRowKey("project", "files", "/work/b")]: mcpRowResult(server("files"), status("files", 2)),
+    },
   };
   assert.equal(mcpRowStatus(view, server("files"), "project", "/work/b")?.toolCount, 2);
   assert.equal(mcpRowStatus(view, server("files"), "project", "/work/a")?.toolCount, 7);
@@ -71,4 +73,35 @@ test("the open project's own servers come with the statuses, not from the filter
   };
   assert.equal(mcpRowStatus(view, server("files"), "global"), undefined);
   assert.equal(mcpRowStatus({ ...view, statusProjectServerIds: [] }, server("files"), "global")?.toolCount, 7);
+});
+
+test("a row's own test result is dropped once the server's configuration changes", () => {
+  const before = { id: "files", transport: "http", url: "https://a.test/mcp", enabled: true };
+  const view = {
+    statuses: [],
+    statusProjectPath: "/work/a",
+    statusProjectServerIds: [],
+    rowStatuses: { [mcpRowKey("project", "files", "/work/b")]: mcpRowResult(before, status("files", 5)) },
+  };
+  assert.equal(mcpRowStatus(view, before, "project", "/work/b")?.toolCount, 5);
+  for (const changed of [
+    { ...before, url: "https://b.test/mcp" },
+    { ...before, headers: { Authorization: "Bearer new" } },
+    { ...before, enabled: false },
+  ]) {
+    assert.equal(mcpRowStatus(view, changed, "project", "/work/b"), undefined);
+  }
+});
+
+test("a row the runtime runs shows the runtime's status over an older test result", () => {
+  const record = server("files");
+  const view = {
+    statuses: [{ ...status("files", 0), state: "failed", authRequired: true }],
+    statusProjectPath: "/work/a",
+    statusProjectServerIds: ["files"],
+    rowStatuses: { [mcpRowKey("project", "files", "/work/a")]: mcpRowResult(record, status("files", 9)) },
+  };
+  const shown = mcpRowStatus(view, record, "project", "/work/a");
+  assert.equal(shown?.state, "failed");
+  assert.equal(shown?.authRequired, true);
 });

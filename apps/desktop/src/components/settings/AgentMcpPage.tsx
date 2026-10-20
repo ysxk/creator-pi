@@ -40,7 +40,9 @@ import { ImportToggleButton } from "../../features/settings/import-workbench";
 import {
   mcpRowIsRuntimeOwned,
   mcpRowKey,
+  mcpRowResult,
   mcpRowStatus,
+  type McpRowResult,
   type McpStatusView,
 } from "../../lib/mcp-row-status";
 import {
@@ -151,7 +153,7 @@ export function AgentMcpPage() {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   // Test and sign-in results of rows the open project's runtime does not run.
-  const [rowStatuses, setRowStatuses] = useState<Record<string, McpServerStatus>>({});
+  const [rowStatuses, setRowStatuses] = useState<Record<string, McpRowResult>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [editor, setEditor] = useState<McpEditorState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -184,6 +186,7 @@ export function AgentMcpPage() {
   );
   /** Record a fresh status where this row reads it from. */
   const storeRowStatus = (
+    server: McpServerRecord,
     status: McpServerStatus,
     level: AgentCapabilityLevel,
     projectPath?: string,
@@ -196,7 +199,8 @@ export function AgentMcpPage() {
     } else {
       setRowStatuses((current) => ({
         ...current,
-        [mcpRowKey(level, status.serverId, projectPath)]: status,
+        // Tied to the configuration it was tested with, so an edit retires it.
+        [mcpRowKey(level, status.serverId, projectPath)]: mcpRowResult(server, status),
       }));
     }
   };
@@ -339,7 +343,7 @@ export function AgentMcpPage() {
         level,
         ...(level === "project" && projectPath ? { projectPath } : {}),
       });
-      storeRowStatus(result.status, level, projectPath);
+      storeRowStatus(server, result.status, level, projectPath);
       if (result.status.state === "ready") {
         showToast(t("extensions.mcp.testReady", { count: result.status.toolCount }), {
           variant: "success",
@@ -386,7 +390,7 @@ export function AgentMcpPage() {
       if (event.serverId !== server.id) return;
 
       if (event.kind === "done") {
-        storeRowStatus(event.status, level, projectPath);
+        storeRowStatus(server, event.status, level, projectPath);
         showToast(t("extensions.mcp.authReady", { count: event.status.toolCount }), {
           variant: "success",
         });

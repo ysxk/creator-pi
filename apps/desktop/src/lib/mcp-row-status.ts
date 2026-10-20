@@ -19,8 +19,43 @@ export type McpStatusView = {
    */
   statusProjectServerIds: readonly string[];
   /** Results of test / sign-in on rows the runtime does not run. */
-  rowStatuses: Readonly<Record<string, McpServerStatus>>;
+  rowStatuses: Readonly<Record<string, McpRowResult>>;
 };
+
+/**
+ * A row's own test or sign-in result, tied to the configuration it was
+ * produced for. A later edit (URL, command, headers, auth, enabled, …), from
+ * this page or anywhere else, makes it stale without anyone clearing it.
+ */
+export type McpRowResult = {
+  status: McpServerStatus;
+  /** {@link mcpConfigFingerprint} of the record when the result arrived. */
+  config: string;
+};
+
+/** Stable JSON of a server record, keys sorted at every level. */
+export function mcpConfigFingerprint(server: McpServerRecord | Pick<McpServerRecord, "id">): string {
+  const canonical = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.keys(value as Record<string, unknown>)
+          .sort()
+          .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(canonical(server));
+}
+
+/** Keep a result together with the configuration it belongs to. */
+export function mcpRowResult(
+  server: McpServerRecord | Pick<McpServerRecord, "id">,
+  status: McpServerStatus,
+): McpRowResult {
+  return { status, config: mcpConfigFingerprint(server) };
+}
 
 /** Project paths compare without a trailing separator. */
 function samePath(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -53,12 +88,14 @@ export function mcpRowIsRuntimeOwned(
 
 export function mcpRowStatus(
   view: McpStatusView,
-  server: Pick<McpServerRecord, "id">,
+  server: McpServerRecord | Pick<McpServerRecord, "id">,
   level: AgentCapabilityLevel,
   projectPath?: string,
 ): McpServerStatus | undefined {
+  // The runtime's report is the live one for a row it runs.
+  if (mcpRowIsRuntimeOwned(view, server.id, level, projectPath)) {
+    return view.statuses.find((status) => status.serverId === server.id);
+  }
   const own = view.rowStatuses[mcpRowKey(level, server.id, projectPath)];
-  if (own) return own;
-  if (!mcpRowIsRuntimeOwned(view, server.id, level, projectPath)) return undefined;
-  return view.statuses.find((status) => status.serverId === server.id);
+  return own && own.config === mcpConfigFingerprint(server) ? own.status : undefined;
 }
