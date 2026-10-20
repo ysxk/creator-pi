@@ -18,7 +18,7 @@ function provider(): RuntimeProviderConfig {
   if (!flash) throw new Error("Missing published Flash model");
   return {
     id: "args-fixture", name: "Args fixture", modelId: flash.id, baseUrl: flash.baseUrl,
-    apiKey: "fixture", authKind: "api_key", supportsReasoning: false,
+    apiKey: "fixture", authKind: "api_key", supportsReasoning: false, supportedThinkingLevels: [],
     modelConfig: JSON.parse(JSON.stringify(modelConfigFromPi(flash))),
   };
 }
