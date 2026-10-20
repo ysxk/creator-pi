@@ -1174,7 +1174,12 @@ export const api = {
 
   // --- MCP servers the user owns -------------------------------------------
   listMcpServers: (query?: AgentCapabilityQuery) =>
-    invoke<{ servers: McpServerRecord[]; statuses: McpServerStatus[] }>(
+    invoke<{
+      servers: McpServerRecord[];
+      statuses: McpServerStatus[];
+      /** The open project whose MCP runtime reported `statuses`. */
+      statusProjectPath?: string | null;
+    }>(
       IPC.invoke.mcpList,
       query,
     ),

@@ -38,6 +38,12 @@ import { McpMarketPanel } from "./McpMarketPanel";
 import { AgentMcpImportPanel } from "../../features/settings/imports/AgentMcpImportPanel";
 import { ImportToggleButton } from "../../features/settings/import-workbench";
 import {
+  mcpRowIsRuntimeOwned,
+  mcpRowKey,
+  mcpRowStatus,
+  type McpStatusView,
+} from "../../lib/mcp-row-status";
+import {
   IconArrowUpDown,
   IconKey,
   IconPencil,
@@ -55,12 +61,6 @@ function projectMcpPath(projectPath: string | null): string {
   return projectPath ? `${projectPath}/.agents/servers` : "<project-root>/.agents/servers";
 }
 
-function statusFor(
-  statuses: readonly McpServerStatus[],
-  server: McpServerRecord,
-): McpServerStatus | undefined {
-  return statuses.find((status) => status.serverId === server.id);
-}
 
 type McpEditorState = {
   draft: McpDraft;
@@ -80,9 +80,16 @@ type McpCollection = {
   global: McpServerRecord[];
   projects: McpProjectGroup[];
   statuses: McpServerStatus[];
+  /** The open project whose runtime reported `statuses`. */
+  statusProjectPath: string | null;
 };
 
-const EMPTY_MCP_COLLECTION: McpCollection = { global: [], projects: [], statuses: [] };
+const EMPTY_MCP_COLLECTION: McpCollection = {
+  global: [],
+  projects: [],
+  statuses: [],
+  statusProjectPath: null,
+};
 
 export function AgentMcpPage() {
   const { t } = useTranslation();
@@ -115,10 +122,11 @@ export function AgentMcpPage() {
       // Status comes from the open window's runtime, so every list call
       // returns the same set; the global call's copy is enough.
       statuses: global.statuses ?? [],
+      statusProjectPath: global.statusProjectPath ?? null,
     };
   }, [listedProjectPaths, selectedProjectPath]);
   const {
-    data: { global: globalServers, projects: projectGroups, statuses },
+    data: { global: globalServers, projects: projectGroups, statuses, statusProjectPath },
     setData: setServers,
     loading,
     refreshing,
@@ -132,6 +140,8 @@ export function AgentMcpPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Test and sign-in results of rows the open project's runtime does not run.
+  const [rowStatuses, setRowStatuses] = useState<Record<string, McpServerStatus>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [editor, setEditor] = useState<McpEditorState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -152,8 +162,36 @@ export function AgentMcpPage() {
     () => projectGroups.flatMap((group) => group.servers),
     [projectGroups],
   );
-  const rowKey = (level: AgentCapabilityLevel, id: string, projectPath?: string) =>
-    level === "project" ? `${level}:${projectPath ?? ""}:${id}` : `${level}:${id}`;
+  const rowKey = mcpRowKey;
+  const statusView: McpStatusView = useMemo(
+    () => ({
+      statuses,
+      statusProjectPath,
+      projectServerIds: Object.fromEntries(
+        projectGroups.map((group) => [group.projectPath, group.servers.map((row) => row.id)]),
+      ),
+      rowStatuses,
+    }),
+    [projectGroups, rowStatuses, statusProjectPath, statuses],
+  );
+  /** Record a fresh status where this row reads it from. */
+  const storeRowStatus = (
+    status: McpServerStatus,
+    level: AgentCapabilityLevel,
+    projectPath?: string,
+  ) => {
+    if (mcpRowIsRuntimeOwned(statusView, status.serverId, level, projectPath)) {
+      setStatuses((current) => [
+        ...current.filter((entry) => entry.serverId !== status.serverId),
+        status,
+      ]);
+    } else {
+      setRowStatuses((current) => ({
+        ...current,
+        [mcpRowKey(level, status.serverId, projectPath)]: status,
+      }));
+    }
+  };
   /**
    * A project row names its own project; a global row borrows the selected
    * project, if any, the way the page always queried it.
@@ -287,16 +325,13 @@ export function AgentMcpPage() {
     projectPath?: string,
   ) => {
     if (testingId) return;
-    setTestingId(server.id);
+    setTestingId(rowKey(level, server.id, projectPath));
     try {
       const result = await api.testMcpServer(server.id, {
         level,
         ...(level === "project" && projectPath ? { projectPath } : {}),
       });
-      setStatuses((current) => [
-        ...current.filter((status) => status.serverId !== server.id),
-        result.status,
-      ]);
+      storeRowStatus(result.status, level, projectPath);
       if (result.status.state === "ready") {
         showToast(t("extensions.mcp.testReady", { count: result.status.toolCount }), {
           variant: "success",
@@ -319,7 +354,7 @@ export function AgentMcpPage() {
     projectPath?: string,
   ) => {
     if (authorizingId || pendingOAuthRef.current) return;
-    setAuthorizingId(server.id);
+    setAuthorizingId(rowKey(level, server.id, projectPath));
     let activeLoginId: string | null = null;
     let unsubscribed = false;
     let unsubscribe = () => {};
@@ -343,10 +378,7 @@ export function AgentMcpPage() {
       if (event.serverId !== server.id) return;
 
       if (event.kind === "done") {
-        setStatuses((current) => [
-          ...current.filter((status) => status.serverId !== server.id),
-          event.status,
-        ]);
+        storeRowStatus(event.status, level, projectPath);
         showToast(t("extensions.mcp.authReady", { count: event.status.toolCount }), {
           variant: "success",
         });
@@ -491,10 +523,10 @@ export function AgentMcpPage() {
   ) => {
     const key = rowKey(level, server.id, projectPath);
     const name = server.label || server.id;
-    const status = statusFor(statuses, server);
+    const status = mcpRowStatus(statusView, server, level, projectPath);
     const busy = busyId === key;
-    const testing = testingId === server.id;
-    const authorizing = authorizingId === server.id;
+    const testing = testingId === key;
+    const authorizing = authorizingId === key;
     const isArmed = armed === key;
     const isHttp = server.transport === "http";
     const hasAuthHeader = Boolean(
@@ -847,8 +879,16 @@ export function AgentMcpPage() {
           setDraft={(draft) => setEditor((current) => (current ? { ...current, draft } : current))}
           editing={editor.editing}
           saving={saving}
-          status={editor.editing ? statusFor(statuses, editor.editing) : undefined}
-          testing={testingId === editor.editing?.id}
+          status={
+            editor.editing
+              ? mcpRowStatus(statusView, editor.editing, editor.level, editor.projectPath)
+              : undefined
+          }
+          testing={
+            editor.editing
+              ? testingId === rowKey(editor.level, editor.editing.id, editor.projectPath)
+              : false
+          }
           projects={[]}
           currentProjectPath={editor.projectPath ?? selectedProjectPath}
           managementLevel={editor.level}

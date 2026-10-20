@@ -60,15 +60,17 @@ handle(IPC.invoke.mcpList, async (query: Partial<AgentCapabilityQuery> = {}) => 
       query,
     );
     // Status belongs to the currently open project's active runtime, while the
-    // list itself must include disabled records for the settings page.
-    await refreshUserMcp(currentWorkspacePath());
+    // list itself must include disabled records for the settings page. The
+    // page lists other projects too, so it is told which project that is.
+    const statusProjectPath = currentWorkspacePath();
+    await refreshUserMcp(statusProjectPath);
     const statuses = await Promise.all(
       (await userMcp.refreshStatuses()).map(async (status) => ({
         ...status,
         hasOauth: oauth ? await oauth.hasOAuth(status.serverId) : false,
       })),
     );
-    return { servers: result.servers ?? [], statuses };
+    return { servers: result.servers ?? [], statuses, statusProjectPath };
   });
 
   handle(IPC.invoke.mcpUpsert, async (server: McpServerInput) => {
