@@ -524,3 +524,39 @@ fn a_crash_torn_json_line_is_skipped_by_paged_reads_after_the_next_append() {
         Some(0)
     );
 }
+
+#[test]
+fn a_crash_torn_copy_of_a_tool_row_does_not_hide_the_complete_one() {
+    // Subagent navigation finds a nested message's parent tool row by call id.
+    // A torn later copy carrying the same id must be skipped, not fatal.
+    let dir = tempdir().unwrap();
+    let path = transcript_path(dir.path(), "layout-regression").unwrap();
+    write_transcript(
+        dir.path(),
+        "layout-regression",
+        CREATED_AT,
+        &[task_message("completed", "done")],
+    )
+    .unwrap();
+    let mut bytes = fs::read(&path).unwrap();
+    bytes.extend_from_slice(
+        b"{\"type\":\"message\",\"id\":\"m150\",\"role\":\"tool\",\"blocks\":[{\"callId\":\"task-150\",\"res",
+    );
+    fs::write(&path, &bytes).unwrap();
+    append_message(
+        dir.path(),
+        "layout-regression",
+        CREATED_AT,
+        &message("m2", "after"),
+    )
+    .unwrap();
+
+    let layout =
+        refresh_layout(dir.path(), "layout-regression", TranscriptLayout::default()).unwrap();
+    let found =
+        crate::transcripts::read_tool_call(dir.path(), "layout-regression", &layout, "task-150")
+            .unwrap()
+            .expect("the complete parent row is still found");
+    assert_eq!(found.id, "m150");
+    assert_eq!(found.blocks[0]["result"]["details"]["status"], "completed");
+}

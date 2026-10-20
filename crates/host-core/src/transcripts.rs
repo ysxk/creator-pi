@@ -213,6 +213,9 @@ pub fn find_message_position(
 
 /// Read the owning tool row for a nested message, even outside its page.
 /// Inspect only call identities while scanning; materialize just the parent.
+/// For navigation only: an undecodable line (a crash-torn copy, invalid UTF-8)
+/// is skipped and the scan goes on to an earlier complete row, as the window
+/// readers and `find_message_position` do. I/O errors still fail.
 pub fn read_tool_call(
     data_dir: &Path,
     session_id: &str,
@@ -234,12 +237,9 @@ pub fn read_tool_call(
         }
         let identity: Value = match serde_json::from_str(&line) {
             Ok(value) => value,
-            Err(error) if invalid_utf8 => {
-                tracing::warn!(%error, "skipping invalid indexed transcript tool-call identity");
-                continue;
-            }
             Err(error) => {
-                return Err(error).context("decode indexed transcript tool-call identity");
+                tracing::warn!(%error, offset = *offset, invalid_utf8, "skipping undecodable indexed transcript tool-call identity");
+                continue;
             }
         };
         let matches_call = identity.get("role").and_then(Value::as_str) == Some("tool")
@@ -254,11 +254,8 @@ pub fn read_tool_call(
         if matches_call {
             match serde_json::from_str(&line) {
                 Ok(record) => return Ok(Some(record)),
-                Err(error) if invalid_utf8 => {
-                    tracing::warn!(%error, "skipping invalid indexed tool-call message");
-                }
                 Err(error) => {
-                    return Err(error).context("decode indexed transcript tool-call message")
+                    tracing::warn!(%error, offset = *offset, invalid_utf8, "skipping undecodable indexed tool-call message");
                 }
             }
         }
@@ -2450,7 +2447,7 @@ mod tests {
     }
 
     #[test]
-    fn tool_call_lookup_does_not_hide_malformed_json() {
+    fn tool_call_lookup_skips_malformed_json() {
         let dir = tempdir().unwrap();
         append_message(dir.path(), "s1", "2026-07-26T00:00:00Z", &record("m1", "x")).unwrap();
         let path = transcript_path(dir.path(), "s1").unwrap();
@@ -2461,7 +2458,9 @@ mod tests {
         .unwrap();
         let layout = refresh_layout(dir.path(), "s1", TranscriptLayout::default()).unwrap();
 
-        assert!(read_tool_call(dir.path(), "s1", &layout, "call-bad").is_err());
+        assert!(read_tool_call(dir.path(), "s1", &layout, "call-bad")
+            .unwrap()
+            .is_none());
     }
 
     /// Concurrent appends from several sessions must not cost a line, fuse two
