@@ -57,6 +57,46 @@ describe("compactionRequestOptions", () => {
     });
   });
 
+  it("sends no placeholder credential for a no-auth endpoint, like a session turn", async () => {
+    const seen: Array<string | null> = [];
+    const base = (async (_url: string | URL | Request, init?: RequestInit) => {
+      seen.push(new Headers(init?.headers).get("authorization"));
+      return new Response("{}");
+    }) as typeof fetch;
+    const noAuth: RuntimeProviderConfig = {
+      ...provider,
+      apiStyle: "chat_completions",
+      vendorKey: "custom",
+      baseUrl: "https://gateway.test/v1",
+      apiKey: "",
+      authKind: "none",
+    };
+    const options = compactionRequestOptions({
+      provider: noAuth,
+      sessionId: "session-1",
+      model: { ...model, baseUrl: "https://gateway.test/v1" },
+      context,
+      options: { fetch: base } as ModelsSimpleStreamOptions,
+    });
+    expect(options.fetch).toBeTypeOf("function");
+    await options.fetch!("https://gateway.test/v1/chat/completions", {
+      headers: { Authorization: "Bearer pi-desktop-no-auth" },
+    });
+    expect(seen).toEqual([null]);
+  });
+
+  it("leaves the caller's fetch alone for a keyed provider", () => {
+    const base = (async () => new Response("{}")) as typeof fetch;
+    const options = compactionRequestOptions({
+      provider: { ...provider, apiStyle: "chat_completions" },
+      sessionId: "session-1",
+      model,
+      context,
+      options: { fetch: base } as ModelsSimpleStreamOptions,
+    });
+    expect(options.fetch).toBe(base);
+  });
+
   it("keeps a provider row's own headers and adds none for other providers", () => {
     const options = compactionRequestOptions({
       provider: {

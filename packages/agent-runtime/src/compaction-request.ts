@@ -27,6 +27,7 @@ import {
 } from "./opencode-session-headers.js";
 import {
   copilotRequestHeaders,
+  providerRequestFetch,
   type RuntimeProviderConfig,
 } from "./provider-binding.js";
 import { mergeProviderHeaders, withProviderHeaders } from "./provider-headers.js";
@@ -52,10 +53,17 @@ export function compactionRequestOptions(input: {
   options?: ModelsSimpleStreamOptions;
 }): ModelsSimpleStreamOptions {
   const { provider, sessionId, model, context, options } = input;
+  // A no-auth row drops pi-ai's placeholder credential on the wire, the same
+  // wrapper session turns, delegates and one-shots use. Other rows keep the
+  // caller's fetch untouched.
+  const noAuthFetch = provider.authKind === "none"
+    ? providerRequestFetch(model.api, options?.fetch, provider.authKind)
+    : undefined;
+  const requestOptions = noAuthFetch ? { ...options, fetch: noAuthFetch } : options;
   return withSessionAffinityOptions(
     withProviderHeaders(
       withOpenCodeSessionHeaders(
-        { ...options, sessionId, reasoning: requestThinkingLevel(model, options?.reasoning ?? "off") },
+        { ...requestOptions, sessionId, reasoning: requestThinkingLevel(model, options?.reasoning ?? "off") },
         { ...openCodeEndpointFromProvider(provider, model), sessionId },
       ),
       mergeProviderHeaders(
