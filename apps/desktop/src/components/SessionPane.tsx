@@ -1,11 +1,10 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useMemo } from "react";
 import { ChatTranscript } from "./ChatTranscript";
 import { useAppStore } from "../stores/app-store";
 import { headPermission, sessionPermissions } from "../lib/pending-permissions";
 import { headAsk } from "../lib/pending-asks";
 import { useTranscriptView } from "../hooks/use-transcript-view";
 import { TranscriptDisclosureProvider } from "../features/chat/transcript/disclosure";
-import type { RestoreTranscriptReading } from "../hooks/use-transcript-reading-position";
 
 /**
  * One retained conversation pane (ADR 0137).
@@ -30,11 +29,6 @@ export const SessionPane = memo(function SessionPane({
   const transcript = useTranscriptView(sessionId);
   const loadTranscriptPage = useAppStore((state) => state.loadTranscriptPage);
   const returnToLatest = useAppStore((state) => state.returnToLatestTranscript);
-  const restoreTranscriptReading = useAppStore((state) => state.restoreTranscriptReading);
-  const restoreReading = useCallback<RestoreTranscriptReading>(
-    (position, signal) => restoreTranscriptReading(sessionId, position, signal),
-    [restoreTranscriptReading, sessionId],
-  );
   const isRunning = useAppStore(
     (state) => state.runningSessions[sessionId] ?? false,
   );
@@ -71,7 +65,7 @@ export const SessionPane = memo(function SessionPane({
       aria-hidden={visible ? undefined : true}
       inert={visible ? undefined : true}
     >
-      <TranscriptDisclosureProvider sessionId={sessionId}>
+      <TranscriptDisclosureProvider>
         <ChatTranscript
           sessionId={sessionId}
           messages={transcript.messages}
@@ -79,7 +73,6 @@ export const SessionPane = memo(function SessionPane({
           onLoadOlder={() => loadTranscriptPage(sessionId, "before")}
           searchTarget={searchTarget}
           readingWindow={transcript.historical}
-          onRestoreReading={restoreReading}
           hasMoreAfter={transcript.hasMoreAfter}
           onLoadNewer={() => loadTranscriptPage(sessionId, "after")}
           onReturnToLatest={() => returnToLatest(sessionId)}

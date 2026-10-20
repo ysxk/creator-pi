@@ -117,11 +117,7 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   stay mounted but are hidden with `visibility: hidden` +
   `content-visibility: hidden` — never `display: none`, which would destroy the
   layout box and its scroll offset — and are `aria-hidden` and non-interactive.
-  Eviction releases the DOM, not the renderer-lifetime reading bookmark. On
-  return, restore the bookmarked message and its viewport offset, loading a
-  bounded historical range when necessary without search focus/highlighting.
-  Explicit disclosure choices and the mounted-window budget survive eviction;
-  bookmarks do not persist across renderer/app restarts.
+  Evicting a pane makes its session behave like a cold open on the next visit.
 - A pane renders the store's live `messages` while its session is the active one
   and its retained snapshot otherwise, so no pane can show another session's rows.
   While a session is running, or still holds live rows the durable page has
@@ -461,7 +457,7 @@ visually distinct from list content.
   that project's conversation group; retain the other project groups
 - Click session: activate its bound project when necessary and switch the active
   session. A destination that still has a retained pane (warm switch) is revealed
-  immediately with its own content and its own scroll position, so the first
+  immediately with its own content, settled at its newest message, so the first
   painted frame is already correct — no dim, no skeleton, no transcript remount.
   If that destination is still running or still holds a completed reply the
   durable page has not caught up to, the warm frame uses its latest
@@ -474,9 +470,8 @@ visually distinct from list content.
   progress track marks the wait, and the composer stays non-interactive until the
   visible pane is the active session. No transcript is ever dimmed, and no stale
   transcript is relabeled with the destination session id. First activation of a
-  session settles at its newest turn without flashing the transcript top; a
-  revisited pane returns to the position the user left, and a pane still pinned
-  re-anchors to the bottom (ADR 0137).
+  session settles at its newest turn without flashing the transcript top, and so
+  does a revisited pane, wherever the user had scrolled it to (D687, ADR 0137).
 - Hovering a session row for 120ms or keyboard-focusing it starts one coalesced
   transcript prefetch. Selection reuses an in-flight or recent cached result,
   revalidates it in the background, and never waits for an older superseded
@@ -902,7 +897,7 @@ pending action cards remain reachable outside a hidden process. See
 | Streaming | Auto-scroll follows while pinned; new tokens append |
 | Active progress | Immediately after send, before the first assistant or tool event, a compact localized `Working…` status with elapsed time appears inline. Its model and subagent elapsed labels use the carried-unit format in §9.1. When the runtime names a quiet interval, that same row identifies starting, waiting for the model, preparing the next request, compacting context, recovering an empty response, retrying, or waiting for delegated work (with each running subagent's latest coarse action). It remains visible through thinking, tool execution, completed-tool gaps, and partial answers until the turn ends. Runtime phases take precedence over the Planning/Goal or Working fallback. Pending permissions, questions, and plan/goal approvals suppress the row; history reading never shows live status; no large generic progress card is rendered. The row lives in the reserved tail lane, so it appears and clears mid-turn without changing the transcript's content height. A retrying row remains compact at rest; hovering or focusing it reveals an error-styled tooltip with the localized error summary, stable code/HTTP status, and bounded provider message. The tooltip mixes the error tint over `--ds-bg-elevated-opaque` so transcript text does not show through. |
 | Turn outcome | After a failed turn, a session-scoped recovery card summarizes the interruption and tool evidence. Completed turns use the existing transcript and message-scoped InlineReviewCard without an extra success card; failed turns can continue through one localized prompt without losing the transcript. |
-| Session switch | A first-opened session paints at its latest record; a revisited pane paints at its own retained position. Bounded first commit and full-history expansion show the same position: no post-paint height correction may shift the visible rows, in either direction |
+| Session switch | A first-opened session and a revisited pane both paint at their latest record (D687). Bounded first commit and full-history expansion show the same position: no post-paint height correction may shift the visible rows, in either direction |
 | Turn start (send / retry / regenerate) | Re-pins and positions the latest content before paint, even if the user had scrolled up; the later persisted user-message event does not flash the transcript at its top, and the composer collapse / indicator layout clamps during the send never release follow mode |
 | Idle (after stream) | Auto-scroll unlocked; user can scroll freely |
 | Message-scoped review snapshot | Each successful workspace Write/Edit tool row is followed by one compact InlineReviewCard carrying that message's added/modified/deleted status and explicit addition/deletion totals. It renders as a single flat list row on the tool-row rhythm — disclosure caret, Git-style status letter (`A`/`M`/`D`), path, addition/deletion counts — with no card border, status rail, icon plate, or status pill; hover fill is the only row chrome, and a rolled-back change is struck through. Its hunks sit behind an expandable disclosure: every review card (inline and in the Review tab) is collapsed by default, and the user expands it on demand. The card remains after a Git commit, never becomes a bottom/global entry, and offers hash-guarded rollback without leaking into another session's transcript. |
@@ -1505,7 +1500,7 @@ storage but compose into one assistant turn until the next user message.
 
 | State | Behavior |
 |---|---|
-| Session activation | First activation re-pins and positions at the last record during layout, before the pane's first painted frame; a revisited pane restores its own retained scroll position instead |
+| Session activation | Every activation, first or revisit, re-pins and positions at the last record during layout, before the pane's first painted frame (D687) |
 | Session transition | A warm destination pane is revealed immediately with its retained content and position. If it is running or still holds a not-yet-flushed completed reply, its live renderer snapshot survives the durable revalidation read. A cold destination leaves the visible pane on its own session under a thin progress track until it commits; nothing is dimmed, hidden panes stay mounted and inert, and current stream updates are not deferred |
 | Streaming | New tokens append; auto-scroll only while pinned to bottom |
 | Turn start | Send / retry / regenerate re-pins follow mode and jumps to bottom |

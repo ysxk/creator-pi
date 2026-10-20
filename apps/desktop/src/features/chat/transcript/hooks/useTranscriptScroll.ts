@@ -40,8 +40,6 @@ import { readScrollInputContext } from "../../../../lib/scroll-input";
 import { useDisclosureAnchor } from "../../../../hooks/use-disclosure-anchor";
 import type { TranscriptSearchTarget } from "../../../../lib/transcript-reading";
 import { useTranscriptSearchFocus } from "../../../../hooks/use-transcript-search-focus";
-import { getTranscriptReadingPosition } from "../../../../lib/transcript-reading-position";
-import { useTranscriptReadingPosition, type RestoreTranscriptReading } from "../../../../hooks/use-transcript-reading-position";
 
 type UseTranscriptScrollOptions = {
   sessionId: string | undefined;
@@ -57,7 +55,6 @@ type UseTranscriptScrollOptions = {
   paneVisible: boolean;
   searchTarget: TranscriptSearchTarget | null;
   readingWindow: boolean;
-  onRestoreReading?: RestoreTranscriptReading;
 };
 
 export function useTranscriptScroll({
@@ -74,19 +71,13 @@ export function useTranscriptScroll({
   paneVisible,
   searchTarget,
   readingWindow,
-  onRestoreReading,
 }: UseTranscriptScrollOptions) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const historyBoundaryRef = useRef<HTMLDivElement>(null);
-  const [savedReadingPosition] = useState(() => getTranscriptReadingPosition(sessionId));
-  const pinnedRef = useRef(savedReadingPosition?.pinned ?? true);
+  const pinnedRef = useRef(true);
   const lastScrollTopRef = useRef(0);
-  // Last offset sampled while the scroller had a real layout box. A hidden
-  // pane's `content-visibility: hidden` box reports `scrollTop === 0`, so the
-  // hide transition must restore this rather than the collapsed value.
-  const lastLaidOutScrollTopRef = useRef(0);
   const lastScrollGestureAtRef = useRef(-Infinity);
   const wasRunningRef = useRef(isRunning);
   const followFrameRef = useRef(0);
@@ -96,7 +87,7 @@ export function useTranscriptScroll({
 
   // Steady-state cap on mounted history rows (D261). Grows when the user
   // reaches the top of the window; reset per session below.
-  const [windowSize, setWindowSize] = useState(savedReadingPosition?.windowSize ?? TRANSCRIPT_WINDOW_MIN);
+  const [windowSize, setWindowSize] = useState(TRANSCRIPT_WINDOW_MIN);
   // Read by `reachTop`, which must stay referentially stable for the scroll
   // listener; the projection it describes is only known later in this render.
   const historyLengthRef = useRef(0);
@@ -113,7 +104,6 @@ export function useTranscriptScroll({
     // following native scroll event read as the user scrolling up.
     if (behavior === "auto") {
       lastScrollTopRef.current = el.scrollTop;
-      lastLaidOutScrollTopRef.current = el.scrollTop;
     }
   }, []);
 
@@ -121,24 +111,6 @@ export function useTranscriptScroll({
     cancelAnimationFrame(followFrameRef.current);
     followFrameRef.current = 0;
   }, []);
-  const recordScrollPosition = useCallback((top: number) => {
-    lastScrollTopRef.current = top;
-    lastLaidOutScrollTopRef.current = top;
-  }, []);
-  const readingPositionMissing = useCallback(() => {
-    pinnedRef.current = true;
-    setShowJump(false);
-    scrollToBottom();
-  }, [scrollToBottom]);
-  const {
-    pendingRef: readingPositionPendingRef,
-    remember: rememberReadingPosition,
-    cancel: cancelReadingPosition,
-  } = useTranscriptReadingPosition({
-    sessionId, scrollRef, contentRef, pinnedRef, visible: paneVisible,
-    windowSize, contentVersion: messages, onPosition: recordScrollPosition,
-    onRestore: onRestoreReading, onMissing: readingPositionMissing,
-  });
 
   /*
     Leave follow mode. Every reader-driven move inside the transcript starts
@@ -147,11 +119,10 @@ export function useTranscriptScroll({
     the view one frame later and undoes the move.
   */
   const releaseFollow = useCallback(() => {
-    cancelReadingPosition();
     cancelFollowScroll();
     pinnedRef.current = false;
     setShowJump(true);
-  }, [cancelFollowScroll, cancelReadingPosition]);
+  }, [cancelFollowScroll]);
 
   // A manual disclosure (a tool, thinking or activity title; #324) hands this
   // scroller the very title it was toggled from, before the expansion state
@@ -161,6 +132,9 @@ export function useTranscriptScroll({
   const enterDisclosureReading = useCallback(() => {
     releaseFollow();
   }, [releaseFollow]);
+  const recordScrollPosition = useCallback((top: number) => {
+    lastScrollTopRef.current = top;
+  }, []);
   const {
     notifier: disclosureAnchorNotifier,
     restore: restoreDisclosureAnchor,
@@ -188,12 +162,11 @@ export function useTranscriptScroll({
         contentRef.current,
       );
       if (!isScrollGestureInput(event.type as ScrollInputType, input)) return;
-      cancelReadingPosition();
       lastScrollGestureAtRef.current = performance.now();
       // Real input takes the viewport back from a held disclosure position.
       releaseDisclosureAnchor();
     },
-    [cancelReadingPosition, releaseDisclosureAnchor],
+    [releaseDisclosureAnchor],
   );
 
   useEffect(() => {
@@ -213,50 +186,39 @@ export function useTranscriptScroll({
     };
   }, [markScrollGesture]);
 
-  // Cold first visits still settle at the newest turn. A runtime bookmark wins
-  // over initialization and progressive hydration when an evicted pane remounts.
+  // This instance belongs to one session for its whole lifetime (ADR 0137), so
+  // "activation" is its own first layout: settle at the newest turn before the
+  // first paint, with no cross-session state to unwind.
   useLayoutEffect(() => {
     releaseDisclosureAnchor();
     cancelFollowScroll();
-    pinnedRef.current = savedReadingPosition?.pinned ?? true;
-    setShowJump(!pinnedRef.current);
-    if (pinnedRef.current) scrollToBottom();
-  }, [cancelFollowScroll, releaseDisclosureAnchor, savedReadingPosition, scrollToBottom]);
+    pinnedRef.current = true;
+    setShowJump(false);
+    scrollToBottom();
+  }, [cancelFollowScroll, releaseDisclosureAnchor, scrollToBottom]);
 
-  // Revisits restore this pane's own position. A hidden scroller can be clamped
-  // while its content grows off screen, so the offset is captured on the way out
-  // and reapplied during the layout phase that reveals the pane: a pane the user
-  // had scrolled up in returns to that offset, a pinned one returns to the
-  // bottom, and neither shows an intermediate frame.
-  const retainedScrollTopRef = useRef<number | null>(null);
+  // Switching to a conversation always lands on its newest message, the same
+  // as a first visit: a retained pane does not return to an offset the reader
+  // left it at. A search hit still wins, since its focus runs after this.
   const wasPaneVisibleRef = useRef(paneVisible);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     const becameHidden = wasPaneVisibleRef.current && !paneVisible;
     const becameVisible = !wasPaneVisibleRef.current && paneVisible;
-    // The transition is only consumed once there is a scroller to read or
-    // position. Committing it before this guard would swallow the edge and lose
-    // the offset a pane hidden before its scroller existed should return to.
+    // The transition is only consumed once there is a scroller to position.
+    // Committing it before this guard would swallow the reveal of a pane that
+    // was hidden before its scroller existed.
     if (!el) return;
     wasPaneVisibleRef.current = paneVisible;
     if (becameHidden) {
       releaseDisclosureAnchor();
       cancelFollowScroll();
-      // Do not read `el.scrollTop` here: the hide CSS has already skipped
-      // rendering, so the box reports 0. Restore the last laid-out offset.
-      retainedScrollTopRef.current = lastLaidOutScrollTopRef.current;
       return;
     }
-    if (!becameVisible || readingPositionPendingRef.current) return;
-    if (pinnedRef.current) {
-      scrollToBottom();
-      return;
-    }
-    const retained = retainedScrollTopRef.current;
-    if (retained === null) return;
-    el.scrollTop = retained;
-    lastScrollTopRef.current = retained;
-    lastLaidOutScrollTopRef.current = retained;
+    if (!becameVisible) return;
+    pinnedRef.current = true;
+    setShowJump(false);
+    scrollToBottom();
   }, [cancelFollowScroll, paneVisible, releaseDisclosureAnchor, scrollToBottom]);
 
   // A hidden pane must not chase its stream: its scroller has no visible
@@ -344,7 +306,6 @@ export function useTranscriptScroll({
     if (delta <= 0) return;
     el.scrollTop += delta;
     lastScrollTopRef.current = el.scrollTop;
-    if (transcriptHasLayout(el)) lastLaidOutScrollTopRef.current = el.scrollTop;
   }, [messages.length, windowSize]);
 
 
@@ -354,13 +315,6 @@ export function useTranscriptScroll({
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    if (paneVisibleRef.current && transcriptHasLayout(el)) {
-      lastLaidOutScrollTopRef.current = el.scrollTop;
-    }
-    if (readingPositionPendingRef.current) {
-      lastScrollTopRef.current = el.scrollTop;
-      return;
-    }
     // A real gesture is never stale noise: the reader's own input took the
     // scroller to the near-top band, and this event is the last one that
     // position produces. Suppressing history continuation here would strand an
@@ -382,7 +336,6 @@ export function useTranscriptScroll({
       pinnedRef.current = false;
       lastScrollTopRef.current = el.scrollTop;
       setShowJump(true);
-      rememberReadingPosition();
       return;
     }
     const wasPinned = pinnedRef.current;
@@ -422,8 +375,7 @@ export function useTranscriptScroll({
       pinnedRef.current = transition.pinned;
       setShowJump(transition.showJump);
     }
-    rememberReadingPosition();
-  }, [cancelFollowScroll, reachTop, readingPositionPendingRef, readingWindow, rememberReadingPosition, scheduleFollowScroll]);
+  }, [cancelFollowScroll, reachTop, readingWindow, scheduleFollowScroll]);
 
   // Send / retry / regenerate always re-pins follow mode so the new prompt and
   // its stream stay in view, even if the user had scrolled up through history.
@@ -434,21 +386,17 @@ export function useTranscriptScroll({
     const turnStarted = isRunning && !wasRunningRef.current;
     wasRunningRef.current = isRunning;
     if (!turnStarted || !paneVisible) return;
-    cancelReadingPosition();
     releaseDisclosureAnchor();
     cancelFollowScroll();
     pinnedRef.current = true;
     setShowJump(false);
     scrollToBottom();
-    rememberReadingPosition();
     scheduleFollowScroll();
   }, [
     cancelFollowScroll,
-    cancelReadingPosition,
     isRunning,
     paneVisible,
     releaseDisclosureAnchor,
-    rememberReadingPosition,
     scheduleFollowScroll,
     scrollToBottom,
   ]);
@@ -519,8 +467,7 @@ export function useTranscriptScroll({
   // its Markdown and highlighting for rows nobody was looking at.
   const [hydrationTick, setHydrationTick] = useState(0);
   const hydrationBounded =
-    !readingWindow && firstCommit && savedReadingPosition?.pinned !== false &&
-    allHistoryEntries.length > TRANSCRIPT_INITIAL_MOUNT;
+    !readingWindow && firstCommit && allHistoryEntries.length > TRANSCRIPT_INITIAL_MOUNT;
   // The bounded commit and the expansion must show the transcript at the same
   // place. A spacer sized from a per-entry guess cannot match the rows it stands
   // in for, so the expansion moved the visible text by the estimate error - the
@@ -580,13 +527,12 @@ export function useTranscriptScroll({
   );
 
   const releaseSearchFollow = useCallback((fresh: boolean) => {
-    cancelReadingPosition();
     if (fresh) prependHeightRef.current = null;
     releaseDisclosureAnchor();
     cancelFollowScroll();
     pinnedRef.current = false;
     setShowJump(true);
-  }, [cancelFollowScroll, cancelReadingPosition, releaseDisclosureAnchor]);
+  }, [cancelFollowScroll, releaseDisclosureAnchor]);
   useTranscriptSearchFocus({
     target: searchTarget,
     source: searchTarget
@@ -686,7 +632,6 @@ export function useTranscriptScroll({
   }, [reachTop, releaseDisclosureAnchor, releaseFollow]);
 
   const jumpToLatest = useCallback(() => {
-    cancelReadingPosition();
     releaseDisclosureAnchor();
     pinnedRef.current = true;
     setShowJump(false);
@@ -695,7 +640,7 @@ export function useTranscriptScroll({
         ? "auto"
         : "smooth",
     );
-  }, [cancelReadingPosition, releaseDisclosureAnchor, scrollToBottom]);
+  }, [releaseDisclosureAnchor, scrollToBottom]);
 
   // D269: history progression follows the visible top boundary, not only a
   // native scroll event. A tail page can collapse to less than one viewport,
@@ -719,7 +664,6 @@ export function useTranscriptScroll({
       frame = requestAnimationFrame(() => {
         if (
           scrollRef.current !== root ||
-          readingPositionPendingRef.current ||
           !isHistoryRevealPosition(root, pinnedRef.current)
         ) {
           return;

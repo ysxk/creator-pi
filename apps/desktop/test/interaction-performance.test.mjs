@@ -164,7 +164,7 @@ test("layout clamps after send cannot release transcript follow as a gesture", (
   assert.match(transcript, /if \(gesturing && transition\.releasedFollow\) \{/);
 });
 
-test("session activation pins a first visit and honors a runtime reading bookmark", () => {
+test("session activation pins the latest record before the first paint", () => {
   assert.match(
     chatSurface,
     /const activeSessionId = useAppStore\(\(state\) => state\.activeSessionId\);/,
@@ -173,31 +173,30 @@ test("session activation pins a first visit and honors a runtime reading bookmar
   assert.match(pane, /sessionId=\{sessionId\}/);
   assert.doesNotMatch(chatSurface, /SessionLoadingSkeleton/);
 
-  // Cold first visits still settle before paint; an evicted reading bookmark
-  // takes priority over initialization. Chromium covers the actual lifecycle.
+  // A pane belongs to one session for its lifetime, so activation is its own
+  // first layout: settle at the newest turn with no cross-session state to
+  // unwind, before the first paint.
   const activationEffect = transcript.match(
-    /useLayoutEffect\(\(\) => \{([\s\S]*?)\n  \}, \[cancelFollowScroll, releaseDisclosureAnchor, savedReadingPosition, scrollToBottom\]\);/,
+    /useLayoutEffect\(\(\) => \{([\s\S]*?)\n  \}, \[cancelFollowScroll, releaseDisclosureAnchor, scrollToBottom\]\);/,
   )?.[1];
   assert.ok(activationEffect);
   assert.match(activationEffect, /cancelFollowScroll\(\)/);
-  assert.match(activationEffect, /pinnedRef\.current = savedReadingPosition\?\.pinned \?\? true/);
-  assert.match(activationEffect, /setShowJump\(!pinnedRef\.current\)/);
-  assert.match(activationEffect, /if \(pinnedRef\.current\) scrollToBottom\(\)/);
+  assert.match(activationEffect, /pinnedRef\.current = true/);
+  assert.match(activationEffect, /setShowJump\(false\)/);
+  assert.match(activationEffect, /scrollToBottom\(\)/);
   assert.doesNotMatch(activationEffect, /smooth/);
 });
 
-test("a revealed pane restores its own scroll position in the layout phase", () => {
-  // Captured on the way out and reapplied as the pane is revealed: a hidden
-  // scroller can be clamped while its content grows off screen, and a passive
-  // effect would leave one visible frame at the wrong offset (ADR 0137).
+test("switching to a conversation lands on its newest message in the layout phase", () => {
+  // A retained pane does not return to an offset the reader left it at: the
+  // reveal re-pins and bottoms the transcript before the frame paints, so it
+  // never shows the oldest loaded rows first.
   const revealEffect = transcript.match(
-    /useLayoutEffect\(\(\) => \{([\s\S]*?)\n  \}, \[cancelFollowScroll, paneVisible, releaseDisclosureAnchor, scrollToBottom\]\);/,
+    /const wasPaneVisibleRef = useRef\(paneVisible\);\s*useLayoutEffect\(\(\) => \{([\s\S]*?)\n  \}, \[cancelFollowScroll, paneVisible, releaseDisclosureAnchor, scrollToBottom\]\);/,
   )?.[1];
-  assert.ok(revealEffect, "the reveal must restore position in a layout effect");
-  assert.match(revealEffect, /retainedScrollTopRef\.current = lastLaidOutScrollTopRef\.current/);
-  assert.match(revealEffect, /if \(pinnedRef\.current\) \{\s*scrollToBottom\(\);/);
-  assert.match(revealEffect, /el\.scrollTop = retained/);
-  assert.match(revealEffect, /lastScrollTopRef\.current = retained/);
+  assert.ok(revealEffect, "the reveal must position the transcript in a layout effect");
+  assert.match(revealEffect, /if \(!becameVisible\) return;\s*pinnedRef\.current = true;\s*setShowJump\(false\);\s*scrollToBottom\(\);/);
+  assert.doesNotMatch(revealEffect, /retained/);
 });
 
 test("a pane bounds its own first commit instead of rebuilding it", () => {

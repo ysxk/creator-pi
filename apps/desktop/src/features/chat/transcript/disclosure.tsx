@@ -11,18 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import { useDisclosureAnchorNotifier } from "../../../lib/disclosure-anchor-context";
-import { sessionReadingState, type TranscriptDisclosureChoice } from "../../../lib/transcript-reading-position";
 
-type Choice = TranscriptDisclosureChoice;
+type Choice = { open: boolean; revealRequest?: number };
 
 /** Only explicit choices are retained; untouched nodes derive their defaults. */
 class DisclosureChoices {
-  private choices: Map<string, Choice>;
+  private choices = new Map<string, Choice>();
   private listeners = new Map<string, Set<() => void>>();
-
-  constructor(choices = new Map<string, Choice>()) {
-    this.choices = choices;
-  }
 
   get = (key: string) => this.choices.get(key);
 
@@ -50,11 +45,9 @@ const ParentContext = createContext<{ claim: () => void; visible: boolean }>({
   visible: true,
 });
 
-/** Explicit choices survive pane eviction, but never persist to the host. */
-export function TranscriptDisclosureProvider({ children, sessionId }: { children: ReactNode; sessionId?: string }) {
-  const [choices] = useState(() => new DisclosureChoices(
-    sessionId ? sessionReadingState(sessionId).disclosures : undefined,
-  ));
+/** The retained session pane owns this map; no state is persisted to the host. */
+export function TranscriptDisclosureProvider({ children }: { children: ReactNode }) {
+  const [choices] = useState(() => new DisclosureChoices());
   return <ChoicesContext.Provider value={choices}>{children}</ChoicesContext.Provider>;
 }
 

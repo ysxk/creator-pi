@@ -319,9 +319,9 @@ may be retained while exactly one workspace supplies the visible shell context.
 - The chat surface retains one pane per session, keyed by session id and bounded
   to three (the visible pane plus the two most recent). Hidden panes stay mounted
   and inert — `visibility: hidden` plus `content-visibility: hidden`, never
-  `display: none`, which would discard their scroll offset — and each pane keeps
-  its own scroll position for its lifetime. Switching to a session that still has
-  a pane (warm) reveals it immediately with its retained content and position:
+  `display: none`, which would make them relayout from scratch. Switching to a
+  session that still has a pane (warm) reveals it immediately with its retained
+  content, settled at its newest message (D687):
   nothing is dimmed, no skeleton appears, and no transcript remounts. If the
   destination is running or still holds a completed reply the durable page has
   not caught up to, revalidation treats the durable read as a lower-water mark
@@ -338,26 +338,18 @@ may be retained while exactly one workspace supplies the visible shell context.
   `aria-busy` mark the wait, the composer stays non-interactive so a prompt cannot
   reach the session being left, and the destination session id is never paired
   with another session's messages. The destination is then revealed at its final
-  record without a top-of-history or empty-home flash on a first visit. An
-  evicted session instead restores its runtime reading bookmark: message id,
-  viewport offset, mounted-window budget, and explicit disclosure choices.
-  Reading bookmarks outlive DOM eviction and project switches, but not a
-  renderer/app restart; deleting the session releases them. If the bookmarked
-  message is outside the loaded page, read a bounded range around it using the
-  existing history API, without search focus or highlighting. Revalidation must
-  not replace that reading range with the latest page. Real scroll input, search
-  navigation, return-to-latest, and send/retry/regenerate take priority over
-  restoration; obsolete reads cannot reclaim the viewport. A missing anchor
-  falls back to latest, and read failures use the existing error notification.
+  record without a top-of-history or empty-home flash. An evicted session is
+  indistinguishable from a first visit.
 - New Task is not a cold switch. Creating a session reveals the empty home on
   the first frame (the previous conversation and retained panes clear before
   `session.create`). Reusing the group's latest empty session commits that empty
   transcript on the same frame rather than waiting for `session.get`. The
   durable row is inserted from the `session.create` summary; send and paste wait
   for that in-flight create instead of opening a second slot (ADR 0154).
-- A first-opened session settles at its newest turn. A revisited pane returns to
-  the offset the user left, and a pane still pinned re-anchors to the bottom;
-  activation no longer resets manual-scroll state for a revisit (ADR 0137).
+- A session always opens at its newest turn, whether it is opened for the first
+  time or revisited: activation re-pins the transcript even if the user had
+  scrolled a retained pane up, so switching never lands on the oldest loaded
+  rows (D687, ADR 0137).
   History continuation (D269) does not page earlier rows from a collapsed
   scroller or from a pinned overflowing transcript whose `scrollTop` has been
   reset to 0; a real gesture in the near-top band still continues history. An

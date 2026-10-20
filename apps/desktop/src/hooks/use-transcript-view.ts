@@ -18,7 +18,7 @@ export function useTranscriptView(sessionId: string) {
     hasMoreAfter: view?.hasMoreAfter ?? false,
     focus: view?.focus ?? null,
     parentMessage: view?.parentMessage,
-    historical: Boolean(view?.focus || view?.restored),
+    historical: Boolean(view?.focus),
     loading: Boolean(view?.loading),
   };
 }

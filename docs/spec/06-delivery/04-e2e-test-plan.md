@@ -5635,11 +5635,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   top-of-history frame, and opening it does not visibly slow down as the
   conversation grows. Each older page prepends without moving the message the
   user is reading. Paging back reaches the true first message with none skipped
-  or duplicated. Re-selection paints from the retained pane: the first frame back
-  is the same frame that was left, at the same scroll position, with no dim, no
-  blank or skeleton frame, and no rebuild of the rows. A pane the user had
-  scrolled up in returns to that measured offset rather than the bottom, and a
-  pane left pinned re-anchors to the bottom. The new turn appends normally.
+  or duplicated. Re-selection paints from the retained pane with no dim, no
+  blank or skeleton frame, and no rebuild of the rows, settled at the newest
+  message: a pane the user had scrolled up in also opens at the bottom (D687).
+  The new turn appends normally.
 - **Specs linked**: `03-runtime/04-data-storage.md`,
   `03-runtime/06-host-rpc-protocol.md`, ADR 0137
 - **Acceptance**: C (chat stream), F (persistence), Quality
@@ -5736,12 +5735,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Expected**: Only the visible pane and the two most recently visited ones are
   retained; visiting beyond that budget evicts the oldest pane. A warm return
   paints the retained frame and offset immediately. Returning to an evicted
-  session restores the message and viewport offset recorded before eviction,
-  including explicit expanded content, using a bounded historical read if the
-  latest page no longer contains the anchor. The cold selection's progress track
-  and composer fence remain unchanged. No search highlight is introduced, live
-  model-input messages are unchanged, and real input or a new turn cancels
-  automatic alignment. First visits and pinned revisits still follow latest. Nothing is
+  session behaves exactly like a cold open: the visible pane stays on its own
+  session under the thin progress track, the composer is inert until the
+  destination commits, and the destination then paints at its newest turn with no
+  error, no empty frame, and no restored offset from before eviction. Nothing is
   dimmed at any point, hidden panes stay non-interactive and out of the
   accessibility tree, and repeated cycling neither leaks a growing number of
   mounted transcripts nor leaves a pane showing another session's rows.
@@ -5749,9 +5746,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `04-ux/09-interaction-patterns.md` §5, ADR 0130, ADR 0137
 - **Acceptance**: C (switch sessions), Quality
 - **Milestone**: M5
-- **Status**: Renderer regression automated by
-  `node scripts/e2e-transcript-reading-position.mjs` (isolated React/Electron,
-  fixture IPC); live UI scenario Draft.
+- **Status**: Draft
 
 #### E2E-071h: Reopening a session while its response is streaming
 
