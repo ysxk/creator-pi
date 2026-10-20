@@ -29,7 +29,40 @@ export type McpOAuthMetadata = {
   tokenEndpoint: string;
   registrationEndpoint?: string;
   scope?: string;
+  /**
+   * The authorization server's `issuer`, checked against the server it was
+   * discovered from (RFC 8414 §3.3). Absent when the metadata names none.
+   */
+  issuer?: string;
+  /** The server promises an `iss` on every authorization response (RFC 9207). */
+  issParameterSupported?: boolean;
 };
+
+/** Issuer URLs compare without a trailing slash, which URL parsing adds to bare origins. */
+function sameIssuer(left: string, right: string): boolean {
+  const trim = (value: string) => (value.endsWith("/") ? value.slice(0, -1) : value);
+  return trim(left) === trim(right);
+}
+
+/**
+ * RFC 9207: a code is exchanged only when the callback's `iss` matches the
+ * issuer this flow discovered. An `iss` with no known issuer to compare it to
+ * cannot be verified and is rejected, and a server that promises `iss` must
+ * send it. Ported from pi-mcp 1.2.0 (c5f5b3282d). Returns an error message,
+ * or undefined when the response may be used.
+ */
+export function authorizationResponseIssuerError(
+  metadata: Pick<McpOAuthMetadata, "issuer" | "issParameterSupported">,
+  iss: string | null,
+): string | undefined {
+  if (iss === null && !metadata.issParameterSupported) return undefined;
+  if (iss === null) return "the authorization server did not identify itself (missing iss)";
+  if (!metadata.issuer) return "the authorization response issuer cannot be verified";
+  if (!sameIssuer(iss, metadata.issuer)) {
+    return `the authorization response came from a different issuer (${iss})`;
+  }
+  return undefined;
+}
 
 export type McpOAuthDeps = {
   call: <T = unknown>(method: string, params?: unknown) => Promise<T>;
@@ -291,6 +324,13 @@ export class McpOAuthManager {
       }
     }
 
+    // RFC 8414 §3.3: metadata must describe the server it was fetched for.
+    const issuer = typeof asMeta?.issuer === "string" ? asMeta.issuer : undefined;
+    if (issuer !== undefined && !sameIssuer(issuer, authServer)) {
+      throw new Error(
+        `MCP OAuth metadata issuer mismatch: expected ${authServer}, got ${issuer}`,
+      );
+    }
     const authorizationEndpoint =
       typeof asMeta?.authorization_endpoint === "string" ? asMeta.authorization_endpoint : "";
     const tokenEndpoint =
@@ -317,6 +357,10 @@ export class McpOAuthManager {
       tokenEndpoint,
       registrationEndpoint,
       scope,
+      ...(issuer !== undefined ? { issuer } : {}),
+      ...(asMeta?.authorization_response_iss_parameter_supported === true
+        ? { issParameterSupported: true }
+        : {}),
     };
   }
 
@@ -541,6 +585,21 @@ export class McpOAuthManager {
               res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
               res.end(this.renderHtml(false, "Invalid OAuth callback: missing code"));
               const err = new Error("Invalid OAuth callback: missing code");
+              rejectToken(err);
+              reject(err);
+              return;
+            }
+
+            // Never send a code that another authorization server issued to
+            // this one's token endpoint (mix-up attack, RFC 9207).
+            const issuerError = authorizationResponseIssuerError(
+              metadata,
+              reqUrl.searchParams.get("iss"),
+            );
+            if (issuerError) {
+              res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+              res.end(this.renderHtml(false, `Invalid OAuth callback: ${issuerError}`));
+              const err = new Error(`OAuth issuer check failed: ${issuerError}`);
               rejectToken(err);
               reject(err);
               return;

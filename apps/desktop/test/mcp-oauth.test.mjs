@@ -91,7 +91,10 @@ function createMockFetch(options = {}) {
 
     if (url.pathname === "/.well-known/oauth-authorization-server") {
       return new Response(JSON.stringify({
-        issuer: "https://notion.test",
+        ...(options.asIssuer === null ? {} : { issuer: options.asIssuer ?? "https://notion.test" }),
+        ...(options.issParameterSupported
+          ? { authorization_response_iss_parameter_supported: true }
+          : {}),
         authorization_endpoint: "https://notion.test/authorize",
         token_endpoint: "https://notion.test/token",
         registration_endpoint: "https://notion.test/register",
@@ -983,4 +986,83 @@ test("McpOAuthManager: onAuthorized receives the server record", async (t) => {
   await waitUntil(() => authorized);
   assert.equal(authorized.serverId, record.id);
   assert.equal(authorized.record, record);
+});
+
+
+/**
+ * RFC 9207 / RFC 8414 issuer checks, ported from pi-mcp 1.2.0 (c5f5b3282d):
+ * a code is never exchanged unless the callback's `iss` can be matched to the
+ * authorization server the flow discovered.
+ */
+async function issuerFlow(t, fetchOptions) {
+  const host = fakeHost();
+  const { mockFetch, tokenRequests } = createMockFetch(fetchOptions);
+  const { mockCreateServer, simulateCallback } = createMockServerFactory();
+  const events = [];
+  let openedUrl = null;
+  const manager = new McpOAuthManager({
+    call: host.call,
+    fetchImpl: mockFetch,
+    createServer: mockCreateServer,
+    emit: (event) => events.push(event),
+    openExternal: async (url) => {
+      openedUrl = url;
+    },
+  });
+  t.after(() => manager.disposeAll());
+  await manager.start("issuer-test", "https://notion.test/mcp");
+  await waitUntil(() => openedUrl || events.some((event) => event.kind === "error"));
+  const state = openedUrl ? new URL(openedUrl).searchParams.get("state") : null;
+  const callback = (extra = "") =>
+    simulateCallback(`/callback?code=valid-code&state=${encodeURIComponent(state)}${extra}`);
+  const exchanged = () => tokenRequests.some((request) => request.grant_type === "authorization_code");
+  return { events, openedUrl, callback, exchanged, manager };
+}
+
+test("McpOAuthManager: rejects authorization server metadata for another issuer", async (t) => {
+  const flow = await issuerFlow(t, { asIssuer: "https://evil.test" });
+  assert.equal(flow.openedUrl, null, "no browser is opened for mismatched metadata");
+  const error = flow.events.find((event) => event.kind === "error");
+  assert.ok(error);
+  assert.match(error.message, /issuer/i);
+});
+
+test("McpOAuthManager: a callback whose iss names another server never exchanges the code", async (t) => {
+  const flow = await issuerFlow(t, {});
+  const res = await flow.callback(`&iss=${encodeURIComponent("https://evil.test")}`);
+  assert.equal(res.statusCode, 400);
+  assert.equal(flow.exchanged(), false);
+  await waitUntil(() => flow.events.some((event) => event.kind === "error"));
+  assert.match(flow.events.find((event) => event.kind === "error").message, /issuer/i);
+  assert.equal(await flow.manager.hasOAuth("issuer-test"), false);
+});
+
+test("McpOAuthManager: an iss that cannot be verified is rejected", async (t) => {
+  // The metadata names no issuer, so there is nothing to compare `iss` with.
+  const flow = await issuerFlow(t, { asIssuer: null });
+  const res = await flow.callback(`&iss=${encodeURIComponent("https://notion.test")}`);
+  assert.equal(res.statusCode, 400);
+  assert.equal(flow.exchanged(), false);
+});
+
+test("McpOAuthManager: a server that promises iss must send it", async (t) => {
+  const flow = await issuerFlow(t, { issParameterSupported: true });
+  const res = await flow.callback();
+  assert.equal(res.statusCode, 400);
+  assert.equal(flow.exchanged(), false);
+});
+
+test("McpOAuthManager: a matching iss completes the login", async (t) => {
+  const flow = await issuerFlow(t, { issParameterSupported: true });
+  const res = await flow.callback(`&iss=${encodeURIComponent("https://notion.test")}`);
+  assert.equal(res.statusCode, 200);
+  assert.equal(flow.exchanged(), true);
+  await waitUntil(() => flow.events.some((event) => event.kind === "done"));
+});
+
+test("McpOAuthManager: issuer comparison ignores a trailing slash on a bare origin", async (t) => {
+  const flow = await issuerFlow(t, { asIssuer: "https://notion.test/" });
+  const res = await flow.callback(`&iss=${encodeURIComponent("https://notion.test/")}`);
+  assert.equal(res.statusCode, 200);
+  assert.equal(flow.exchanged(), true);
 });

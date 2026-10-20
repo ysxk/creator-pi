@@ -8271,6 +8271,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Acceptance**: E (tools & permissions), Security
 - **Milestone**: M5
 - **Discovery regression (#1221):** Local HTTP authorization flow covers root and path issuers, ordered OAuth/OIDC fallbacks, challenge-scope precedence, all protected-resource scopes, and omitted scope when absent. It checks the real callback, PKCE token exchange and storage handoff using synthetic tokens; no external account is contacted.
+- **Issuer checks (D689):** Authorization-server metadata whose `issuer` is not the server it was fetched for stops the login before the browser opens. A callback is exchanged only when its `iss` matches that issuer: a different `iss`, an `iss` when the metadata names no issuer, or a missing `iss` from a server that advertises `authorization_response_iss_parameter_supported` fails the login with no token request. A matching `iss`, or none from a server that does not promise one, completes as before.
 - **Status**: Unit-covered (`apps/desktop/test/mcp-oauth.test.mjs`, `apps/desktop/test/user-mcp.test.mjs`); local HTTP flow covered by `apps/desktop/test/mcp-oauth-discovery.test.mjs`; full UI journey Draft
 
 #### E2E-261: Clear a per-server MCP timeout override
