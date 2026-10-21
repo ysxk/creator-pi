@@ -885,17 +885,17 @@ may be retained while exactly one workspace supplies the visible shell context.
 
 - Tool activity starts as a lightweight collapsed item row. Failed and denied
   calls keep their issue in the row header and do not auto-expand their payload.
-- One unified presentation gives each loaded assistant turn chronological
-  collapsible process segments. They contain thinking, tools, hosted searches and
+- One unified presentation gives each loaded assistant turn one collapsible
+  process disclosure (D691) holding chronological segments. They contain thinking, tools, hosted searches and
   intermediate progress text; the trailing answer, assistant errors and stopped
   trailing text remain outside them.
 - A contiguous activity segment receives a group disclosure only when it has at
   least two visible items under the current thinking preference. Progress text or a
   Bash row ends the segment, a singleton uses its item disclosure directly, and
   hidden thinking does not create a redundant group. Existing Task topology remains
-  separate. Bash and run aliases are excluded from every process disclosure —
-  neither a turn-level process disclosure nor a group — and stay standalone rows
-  that remain visible even when every group is collapsed; adjacent Bash rows each
+  separate. Bash and run aliases are never folded into a group: they stay
+  standalone rows directly inside the turn-level process disclosure, visible
+  whenever it is open even with every group collapsed; adjacent Bash rows each
   remain standalone.
 - The active ordinary group starts open and closes when it completes only if
   untouched; completed groups otherwise start closed, and an untouched active group

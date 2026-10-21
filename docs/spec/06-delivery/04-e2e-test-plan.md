@@ -3158,7 +3158,7 @@ identify the platform validation still needed.
   progress paragraph B, and a multi-item command segment with adjacent Bash rows.
   2) Inspect the open active group; manually close it while more output arrives.
   3) Complete the turn and inspect untouched versus user-owned groups, and confirm
-  the Bash rows stay visible with every group collapsed. 4) Open one completed
+  the Bash rows stay visible in the open process with every group collapsed. 4) Open one completed
   group and one item, copy its output, close and reopen the group, then open a
   sibling group independently. 5) Repeat with a singleton item and with the last
   activity group's literal final item set to a tool/search, thinking, failed tool,
@@ -3167,8 +3167,9 @@ identify the platform validation still needed.
   the retained pane, then reload the renderer and reopen the session.
 - **Expected**: Chronological collapsible process segments keep the trailing answer
   outside them. The active group opens, then closes on completion only if
-  untouched; completed groups otherwise start closed. Bash/run aliases are excluded
-  from every process disclosure and stay visible even when every group is collapsed.
+  untouched; completed groups otherwise start closed. One turn-level process
+  disclosure folds the whole process; Bash/run aliases render standalone directly
+  inside it and stay visible while it is open even when every group is collapsed.
   A singleton has no group wrapper. No item payload opens itself: a tool/search row
   stays a header until the user opens it, while a final thinking item keeps its own
   leaf default and never selects an earlier tool. When `Show thinking` is off, the
@@ -16620,17 +16621,21 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   `Show thinking` off and confirm the live thinking indicator remains while
   completed reasoning rows and excerpts disappear and no empty thinking-only
   container is left; turn it back on and confirm the completed rows return. Collapse
-  every group and confirm the Bash/run rows stay visible. Review the nested path,
+  every group inside the open process and confirm the Bash/run rows stay visible;
+  collapse the process and confirm the whole turn, Bash rows included, folds into
+  one header. Review the nested path,
   including independent group/item toggles, parent close/reopen, a singleton
   segment, literal-final-item leaf selection, failure/denial/recovery, retained-pane
   remounts, Bash rows staying standalone (including adjacent Bash rows) with their
   details closed until opened, and a legacy search reveal.
-- **Expected:** Chronological collapsible process segments leave the final answer,
-  assistant errors, stopped trailing text and pending actions outside them. The
+- **Expected:** One turn-level process disclosure (D692) holds the chronological
+  process segments and leaves the final answer, assistant errors, stopped trailing
+  text and pending actions outside it. The
   active group starts open; untouched groups collapse at completion, while explicit
   user choices persist. These group defaults do not depend on the `Show thinking`
-  preference. Bash/run aliases are excluded from every process disclosure and stay
-  standalone rows visible even when every group is collapsed; adjacent Bash rows
+  preference. Bash/run aliases are never folded into a group; they stay standalone
+  rows directly inside the process, visible while it is open even when every group
+  is collapsed, and fold away with it; adjacent Bash rows
   each remain standalone and a Bash row's detail stays closed until the user opens
   it. When `Show thinking` is off, the live thinking indicator stays visible,
   completed reasoning rows and excerpts are hidden, and empty thinking-only

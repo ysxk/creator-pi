@@ -234,9 +234,9 @@ export const TranscriptTail = memo(function TranscriptTail({
 );
 
 /**
- * A `Bash`/run call rendered on its own, outside every process and activity
- * disclosure. It stays visible with all disclosures collapsed, and its own
- * detail stays closed until the user opens it.
+ * A `Bash`/run call rendered as its own row inside the turn's process, never
+ * folded into an ordinary activity group. Its own detail stays closed until
+ * the user opens it.
  */
 const StandaloneRunRow = memo(function StandaloneRunRow({
   segment,
@@ -340,11 +340,12 @@ export const AssistantTurn = memo(function AssistantTurn({
   timingsRef.current = turnDelegationTimings;
   const { process, responses } = summary;
   const segments = useMemo(() => segmentTurnProcess(process), [process]);
-  // The live tail is the turn's actual last part. A process chunk opens and
+  // The live tail is the turn's actual last part. The process opens and
   // reports live state only while it owns that part, so a superseded thinking
-  // chunk cannot keep a false "Thinking" header once a Bash call or a separate
-  // streamed answer takes over the turn.
+  // row cannot keep a false "Thinking" header once a separate streamed answer
+  // takes over the turn.
   const activePart = isActive ? entry.parts.at(-1) : undefined;
+  const processActive = activePart !== undefined && process.includes(activePart);
   const partContext = { isActive, activePart, runtimeActivity, turnDelegationStatuses, turnDelegationTimings };
 
   return (
@@ -357,25 +358,21 @@ export const AssistantTurn = memo(function AssistantTurn({
       aria-label={t("chat.assistantMessage")}
     >
       <div className="message-col">
-        {segments.map((segment) => {
-          if (segment.kind === "run") {
-            return <StandaloneRunRow key={`run-${segment.key}`} segment={segment} />;
-          }
-          const ownsActiveTail =
-            activePart !== undefined && segment.parts.includes(activePart);
-          return (
-            <TurnProcess
-              key={`process-${segment.key}`}
-              turnId={segment.key}
-              processParts={segment.parts}
-              turnParts={entry.parts}
-              isActive={isActive && ownsActiveTail}
-              delegationStatuses={turnDelegationStatuses}
-            >
-              <AssistantTurnParts parts={segment.parts} {...partContext} />
-            </TurnProcess>
-          );
-        })}
+        {/*
+          One disclosure folds the whole process (D692). Inside it, Bash rows
+          stay standalone in chronological order between the ordinary chunks.
+        */}
+        <TurnProcess
+          turnId={entry.id}
+          processParts={process}
+          turnParts={entry.parts}
+          isActive={processActive}
+          delegationStatuses={turnDelegationStatuses}
+        >
+          {segments.map((segment) => segment.kind === "run"
+            ? <StandaloneRunRow key={`run-${segment.key}`} segment={segment} />
+            : <AssistantTurnParts key={`process-${segment.key}`} parts={segment.parts} {...partContext} />)}
+        </TurnProcess>
         <AssistantTurnParts parts={responses} {...partContext} />
         {generatedImages}
         {!isActive && metaMessage ? (

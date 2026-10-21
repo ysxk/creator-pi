@@ -851,11 +851,12 @@ tool/search/thinking segment between progress paragraphs or Bash rows. It render
 group header only when at least two items are visible under the current thinking
 preference. A singleton uses its item disclosure directly, hidden thinking never
 creates an empty wrapper, and the existing Task topology remains the container for
-delegated work. Bash and run aliases are excluded from every process disclosure —
-neither a turn-level process disclosure nor an ordinary activity group — and render
-as standalone rows that stay visible even when every group is collapsed. Adjacent
-Bash rows each remain standalone, and a Bash row's detail stays closed until the
-user opens it.
+delegated work. One turn-level process disclosure folds the whole process (D692).
+Bash and run aliases are never folded into an ordinary activity group: they render
+as standalone rows directly inside that disclosure, in chronological order, so they
+stay visible whenever the process is open even with every group collapsed, and fold
+away with the process. Adjacent Bash rows each remain standalone, and a Bash row's
+detail stays closed until the user opens it.
 
 The ordinary group owning the active execution segment starts open while a turn is
 active, then closes on completion only if untouched; other completed groups start
@@ -2247,9 +2248,9 @@ One contiguous tool/search/thinking segment between progress paragraphs or Bash
 rows becomes an ordinary processing group only when it has two or more visible
 items under the current thinking preference. A singleton uses its item disclosure
 directly, and Task topology keeps its existing container. Bash and run aliases are
-excluded from every process disclosure — neither a turn-level process disclosure
-nor an ordinary group — and render as standalone rows that stay visible even when
-every group is collapsed; adjacent Bash rows each remain standalone. While the
+never folded into an ordinary group: they render as standalone rows directly inside
+the turn-level process disclosure (D692), visible whenever it is open even with
+every group collapsed; adjacent Bash rows each remain standalone. While the
 turn is active, the ordinary group owning the execution segment opens; when it
 settles, an untouched group closes. These group defaults do not depend on the
 thinking preference. No item payload opens itself: a tool, hosted-search or plan
@@ -2291,8 +2292,9 @@ seconds when non-zero) from one hour onward. Zero-value units are omitted, so
   auto-opens, so a final thinking item never selects an earlier tool. Live
   thinking follows its own indicator/disclosure policy and never opens sibling
   payloads.
-- Bash and run rows render standalone outside every process disclosure and stay
-  visible even when every group is collapsed; adjacent Bash rows remain separate.
+- Bash and run rows render standalone directly inside the turn-level process
+  disclosure and stay visible while it is open even when every group is collapsed;
+  adjacent Bash rows remain separate (D692).
 - The processing group spans the full available assistant column, so expanded
   result details keep a usable width even when the header or payload is short.
 - The visible label is a natural-language action (`Read`, `Ran`, `Searched`),
