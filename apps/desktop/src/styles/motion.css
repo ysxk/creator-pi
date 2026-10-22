@@ -30,3 +30,94 @@
     transform: rotate(360deg);
   }
 }
+
+/*
+  A running label's sheen (D694): a soft band of full-strength ink crossing
+  muted text. The band is a masked window that travels with `transform`, and
+  the copy of the text inside it travels back by the same distance, so the
+  letters stay put while the light moves. Both run on the compositor; nothing
+  repaints per frame.
+*/
+@keyframes ds-sheen-window {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ds-sheen-text {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/*
+  Motion personalities in use (D694). Only `from` or `to` is given, so each
+  keyframe ends on (or starts from) whatever the surface already is.
+*/
+
+/* A row revealed by an opening fold settles in from just above. */
+@keyframes ds-fold-item {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* A floating surface grows out of the control that opened it. */
+@keyframes ds-surface-grow {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ds-surface-shift, -4px)) scale(0.96);
+  }
+}
+
+/* And leaves faster than it came, toward the same control. */
+@keyframes ds-surface-leave {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--ds-surface-shift, -4px) / 2)) scale(0.97);
+  }
+}
+
+/* A centred dialog settles into place from slightly below and smaller. */
+@keyframes ds-dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+}
+
+@keyframes ds-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A feedback glyph (a copy check, a ready send arrow) pops in on the pop spring. */
+@keyframes ds-glyph-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-12deg);
+  }
+}
+
+/* The glyph a feedback state replaced comes back without a jump. */
+@keyframes ds-glyph-return {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+/* A control that just became actionable grows to size once. */
+@keyframes ds-ready-pop {
+  from {
+    transform: scale(0.8);
+  }
+}

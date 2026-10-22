@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FileTypeBadge } from "./FileTypeBadge";
-import { HighlightedCode, useCopy } from "./Markdown";
+import { copyFeedbackClass, HighlightedCode, useCopy } from "./Markdown";
 import { LargeTextPreview } from "./LargeTextPreview";
 import { IconCheck, IconCircleAlert, IconCopy, IconInfo } from "./icons";
 import { TooltipButton, cx } from "./ui";
@@ -61,13 +61,13 @@ function blockCopyText(block: ToolBlock): string {
 }
 
 function BlockHead({ label, copy }: { label: string; copy: string }) {
-  const { copied, copy: run } = useCopy();
+  const { copied, returning, copy: run } = useCopy();
   const { t } = useTranslation();
   return (
     <div className="tool-row-section-head">
       <span>{label}</span>
       <TooltipButton
-        className={cx("tool-row-copy", copied && "copied")}
+        className={cx("tool-row-copy", copyFeedbackClass({ copied, returning }))}
         tooltip={copied ? t("chat.copied") : t("chat.copy")}
         ariaLabel={`${t("chat.copy")} ${label}`}
         onClick={() => run(copy)}

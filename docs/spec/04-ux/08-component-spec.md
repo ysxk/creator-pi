@@ -2267,6 +2267,13 @@ terminally failed; terminal agent errors remain owned by the assistant error or
 TurnOutcomeCard surface. A user action on a group, item, or collapse rail claims
 that level and its containing group without toggling them, so streaming and completion
 never reverse the chosen state or close around focused/selected content.
+The turn-level process and a group fold by their row height (D694): a reader's own
+open grows on the snap spring with the revealed rows easing in a step behind, a
+close settles faster and still ends with the body out of layout, and the caret turns
+with it. Only a click animates an open; a body that renders open — a restored or new
+turn, a search reveal — appears at full height. A running header's label is muted
+with a passing sheen, and its seconds are tabular so the counts after it never
+shift.
 Elapsed labels use compact automatically carried units: seconds below one
 minute, minutes plus seconds below one hour, and hours plus minutes (and
 seconds when non-zero) from one hour onward. Zero-value units are omitted, so

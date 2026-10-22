@@ -81,6 +81,7 @@ import {
   remarkLatexBracketDisplay,
 } from "../lib/latex-math";
 import { useAppStore } from "../stores/app-store";
+import { COPY_FEEDBACK_MS } from "../lib/motion";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { absoluteImagePath, remarkLocalImagePaths } from "../lib/markdown-image-paths";
 import { remarkNormalizeWrappedMarkdownLinkDestinations } from "../lib/markdown-link-destinations";
@@ -124,18 +125,33 @@ import {
  * states why, and why that trade is the right one.
  */
 
+/** The returning copy glyph's ease-in; longer than its glide. */
+const COPY_RETURN_MS = 450;
+
+/**
+ * Copy with feedback that clears itself (D694): `copied` while the check
+ * shows, then `returning` for the beat in which the copy glyph eases back.
+ */
 export function useCopy() {
-  const [copied, setCopied] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "copied" | "returning">("idle");
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const copy = useCallback((text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
       window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setCopied(false), 1500);
+      setPhase("copied");
+      timer.current = window.setTimeout(() => {
+        setPhase("returning");
+        timer.current = window.setTimeout(() => setPhase("idle"), COPY_RETURN_MS);
+      }, COPY_FEEDBACK_MS);
     });
   }, []);
-  return { copied, copy };
+  return { copied: phase === "copied", returning: phase === "returning", copy };
+}
+
+/** The class a copy control wears for its feedback state. */
+export function copyFeedbackClass({ copied, returning }: { copied: boolean; returning: boolean }) {
+  return copied ? "copied" : returning ? "copy-returning" : "";
 }
 
 /* ---------- theme (follows documentElement[data-theme]) ---------- */
@@ -249,7 +265,7 @@ export function HighlightedCode({
 
 function CodeBlock({ code, lang, ...position }: { code: string; lang: string } & SourcePositionProps) {
   const { t } = useTranslation();
-  const { copied, copy } = useCopy();
+  const { copied, returning, copy } = useCopy();
   return (
     <div className="code-block" {...position}>
       <div className="code-block-head">
@@ -258,7 +274,7 @@ function CodeBlock({ code, lang, ...position }: { code: string; lang: string } &
           {lang || "text"}
         </span>
         <TooltipButton
-          className={`code-copy-btn ${copied ? "copied" : ""}`}
+          className={`code-copy-btn ${copyFeedbackClass({ copied, returning })}`}
           tooltip={copied ? t("chat.copied") : t("chat.copy")}
           ariaLabel={t("chat.copy")}
           onClick={() => copy(code)}
@@ -313,7 +329,7 @@ function MermaidBlock({ code, ...position }: { code: string } & SourcePositionPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<"invalid" | "too-large" | null>(null);
   const [showSource, setShowSource] = useState(false);
-  const { copied, copy } = useCopy();
+  const { copied, returning, copy } = useCopy();
 
   useEffect(() => {
     setShowSource(false);
@@ -393,7 +409,7 @@ function MermaidBlock({ code, ...position }: { code: string } & SourcePositionPr
           ) : null}
           <TooltipButton
             type="button"
-            className={`mermaid-action-btn${copied ? " copied" : ""}`}
+            className={`mermaid-action-btn ${copyFeedbackClass({ copied, returning })}`}
             tooltip={copied ? t("chat.copied") : t("chat.copyDiagramSource")}
             ariaLabel={t("chat.copyDiagramSource")}
             onClick={() => copy(code)}

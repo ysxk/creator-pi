@@ -731,7 +731,24 @@ CSS custom properties on `:root` (D146):
 
 - Enter animations: `ease-out`
 - Exit animations: `ease-in`
-- Spring-like for drag/releases: **not in MVP** (use `ease-out`)
+
+**Motion personalities (D694).** Motion is chosen by what moves, not by taste.
+Three personalities are real damped springs (mass 1), sampled into CSS
+`linear()` by `scripts/motion-springs.mjs`; each duration is that spring's
+settle time, and `apps/desktop/test/motion-tokens.test.mjs` fails when
+tokens.css drifts from the script.
+
+| Personality | Variables | Spring | Use |
+|---|---|---|---|
+| Snap | `--motion-ease-snap` / `--motion-duration-snap` (388ms) | stiffness 1200, damping 80; over-damped, no overshoot | Structure: folds, anchored menus, dialogs, a fold's caret |
+| Glide | `--motion-ease-glide` / `--motion-duration-glide` (405ms) | 600 / 49; critically damped | Content easing into place: rows revealed by a fold, a returning glyph |
+| Pop | `--motion-ease-pop` / `--motion-duration-pop` (692ms) | 380 / 18; about 19% overshoot | Small feedback glyphs only: the copy check, a send or stop button arriving, a press releasing |
+| Exit | `--motion-duration-exit` (140ms) on `--motion-ease-in` | — | Any surface leaving; it leaves faster than it came |
+
+Hover and colour changes keep `--motion-duration-fast` / `--motion-ease-out`.
+Renderer code that waits for an exit reads `SURFACE_EXIT_MS` from
+`apps/desktop/src/lib/motion.ts`, which the same test keeps equal to
+`--motion-duration-exit`.
 
 ### 8.3 Startup splash (boot feedback)
 
@@ -756,15 +773,30 @@ plain status text:
 
 This is boot-state feedback, not decorative chrome.
 
-### 8.4 Overlay / floating surface enter
+### 8.4 Overlay / floating surface enter and exit
 
 Dialogs, search spotlight, and modal backdrops use shared enter keyframes:
 
 - Scrim: `overlay-in` (opacity, `--motion-duration-normal` / `--motion-ease-out`)
 - Dark theme scrim stays ~45% black; light theme uses ~28% `#1a1c1f` so white
   dialogs do not sit under a heavy veil (D148)
-- Centered surface: `surface-in` (fade + 8px rise + slight scale)
+- Centered dialog: `ds-dialog-rise` (fade + 12px rise + 94% scale) on the snap
+  spring (D694)
 - Top-anchored surface (search): `surface-in-top`
+
+Surfaces also leave (D694):
+
+- Anchored menus (`AnchoredMenu`, `ContextMenu`) grow from the edge that touches
+  what opened them (`ds-surface-grow` on snap) and, once closed, stay mounted
+  for `--motion-duration-exit` while `ds-surface-leave` plays: inert, at their
+  last position, `data-surface-state="closing"`. The shared rules live in
+  `surface-motion.css`, imported after the feature sheets so they out-rank each
+  surface's own `.is-open` entrance.
+- Dialogs still unmount at once. Their portal host (`#pi-desktop-overlays` or
+  `document.body`) plays a static copy of a departing `.overlay` for the exit — inert, click-through,
+  without ids, fields showing what was typed — and skips the copy when another
+  overlay replaces it in the same task, under reduced motion, or when the
+  dialog holds content that would load again (iframes, media, canvas).
 
 Toast enter/exit keep the existing removal contract (`animationend` on
 `toast-out`) while using the motion tokens and a slightly softer scale.
@@ -792,8 +824,12 @@ are also explicitly suppressed or collapsed to a static state.
 - No parallax
 - No continuous background animations (particles, waves), and no looping
   mascot: the empty-home mascot is a still image (D671)
-- No shimmer/skeleton animations longer than 1s loop — use simple fade-in for loading states
-- No bounce effects
+- No shimmer/skeleton animations longer than 1s loop — use simple fade-in for
+  loading states. The one exception is the sheen on a running process label
+  (D694): one 2.2s pass, transform-only, paused with the window, hidden under
+  reduced motion
+- No bounce effects on structure or content. The pop spring (about 19%
+  overshoot) is reserved for small feedback glyphs (D694)
 - No multi-second boot theatrical sequences; splash exits as soon as ready (+ min dwell)
 
 ### 8.7 Responsive interaction feedback
@@ -808,7 +844,9 @@ High-frequency workstation feedback must remain compositor-friendly and bounded:
   controls provide a subtle pressed scale while active. The base transition
   includes `transform`, so press and release never snap; hover styling never
   changes element dimensions or surrounding layout.
-- Composer focus lifts by 1px with a restrained token-based shadow. Its
+- The composer rests on a 0.5px neutral ring and a layered lift, and focus
+  closes a neutral double ring (1px ring, 4px halo) around a deeper lift with a
+  slight inset, on the snap spring; never an accent outline (D694). Its
   near-opaque surface must not use backdrop blur: transcript updates beneath a
   blur layer would force avoidable repaint/compositing work while streaming.
 - Inline chat error notices wrap long provider detail and keep their actions
@@ -1184,7 +1222,7 @@ padding that under the global `border-box` would leave a 12px content box for a
 | Max width | 480px |
 | Padding | p-6 |
 | Radius | radius-lg-plus |
-| Background | bg-secondary (dark); bg-white (light) + shadow-lg |
+| Background | bg-elevated-opaque; no border, `--ds-shadow-modal` (a hairline ring inside a layered lift, D694) |
 | Backdrop | rgba(0,0,0,0.5) with `z-dialog` |
 | Close | Escape key + X button top-right |
 

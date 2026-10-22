@@ -17,7 +17,9 @@ import {
   IconCircleAlert,
   IconSparkles,
 } from "../../../components/icons";
+import { ActivityLabel } from "./ActivityLabel";
 import { DisclosureCollapseRail } from "./shared";
+import { useFoldOpening } from "./useFoldOpening";
 import { DisclosureScope, disclosureKey, useAutomaticDisclosure } from "./disclosure";
 
 export function TurnProcess({
@@ -55,6 +57,7 @@ export function TurnProcess({
     disclosureKey("turn", turnId),
   );
   const detailsId = useId();
+  const fold = useFoldOpening();
   const [now, setNow] = useState(Date.now);
   const { startedAt, endedAt } = useMemo(() => turnProcessTiming(turnParts), [turnParts]);
   useEffect(() => {
@@ -68,21 +71,28 @@ export function TurnProcess({
     0, Math.floor(((isActive ? now : (endedAt ?? startedAt)) - startedAt) / 1000),
   );
   return (
-    <section className={`turn-process${disclosure.open ? " open" : ""}${isActive ? " active" : ""}`}>
+    <section
+      className={`turn-process${disclosure.open ? " open" : ""}${isActive ? " active" : ""}`}
+      data-fold-opening={fold.opening ? "" : undefined}
+    >
       <button
         type="button"
         ref={disclosure.titleRef}
         className="tool-activity-header"
         aria-expanded={disclosure.open}
         aria-controls={detailsId}
-        onClick={disclosure.toggle}
+        onClick={() => {
+          if (!disclosure.open) fold.markOpening();
+          disclosure.toggle();
+        }}
       >
         <span className="tool-activity-icon" aria-hidden><IconSparkles size={14} /></span>
-        <span className={`tool-activity-label${isActive ? " running" : ""}`}>
-          {t(isActive ? thinkingNow ? "chat.thinkingFor" : "chat.processingFor" : "chat.processedFor", {
+        <ActivityLabel
+          running={isActive}
+          text={t(isActive ? thinkingNow ? "chat.thinkingFor" : "chat.processingFor" : "chat.processedFor", {
             time: formatToolDuration(seconds),
           })}
-        </span>
+        />
         {summary.issues > 0 ? (
           <span className="turn-process-error">
             <IconCircleAlert size={14} aria-hidden />
@@ -103,7 +113,9 @@ export function TurnProcess({
         {...disclosure.bodyEvents}
       >
         <DisclosureCollapseRail label={t("chat.collapseProcess")} onCollapse={disclosure.collapse} />
-        <DisclosureScope disclosure={disclosure}>{children}</DisclosureScope>
+        <div className="turn-process-fold">
+          <DisclosureScope disclosure={disclosure}>{children}</DisclosureScope>
+        </div>
       </div>
     </section>
   );

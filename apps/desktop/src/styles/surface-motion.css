@@ -1,0 +1,45 @@
+/*
+  Surface motion (D694): how floating layers arrive and leave.
+
+  Imported after every feature sheet, so these shared rules out-rank each
+  surface's own `.is-open` entrance at equal specificity: every anchored menu
+  grows from what opened it on the snap spring and leaves on the exit timing,
+  whichever feature owns it. AnchoredMenu and ContextMenu mark the surface with
+  `data-surface-motion` and set where it grows from (`--ds-surface-origin`) and
+  which way it travels (`--ds-surface-shift`).
+*/
+.is-open[data-surface-motion] {
+  transform-origin: var(--ds-surface-origin, left top);
+  animation: ds-surface-grow var(--motion-duration-snap) var(--motion-ease-snap);
+}
+
+/* The exit holds the last position and takes no input; usePresence unmounts
+   the surface once SURFACE_EXIT_MS has passed. */
+.is-open[data-surface-motion][data-surface-state="closing"] {
+  pointer-events: none;
+  animation: ds-surface-leave var(--motion-duration-exit) var(--motion-ease-in) both;
+}
+
+/*
+  Modal overlays unmount when they close, so their host keeps a static copy of
+  a departing one for its exit (lib/overlay-exit.ts): the scrim fades while the
+  surface sinks back the way it rose.
+*/
+#pi-desktop-overlays > .overlay[data-exit-ghost],
+body > .overlay[data-exit-ghost] {
+  pointer-events: none;
+  animation: ds-fade-out var(--motion-duration-normal) var(--motion-ease-in) both;
+}
+
+#pi-desktop-overlays > .overlay[data-exit-ghost] > *,
+body > .overlay[data-exit-ghost] > * {
+  --ds-surface-shift: 8px;
+  animation: ds-surface-leave var(--motion-duration-exit) var(--motion-ease-in) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-open[data-surface-motion],
+  .is-open[data-surface-motion][data-surface-state="closing"] {
+    animation: none;
+  }
+}

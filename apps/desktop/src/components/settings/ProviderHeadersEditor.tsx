@@ -9,6 +9,7 @@ import {
 import { IconCheck, IconCopy } from "../icons";
 import { Button } from "../ui";
 import { useAppStore } from "../../stores/app-store";
+import { COPY_FEEDBACK_MS } from "../../lib/motion";
 import { SettingsMenuSelect } from "./SettingsMenuSelect";
 
 type HeaderPreset = {
@@ -111,7 +112,7 @@ export function ProviderHeadersEditor({
       () => {
         setCopied(true);
         window.clearTimeout(copyTimer.current);
-        copyTimer.current = window.setTimeout(() => setCopied(false), 1500);
+        copyTimer.current = window.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
       },
       () => undefined,
     );

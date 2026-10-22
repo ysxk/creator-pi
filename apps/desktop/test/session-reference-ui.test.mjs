@@ -87,7 +87,8 @@ const shared = load(new URL("../src/features/chat/transcript/shared.tsx", import
   "../../../lib/file-type": { fileTypeOf: () => null },
   "../../../components/Markdown": {
     Markdown: ({ source }) => source,
-    useCopy: () => ({ copied: false, copy: () => {} }),
+    useCopy: () => ({ copied: false, returning: false, copy: () => {} }),
+    copyFeedbackClass: () => "",
   },
   "../../../components/icons": new Proxy({}, { get: () => Icon }),
   "../../../components/ui": {

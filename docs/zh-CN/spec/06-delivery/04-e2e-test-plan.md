@@ -9106,6 +9106,9 @@ the latest destination. These assertions measure work counts, not device FPS.
   本次范围内，被偏好隐藏的推理会保持隐藏，直到用户打开 `Show thinking`。已保存的
   `showThinking` 跨重启保留；缺失值回退到旧版 `thinkingDisplayMode`（`compact` 隐藏，
   `detailed`／未知／缺失显示）。
+  动效（D694）：点击收起的过程或组时，它从标题处长开，露出的行依次浮现；收起时动画播完，
+  主体立即 `hidden`，动画结束后退出布局；以展开状态渲染的主体（恢复的或新的回合、搜索
+  定位）直接以完整高度出现。运行中标题的秒数为等宽数字，计时跳动时后面的计数不会移动。
 - **2026-09-20 变更的验证范围：** 本次变更只包含多级折叠与活动组呈现；精确转录搜索
   定位不在本次范围内，保持原有搜索行为。
 - **自动化：** `pnpm test:e2e:transcript` 覆盖默认及运行中到完成时的过程披露行为；

@@ -16649,6 +16649,11 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   hidden by the preference stays hidden until the user turns `Show thinking` on.
   Saved `showThinking` survives restart; an absent value falls back to the legacy
   `thinkingDisplayMode` (`compact` hides, `detailed`/unknown/absent shows).
+  Motion (D694): a click on a closed process or group grows it from its header
+  with the revealed rows easing in; a close plays out and the body is `hidden`
+  at once and out of layout when it ends; a body that renders open (a restored or
+  new turn, a search reveal) appears at full height. A running header's seconds
+  are tabular, so the counts after them do not shift as the timer ticks.
 - **Validation scope for the 2026-09-20 change:** Nested disclosure and activity
   group presentation only; precise item-level transcript search targeting is out
   of scope and keeps the existing message-level search behavior.

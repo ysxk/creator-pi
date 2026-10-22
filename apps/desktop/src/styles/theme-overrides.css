@@ -48,13 +48,10 @@
 
 /* LIGHT_CODEX_OVERRIDES — density/chrome tweaks on top of semantic tokens */
 :root[data-theme="light"] .composer-shell {
-  /* WorkBuddy-style restraint: one solid plate, no decorative gradient. */
+  /* WorkBuddy-style restraint: one solid plate, no decorative gradient. The
+     neutral ring and lift come from composer.css, which also owns focus. */
   background: var(--ds-bg-composer);
   background-image: none;
-  /* A neutral hairline plus a soft lift; never an accent ring. */
-  box-shadow:
-    var(--ds-shadow-composer),
-    0 0 0 1px var(--ds-composer-stroke);
   outline: none;
   border: 0;
 }

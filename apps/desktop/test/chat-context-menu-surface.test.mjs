@@ -33,7 +33,10 @@ test("the pointer-anchored menu portals, measures, and closes without trapping f
   assert.match(menuSource, /live\.isCollapsed/);
   assert.match(menuSource, /root\.contains\(anchorNode\)/);
   assert.match(menuSource, /root\.contains\(focusNode\)/);
-  assert.match(menuSource, /item\.onSelect\(state\.selection\)/);
+  // `request` is the open request; while the menu plays its exit it is the
+  // last one shown, and the inert surface takes no clicks (D694).
+  assert.match(menuSource, /const request = state \?\? shown;/);
+  assert.match(menuSource, /item\.onSelect\(request\.selection\)/);
   assert.match(menuSource, /if \(!request\.items\.length\) return;/);
 });
 

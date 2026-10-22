@@ -114,7 +114,8 @@
   /* Dark keeps borderless tiles (D297); light redefines these as paper. */
   --ds-card: var(--ds-tile);
   --ds-card-stroke: transparent;
-  --ds-composer-stroke: transparent;
+  /* The composer's 0.5px edge (D694): a faint light ring, not a stroke. */
+  --ds-composer-stroke: color-mix(in oklab, var(--gray-0) 6%, transparent);
   --ds-pane-seam: transparent;
   /* Image viewers: the veil over the window, and the controls floating on it.
      Dark keeps the opaque stage it had; light frosts the window instead. */
@@ -127,6 +128,8 @@
   --ds-preview-control-hover: var(--gray-700);
   --ds-preview-control-stroke: transparent;
   --ds-send-glow: none;
+  /* A ready send button lifts toward the pointer (D694). */
+  --ds-send-glow-hover: 0 4px 14px color-mix(in oklab, var(--gray-0) 16%, transparent);
   /* The selected filter pill: a deeper tile here, the accent fill in light. */
   --ds-filter-active-bg: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
   --ds-filter-active-fg: var(--ds-text-primary);
@@ -174,11 +177,31 @@
   --ds-info: var(--gray-300);
   --ds-purple: #c27aff;
   --ds-shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.55);
+  /* A modal dialog is borderless: a hairline ring and a top light inside a
+     deep lift draw its edge (D694). */
+  --ds-shadow-modal:
+    0 0 0 0.5px color-mix(in oklab, var(--gray-0) 9%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--gray-0) 5%, transparent),
+    0 36px 72px -20px rgba(0, 0, 0, 0.85);
   --ds-shadow-model-menu: var(--ds-shadow-dialog);
   /* Codex --elevation-prominent (same stroke+lift in dark and light) */
   --ds-elevation-stroke: 0 0 0 0.5px color-mix(in oklab, var(--gray-0) 12%, transparent);
-  /* D297: the composer lifts by shadow alone; the hairline stroke is gone. */
-  --ds-shadow-composer: 0 3px 7.5px #0000000a, 0 0 20px #0000000d;
+  /*
+    The composer plate (also worn by the queued prompt, approval and ask cards).
+    Rest and focus keep the same layer list (two drops and an inset) so focus
+    interpolates instead of jumping; the focus ring itself is drawn by
+    composer.css from the two focus colours (D694).
+  */
+  --ds-shadow-composer:
+    0 1px 2px rgba(0, 0, 0, 0),
+    0 10px 28px -14px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 color-mix(in oklab, var(--gray-0) 4%, transparent);
+  --ds-shadow-composer-focus:
+    0 2px 4px rgba(0, 0, 0, 0),
+    0 18px 40px -14px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 color-mix(in oklab, var(--gray-0) 6%, transparent);
+  --ds-composer-focus-ring: color-mix(in oklab, var(--gray-0) 13%, transparent);
+  --ds-composer-focus-halo: color-mix(in oklab, var(--gray-0) 3%, transparent);
   --ds-bg-elevated-primary: color-mix(in oklab, var(--gray-800) 96%, transparent);
   --ds-sidebar-width: clamp(240px, 275px, min(520px, calc(100vw - 320px)));
   /* Settings rail border-box width, including its 1px right border. The
@@ -243,6 +266,39 @@
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /*
+    Motion personalities (design-system §8.2, D694): real springs sampled into
+    linear() by scripts/motion-springs.mjs, which also owns the numbers. Pick
+    by what moves: snap for structure (folds, anchored menus, dialogs), glide
+    for content easing into place, pop only for small feedback glyphs. Exits
+    leave faster than they came, on --motion-ease-in.
+  */
+  --motion-ease-snap: linear(
+    0, 0.0043 0.64%, 0.0173 1.42%, 0.0372 2.19%, 0.0666 3.09%, 0.1329 4.77%,
+    0.3325 9.28%, 0.4383 11.86%, 0.4913 13.27%, 0.5402 14.69%, 0.6262 17.53%, 0.6667 19.07%,
+    0.7031 20.62%, 0.7382 22.29%, 0.7694 23.97%, 0.8247 27.58%, 0.8696 31.44%, 0.9068 35.82%,
+    0.9366 40.85%, 0.959 46.52%, 0.9755 53.22%, 0.9863 60.82%, 0.9934 70.23%, 1
+  );
+  --motion-duration-snap: 388ms;
+  --motion-ease-glide: linear(
+    0, 0.0051 0.99%, 0.0201 2.1%, 0.0459 3.33%, 0.0824 4.69%, 0.1584 7.04%,
+    0.3632 12.72%, 0.464 15.68%, 0.5617 18.89%, 0.6429 21.98%, 0.7141 25.19%, 0.7749 28.52%,
+    0.8273 32.1%, 0.8696 35.8%, 0.9068 40.12%, 0.9363 44.94%, 0.9589 50.37%, 0.9755 56.67%,
+    0.9864 63.7%, 0.9935 72.47%, 1
+  );
+  --motion-duration-glide: 405ms;
+  --motion-ease-pop: linear(
+    0, 0.0026 0.51%, 0.0096 1.01%, 0.0206 1.52%, 0.0378 2.09%, 0.0817 3.18%,
+    0.1469 4.4%, 0.2148 5.49%, 0.2951 6.64%, 0.6219 10.97%, 0.7511 12.78%, 0.8134 13.72%,
+    0.8716 14.66%, 0.9254 15.6%, 0.9707 16.46%, 1.0117 17.33%, 1.0484 18.19%, 1.0807 19.06%,
+    1.1107 20%, 1.134 20.87%, 1.1546 21.81%, 1.1705 22.74%, 1.182 23.68%, 1.1911 24.91%,
+    1.194 26.21%, 1.1906 27.58%, 1.1812 29.03%, 1.1502 31.84%, 1.0549 38.48%, 1.0143 41.81%,
+    0.9823 45.56%, 0.9657 49.39%, 0.9624 52.13%, 0.9648 55.16%, 0.9965 67.65%, 1.0061 74.58%,
+    1.0069 81.01%, 1
+  );
+  --motion-duration-pop: 692ms;
+  /* A surface's exit; renderer code that waits for it reads SURFACE_EXIT_MS. */
+  --motion-duration-exit: 140ms;
   /* File-type marks (chat-links.css). These are the languages' and formats'
      own colours, so they are the same in every theme. The plate sits behind a
      logo: several are drawn in black and vanish on a dark surface. */
@@ -313,6 +369,8 @@
   --motion-ease-breath: cubic-bezier(0.37, 0, 0.63, 1);
   /* One turn of a running session's arc (motion.css `ds-spin`). */
   --motion-spin-duration: 1s;
+  /* One pass of a running label's sheen (motion.css `ds-sheen-*`, D694). */
+  --motion-sheen-duration: 2.2s;
   /* `paused` while the window is blurred or hidden. */
   --motion-play: running;
   /* Global type scale (D343). 1 = product ramp; Appearance multiplies --text-*. */
@@ -402,14 +460,27 @@
   --ds-status-running: #059669;
   --ds-status-running-halo: color-mix(in oklab, #10b981 25%, transparent);
   --ds-shadow-dialog: 0 16px 40px rgba(15, 23, 42, 0.14);
+  --ds-shadow-modal:
+    0 0 0 0.5px rgba(15, 23, 42, 0.08),
+    0 4px 12px rgba(15, 23, 42, 0.06),
+    0 32px 64px -20px rgba(15, 23, 42, 0.3);
   /* Preserve the opaque light model menu's existing stroke and lift. */
   --ds-shadow-model-menu:
     0 0 0 0.5px color-mix(in oklab, #1a1c1f 10%, transparent),
     0 8px 32px rgba(0, 0, 0, 0.1),
     0 2px 8px rgba(0, 0, 0, 0.06);
   --ds-elevation-stroke: 0 0 0 0.5px color-mix(in oklab, #0f172a 12%, transparent);
-  --ds-shadow-composer: 0 2px 12px rgba(15, 23, 42, 0.04);
-  --ds-composer-stroke: color-mix(in oklab, #0f172a 12%, transparent);
+  --ds-shadow-composer:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -12px rgba(15, 23, 42, 0.1),
+    inset 0 1px 2px rgba(15, 23, 42, 0);
+  --ds-shadow-composer-focus:
+    0 2px 4px rgba(15, 23, 42, 0.04),
+    0 18px 40px -16px rgba(15, 23, 42, 0.22),
+    inset 0 1px 2px rgba(15, 23, 42, 0.05);
+  --ds-composer-stroke: color-mix(in oklab, #0f172a 13%, transparent);
+  --ds-composer-focus-ring: color-mix(in oklab, #0f172a 17%, transparent);
+  --ds-composer-focus-halo: color-mix(in oklab, #0f172a 3.5%, transparent);
   /* White panes meet white panes, so a hairline marks where one ends. */
   --ds-pane-seam: color-mix(in oklab, #0f172a 6%, transparent);
   --ds-viewer-veil: color-mix(in oklab, #ffffff 70%, transparent);
@@ -423,6 +494,7 @@
   --ds-composer-radius: var(--radius-lg);
   --ds-composer-radius-lg: var(--radius-lg);
   --ds-send-glow: 0 2px 8px color-mix(in oklab, #059669 30%, transparent);
+  --ds-send-glow-hover: 0 4px 14px color-mix(in oklab, #059669 38%, transparent);
   --ds-filetype-logo-plate: transparent;
   --ds-filter-active-bg: #047857;
   --ds-filter-active-fg: #ffffff;

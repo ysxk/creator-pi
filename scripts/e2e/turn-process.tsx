@@ -211,9 +211,11 @@ export async function turnProcessProbe() {
       "the active process chunk starts open",
     );
     render(activeTurn, false, null, "active");
+    // The close now plays out (D694); the body is hidden at once and leaves
+    // layout when the fold has finished, so the state is what is checked.
     check(
       processHeaders()[0]?.getAttribute("aria-expanded") === "false" &&
-        !visible(firstProcess()),
+        firstProcess()?.hidden === true,
       "an untouched process chunk collapses on completion",
     );
 

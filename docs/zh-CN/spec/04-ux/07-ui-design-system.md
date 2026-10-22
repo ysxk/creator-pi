@@ -648,7 +648,22 @@ D419。主题专属取值应写在 `styles/tokens.css` 的标记块里，两套�
 
 - 输入动画：`ease-out`
 - 退出动画：`ease-in`
-- drag/releases 类似弹簧：**不在 MVP 中**（使用 `ease-out`）
+
+**动效性格（D694）。** 动效按“什么在动”来选，而不是凭感觉。其中三种性格是真实的
+阻尼弹簧（质量 1），由 `scripts/motion-springs.mjs` 采样成 CSS `linear()`；每个
+时长就是该弹簧的稳定时间，tokens.css 与脚本不一致时
+`apps/desktop/test/motion-tokens.test.mjs` 会失败。
+
+| 性格 | 变量 | 弹簧 | 用途 |
+|---|---|---|---|
+| Snap（咬死） | `--motion-ease-snap` / `--motion-duration-snap`（388ms） | 刚度 1200、阻尼 80；过阻尼，无回弹 | 结构：折叠、锚定菜单、对话框、折叠的箭头 |
+| Glide（滑入） | `--motion-ease-glide` / `--motion-duration-glide`（405ms） | 600 / 49；临界阻尼 | 内容就位：折叠展开时露出的行、复原的图标 |
+| Pop（Q 弹） | `--motion-ease-pop` / `--motion-duration-pop`（692ms） | 380 / 18；约 19% 回弹 | 仅限小的反馈图标：复制对勾、发送键或停止键出现、按下后松开 |
+| Exit（退场） | `--motion-duration-exit`（140ms），用 `--motion-ease-in` | — | 任何离开的浮层；走得比来得快 |
+
+悬停和颜色变化仍用 `--motion-duration-fast` / `--motion-ease-out`。需要等待退场的
+渲染层代码读取 `apps/desktop/src/lib/motion.ts` 中的 `SURFACE_EXIT_MS`，同一测试保证它
+等于 `--motion-duration-exit`。
 
 ### 8. 3 启动启动画面（启动反馈）
 
@@ -671,15 +686,27 @@ D419。主题专属取值应写在 `styles/tokens.css` 的标记块里，两套�
 
 这是启动状态反馈，而不是装饰性镀铬。
 
-### 8. 4 覆盖/浮动表面输入
+### 8. 4 覆盖/浮动表面的进场与退场
 
 对话框、搜索聚光灯和模态背景使用共享输入关键帧：
 
 稀松布：`overlay-in`（不透明度，`--motion-duration-normal` / `--motion-ease-out`）
 - 深色主题稀松布保持约 45% 的黑色；浅色主题使用 ~28% `#1a1c1f` 所以白色
   对话并不隐藏在厚重的面纱之下（D148）
-- 居中表面：`surface-in`（淡入淡出 + 8px 上升 + 轻微缩放）
+- 居中对话框：`ds-dialog-rise`（淡入 + 上升 12px + 94% 缩放），使用 snap 弹簧（D694）
 - 顶部锚定表面（搜索）：`surface-in-top`
+
+浮层也会退场（D694）：
+
+- 锚定菜单（`AnchoredMenu`、`ContextMenu`）从贴着打开它的控件的那一边长出
+  （`ds-surface-grow`，snap），关闭后在 `--motion-duration-exit` 内保持挂载并播放
+  `ds-surface-leave`：不接受输入，停在最后的位置，`data-surface-state="closing"`。共用
+  规则在 `surface-motion.css`，在各功能样式之后导入，因此能压过各浮层自己的 `.is-open`
+  进场动画。
+- 对话框仍然立即卸载。其挂载宿主（`#pi-desktop-overlays` 或 `document.body`）为离开的 `.overlay` 播放一份
+  静态副本——不接受输入、点击穿透、去掉 id、输入框保留已输入的内容——当同一任务里有
+  另一个浮层取而代之、减少动态效果开启，或对话框里有会重新加载的内容（iframe、媒体、
+  canvas）时不播放。
 
 Toast enter/exit 保留现有移除合同（`animationend` 于
 `toast-out`），同时使用运动标记和稍微柔和的音阶。
@@ -707,8 +734,10 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
 - 无视差
 - 没有连续的背景动画（粒子、波浪），也没有循环播放的吉祥物：空首页的吉祥物是
   静态图（D671）
-- shimmer/skeleton 动画的循环时间不超过 1 秒 — 使用简单的淡入来显示加载状态
-- 无反弹效果
+- shimmer/skeleton 动画的循环时间不超过 1 秒 — 使用简单的淡入来显示加载状态。唯一的
+  例外是运行中过程标签上的流光（D694）：每次扫过 2.2 秒，只动 transform，随窗口失焦暂停，
+  减少动态效果时隐藏
+- 结构和内容上无反弹效果。pop 弹簧（约 19% 回弹）只留给小的反馈图标（D694）
 - 没有多秒的开机戏剧序列；准备好后立即退出（+最小停留时间）
 
 ### 8. 7 响应式交互反馈
@@ -723,7 +752,8 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
   控件在活动时提供微妙的按下比例。基础过渡
   包括 `transform`，因此按下和释放不会突然发生；悬停样式从不
   更改元素尺寸或周围布局。
-- 输入框焦点提升 1 像素，并带有基于令牌的受限阴影。其
+- 输入框静止时是 0.5px 中性细环加分层投影；聚焦时以 snap 弹簧收拢成中性双环（1px 环、
+  4px 光晕），投影更深并带轻微内凹，从不使用强调色描边（D694）。其
   近乎不透明的表面不得使用背景模糊：转录本在
   模糊层会在流式传输时强制执行可避免的 repaint/compositing 工作。
 - 内联聊天错误通知包含长提供商详细信息并保留他们的操作
@@ -1023,7 +1053,7 @@ Linux 保留淡入淡出和滑动退出。
 | 最大宽度 | 480像素 |
 | 填充 | p-6 |
 | 半径 | 半径-lg-plus |
-| 背景 | bg-次要（深色）； bg-白色（光）+阴影-lg |
+| 背景 | bg-elevated-opaque；无描边，`--ds-shadow-modal`（分层投影内含一圈发丝细环，D694） |
 | 背景 | rgba(0,0,0,0.5) 与 `z-dialog` |
 | 关闭 | Escape 键 + X 按钮右上角 |
 

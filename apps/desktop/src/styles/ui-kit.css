@@ -243,12 +243,14 @@
   /* Overlay is a flex box; auto min-width would let wide content overflow it. */
   min-width: 0;
   max-width: 100%;
-  border: 1px solid var(--ds-border-default);
+  /* Borderless: the edge is the hairline ring inside the layered lift, and the
+     dialog settles in on the snap spring (D694). */
+  border: 0;
   border-radius: var(--radius-lg-plus);
   background: var(--ds-bg-elevated-opaque);
-  box-shadow: var(--ds-shadow-dialog);
+  box-shadow: var(--ds-shadow-modal);
   padding: 18px;
-  animation: surface-in var(--motion-duration-normal) var(--motion-ease-out) both;
+  animation: ds-dialog-rise var(--motion-duration-snap) var(--motion-ease-snap) both;
 }
 /* Pointer-anchored right-click menu (see components/ContextMenu.tsx). It is
    measured before it is revealed, so `is-open` gates a surface that would

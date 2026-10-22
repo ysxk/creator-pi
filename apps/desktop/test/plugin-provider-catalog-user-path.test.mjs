@@ -222,7 +222,8 @@ window.pluginProviderCatalogProbe = async () => {
       && secretCall?.input.secretValue === "community-key-fixture",
     configuredTileHidden: !document.querySelector('[data-plugin-provider-id="' + providerId + '"]'),
     remainingTileShown: !!remainingTile,
-    dialogClosed: !document.querySelector('input[type="password"]'),
+    // A closed dialog may still be playing its exit as an inert copy (D694).
+    dialogClosed: !document.querySelector('input[type="password"]:not([data-exit-ghost] *)'),
   };
 };
 `;

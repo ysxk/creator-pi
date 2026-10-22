@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import type { OAuthPromptRequest, OAuthVendor } from "@pi-desktop/shared";
 import type { OAuthLoginSession } from "../../lib/oauth-login-session";
 import { canSubmitOAuthPrompt } from "../../lib/oauth-login-prompt";
+import { COPY_FEEDBACK_MS } from "../../lib/motion";
 import { Button, Input, TooltipButton, cx, portalOverlay } from "../ui";
 import { IconCheck, IconCopy, IconExternal } from "../icons";
 
@@ -131,7 +132,7 @@ export function OAuthLoginDialog({
     void navigator.clipboard.writeText(value).then(
       () => {
         setCopied(value);
-        setTimeout(() => setCopied((current) => (current === value ? null : current)), 1500);
+        setTimeout(() => setCopied((current) => (current === value ? null : current)), COPY_FEEDBACK_MS);
       },
       () => undefined,
     );
