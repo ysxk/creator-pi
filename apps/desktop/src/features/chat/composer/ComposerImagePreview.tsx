@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { IconChevronLeft, IconChevronRight, IconClose, IconDownload, IconMinus, IconPlus } from "../../../components/icons";
 import { useBlockingOverlay } from "../../../lib/blocking-overlay";
+import { anchoredZoomOffset, wheelZoomFactor } from "../../../lib/image-wheel-zoom";
 import { portalToBody } from "../../../lib/portal-visibility";
 import type { ComposerImagePreviewController } from "./hooks/useComposerImagePreview";
 import { useImagePreviewPan } from "./hooks/useImagePreviewPan";
@@ -70,22 +71,33 @@ function ImagePreviewDialog({ controller, preview }: {
     setManualZoom(null);
   }, [preview.id, src]);
 
+  const clampZoom = (value: number) => Math.min(8, Math.max(Math.min(0.1, fit), value));
   const changeZoom = (value: number) => {
-    if (src) setManualZoom({ src, value: Math.min(8, Math.max(Math.min(0.1, fit), value)) });
+    if (src) setManualZoom({ src, value: clampZoom(value) });
   };
+  // Several wheel events can land before React renders the previous one, so
+  // each builds on the last one's result rather than on stale render values.
+  const view = useRef({ zoom, offset: pan.offset });
+  useLayoutEffect(() => { view.current = { zoom, offset: pan.offset }; });
   useEffect(() => {
     const element = viewportRef.current!;
     const wheel = (event: WheelEvent) => {
       if (!src || !natural) return;
       event.preventDefault();
       event.stopPropagation();
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1);
-      if (event.ctrlKey) changeZoom(zoom * Math.exp(-delta / 300));
-      else pan.moveBy(-event.deltaX * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientWidth : 1), -delta);
+      const { zoom: from, offset } = view.current;
+      const to = clampZoom(from * wheelZoomFactor(event, element.clientHeight));
+      if (to === from) return;
+      const rect = element.getBoundingClientRect();
+      const anchor = { x: event.clientX - rect.left - rect.width / 2, y: event.clientY - rect.top - rect.height / 2 };
+      const next = anchoredZoomOffset(anchor, offset, from, to);
+      view.current = { zoom: to, offset: next };
+      setManualZoom({ src, value: to });
+      pan.moveTo(next);
     };
     element.addEventListener("wheel", wheel, { passive: false });
     return () => element.removeEventListener("wheel", wheel);
-  }, [src, natural, zoom, fit, pan.offset.x, pan.offset.y]);
+  }, [src, natural, fit, pan.moveTo]);
 
   const move = (direction: number) => {
     const next = preview.images[index + direction];

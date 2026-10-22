@@ -1832,7 +1832,9 @@ Single message render — either user (plaintext) or assistant (markdown streami
   picture any other block names gets the same thumbnail, in one wrapping row
   under that block, and clicking a picture's name in a reply opens the viewer
   on the file it completes to rather than the file view; a name the host
-  cannot find opens as a file, as before (D686). A bare name is also looked for in the folders the reply names,
+  cannot find opens as a file, as before (D686). In the viewer the mouse wheel
+  or a trackpad pinch zooms around the point under the cursor, and dragging a
+  picture larger than the space scrolls it (D693). A bare name is also looked for in the folders the reply names,
   a name that matches no file draws nothing, and one file is previewed once
   per reply. Fenced code, remote URLs and `path:line` references are not
   mentions.
@@ -3531,8 +3533,9 @@ Anatomy:
   the image is horizontally and vertically centered, keeps its aspect ratio,
   and initially fits available space without upscaling small images. The
   preview supports zoom, fit reset, original-image download, and previous/next
-  navigation across the draft's images. Dragging with the primary pointer or
-  scrolling pans the image at any zoom; pointer capture keeps a drag continuous
+  navigation across the draft's images. The mouse wheel or a trackpad pinch
+  zooms around the point under the cursor (D693). Dragging with the primary
+  pointer pans the image at any zoom; pointer capture keeps a drag continuous
   outside the image, and release/cancel ends it without dismissing the modal.
   A visible portion remains in bounds. Fit reset and switching images recenter
   the image; switching images also resets zoom. Escape,

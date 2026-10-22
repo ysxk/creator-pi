@@ -8377,8 +8377,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      stay at natural size, wide images fit without distortion, zoom/reset and
      download target the selected original, and multiple images support button
      and arrow-key navigation with zoom reset. Drag at fit size and after zoom,
-     including releasing outside the image; check cancellation and ordinary wheel
-     panning. Fit and image navigation must reset position; dragging must not
+     including releasing outside the image; check cancellation, and that the
+     mouse wheel zooms around the cursor instead of panning (D693). Fit and image navigation must reset position; dragging must not
      dismiss the preview or leave capture active after close/session changes. Close with Escape, the close
      button, and blank space; verify focus/caret restoration and modal focus
      containment. Native plugin surfaces must hide while the preview is open.
