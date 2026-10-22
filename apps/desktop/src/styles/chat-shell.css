@@ -28,6 +28,22 @@
   padding-bottom: 14px;
 }
 
+/* A message the user just sent rises in from the composer below (D696,
+   claimArrival): only a row younger than a moment when it mounts, so opening a
+   session never animates its history. A row that replaces the arriving one
+   resumes the rise where it is (--arrival-elapsed) instead of starting over. */
+.message-row.user.just-sent .message-bubble {
+  transform-origin: right bottom;
+  animation: ds-message-rise var(--motion-duration-glide) var(--motion-ease-glide)
+    var(--arrival-elapsed, 0ms) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-row.user.just-sent .message-bubble {
+    animation: none;
+  }
+}
+
 .drag {
   -webkit-app-region: drag;
 }

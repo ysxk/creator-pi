@@ -48,7 +48,8 @@
   --ds-bg-secondary: var(--gray-800);
   --ds-bg-tertiary: var(--gray-750);
   --ds-bg-inset: var(--gray-1000);
-  --ds-bg-under: #000000;
+  /* Near-black, never #000 (D696): pure black glares beside the #181818 pane. */
+  --ds-bg-under: #111111;
   /*
    * The dock column and its raised header/chrome strips carry their own tokens
    * so a contributed theme can move them: before D419 the light values were
@@ -299,6 +300,9 @@
   --motion-duration-pop: 692ms;
   /* A surface's exit; renderer code that waits for it reads SURFACE_EXIT_MS. */
   --motion-duration-exit: 140ms;
+  /* One streaming character's bloom from blur into ink (D695, INK_BLOOM_MS). */
+  --motion-ink-duration: 140ms;
+  --motion-ink-blur: 6px;
   /* File-type marks (chat-links.css). These are the languages' and formats'
      own colours, so they are the same in every theme. The plate sits behind a
      logo: several are drawn in black and vanish on a dark surface. */
@@ -375,6 +379,21 @@
   --motion-play: running;
   /* Global type scale (D343). 1 = product ramp; Appearance multiplies --text-*. */
   --font-scale: 1;
+}
+
+/*
+  Dark weight compensation (D696). Light text on a dark ground spreads (optical
+  irradiation), so the medium and bold steps are a touch lighter here. Each
+  value stays inside the PingFang face it had (460 still resolves to Medium,
+  505–560 to Semibold), so Chinese text keeps its weight and Latin text, drawn
+  in the variable system face, is what thins. Body text keeps 400: PingFang
+  has no lighter Regular and would fall to Light.
+*/
+:root[data-theme="dark"] {
+  --font-weight-medium: 460;
+  --font-weight-medium-plus: 505;
+  --font-weight-strong: 530;
+  --font-weight-semibold: 560;
 }
 
 :root[data-theme="light"] {

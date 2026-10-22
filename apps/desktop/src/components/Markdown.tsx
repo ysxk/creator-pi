@@ -76,6 +76,7 @@ import {
   sourcePositionProps,
   type SourcePositionProps,
 } from "../lib/markdown-source";
+import { rehypeInkBloom, type InkClock } from "../lib/ink-bloom";
 import {
   normalizeLatexMathDelimiters,
   remarkLatexBracketDisplay,
@@ -1037,6 +1038,7 @@ const Block = memo(function MarkdownBlock({
   workspaceRoot,
   baseDir,
   mediaPreviews,
+  inkClock,
 }: {
   raw: string;
   originalRaw: string;
@@ -1046,6 +1048,8 @@ const Block = memo(function MarkdownBlock({
   baseDir?: string;
   /** Show the clips and drawings this block names, under it. */
   mediaPreviews: boolean;
+  /** A live reply's bloom timing (D695), while this block may still be blooming. */
+  inkClock?: InkClock;
 }) {
   const context = useMemo(
     () => ({
@@ -1069,8 +1073,13 @@ const Block = memo(function MarkdownBlock({
     [originalRaw, workspaceRoot, baseDir, mediaPreviews],
   );
   const positionedRehypePlugins = useMemo(
-    () => [...rehypePlugins!, [rehypeSourcePositions, { offset: sourceOffset }]] as Options["rehypePlugins"],
-    [sourceOffset],
+    () => [
+      ...rehypePlugins!,
+      [rehypeSourcePositions, { offset: sourceOffset }],
+      // Last: it wraps finished text, after sanitizing and math rendering.
+      ...(inkClock ? [[rehypeInkBloom, { offset: sourceOffset, clock: inkClock }]] : []),
+    ] as Options["rehypePlugins"],
+    [inkClock, sourceOffset],
   );
   return (
     <Profiler
@@ -1104,6 +1113,7 @@ export const Markdown = memo(function Markdown({
   renderDiagrams = true,
   baseDir,
   streaming = false,
+  inkClock,
 }: {
   source: string;
   renderDiagrams?: boolean;
@@ -1111,6 +1121,8 @@ export const Markdown = memo(function Markdown({
   streaming?: boolean;
   /** Workspace-relative directory of the source file, for `./` / `../` links. */
   baseDir?: string;
+  /** Blooms the newest characters of a live reply in (D695). */
+  inkClock?: InkClock;
 }) {
   const workspaceRoot = useAppStore((s) => s.workspace?.path);
   // Lent by the transcript; absent for any other Markdown tree.
@@ -1160,6 +1172,9 @@ export const Markdown = memo(function Markdown({
     markdownTailLimit,
   );
   let sourceOffset = 0;
+  // Only a block that may still hold blooming characters reads the clock, and
+  // the render that stops passing it turns its finished spans back into text.
+  const inkSettled = inkClock?.settledBefore(performance.now()) ?? Number.POSITIVE_INFINITY;
   return (
     <MarkdownFileMenuContext.Provider value={openMarkdownFileMenu}>
       <MarkdownBaseDirContext.Provider value={baseDir ?? ""}>
@@ -1200,6 +1215,7 @@ export const Markdown = memo(function Markdown({
               workspaceRoot={workspaceRoot}
               baseDir={baseDir}
               mediaPreviews={mediaPreviews}
+              inkClock={start + raw.length > inkSettled ? inkClock : undefined}
             />
           );
         })}

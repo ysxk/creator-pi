@@ -61,11 +61,35 @@
   keyframe ends on (or starts from) whatever the surface already is.
 */
 
+/* A streaming character blooms from a blur into ink (D695). The two names are
+   the same bloom; alternating them restarts it (see messages.css `.ink`). */
+@keyframes ds-ink-bloom-0 {
+  from {
+    opacity: 0;
+    filter: blur(var(--motion-ink-blur));
+  }
+}
+
+@keyframes ds-ink-bloom-1 {
+  from {
+    opacity: 0;
+    filter: blur(var(--motion-ink-blur));
+  }
+}
+
 /* A row revealed by an opening fold settles in from just above. */
 @keyframes ds-fold-item {
   from {
     opacity: 0;
     transform: translateY(-4px);
+  }
+}
+
+/* A message just sent rises from the composer into the transcript. */
+@keyframes ds-message-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
   }
 }
 

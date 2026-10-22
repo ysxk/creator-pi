@@ -1,12 +1,13 @@
 /**
- * Exit motion for modal overlays (D694).
+ * Exit motion for modal overlays (D694) and the sidebar's floating menus (D696).
  *
  * Every dialog portals one `.overlay` into a host — the overlay host
  * (`portalOverlay`) or `document.body` (`portalToBody`) — and simply unmounts
- * when it closes, so on its own it could only ever snap away. Each host is
- * watched instead: when an overlay leaves, a static copy takes its place for
- * the exit (surface-motion.css) and removes itself once that exit has played.
- * No dialog has to know.
+ * when it closes, so on its own it could only ever snap away; the sidebar's
+ * floating menus portal to the body the same way. Each host is watched
+ * instead: when such a layer leaves, a static copy takes its place for the
+ * exit (surface-motion.css) and removes itself once that exit has played.
+ * No dialog or menu has to know.
  *
  * The copy only looks like the dialog. It is inert and click-through, and it
  * answers to nothing a lookup would use — no ids, roles, labels or names — so
@@ -22,6 +23,9 @@ const COPY_LIMIT_MS = 400;
 /** Live content a static copy must not duplicate: it would load or run again. */
 const UNCOPYABLE = "iframe, webview, video, audio, canvas, object, embed";
 
+/** The layers that leave this way. */
+const LEAVING = ".overlay, .sidebar-floating-menu";
+
 /** Attributes that identify an element rather than draw it. */
 const IDENTITY = /^(id|for|name|role|title|tabindex|autofocus|data-testid|aria-.+)$/;
 
@@ -30,7 +34,7 @@ const hosts = new Set<HTMLElement>();
 function isLiveOverlay(node: Node): node is HTMLElement {
   return (
     node instanceof HTMLElement &&
-    node.classList.contains("overlay") &&
+    node.matches(LEAVING) &&
     node.dataset.exitGhost === undefined
   );
 }

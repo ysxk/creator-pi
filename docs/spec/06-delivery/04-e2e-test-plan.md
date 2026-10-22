@@ -3135,7 +3135,7 @@ identify the platform validation still needed.
 
 - **Preconditions**: App running windowed on macOS with Settings open.
 - **Steps**: 1) Record the window position. 2) Drag the empty 46px band above the settings rail. 3) Drag the same band above the content pane. 4) Use Back, search, Project archive, and navigation controls. 5) In light and dark themes, sample the top row's color above the rail and above the content pane.
-- **Expected**: Either top-band drag moves the native window; Back, search, and navigation remain interactive and never initiate a window drag. The top row above the rail matches the rail surface (`#f4f4f4` light / `#000` dark) and the top row above the content pane matches the primary surface, so the band never renders a mismatched color over the rail.
+- **Expected**: Either top-band drag moves the native window; Back, search, and navigation remain interactive and never initiate a window drag. The top row above the rail matches the rail surface (`#f4f4f4` light / `#111111` dark, D696) and the top row above the content pane matches the primary surface, so the band never renders a mismatched color over the rail.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/01-ui-ia.md`
 - **Acceptance**: Quality (key operations feel polished)
 - **Milestone**: M5
@@ -6503,7 +6503,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 #### E2E-CHAT-initial-wait-spacing
 
 - Send a user message before any assistant output: retain the original user
-  action row and spacing (52px bubble-to-status in the default text fixture).
+  action row and spacing (52px bubble-to-status in the default text fixture),
+  measured where the just-sent bubble lands once its rise (D696) has finished.
 - At wide and narrow transcript widths, Copy remains focusable and pointer
   reachable; edit/delete/revision controls retain their disabled running state.
   Status and action hit targets never overlap, including revision pagers.
@@ -6511,6 +6512,38 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   for its own menu. Change runtime phase, receive first output, or stop before
   output: exactly one status follows the active turn and terminal actions return.
 - Coverage: `scripts/e2e/transcript-status.tsx`, `pnpm test:e2e:transcript`.
+
+#### E2E-CHAT-streaming-text-blooms-into-ink
+
+- With smooth streaming on, stream a reply mixing Chinese, English, bold, a
+  list and inline code. Only the newest characters are wrapped in `span.ink`,
+  each with a delay from its own age, so their opacity and blur step down
+  toward the writing point; nothing inside code, math or media is wrapped, and
+  no caret is drawn (D695).
+- Once the last character has bloomed the reply holds no `span.ink`, so opening
+  a folded turn process replays nothing; the text reads exactly as streamed.
+- Smooth streaming off or reduced motion: plain text, no spans.
+- Coverage: `apps/desktop/test/ink-bloom.test.mjs`; frame sampling in a
+  throwaway instance (2026-10-23). No real-provider claim.
+
+#### E2E-UI-selection-hover-and-arrival-travel
+
+- Select another visible session: one pill slides from the old row to the new
+  one on the snap spring, then hands back to the row's own paint without a
+  visible dip; a selection whose row its list has scrolled away switches
+  plainly. A hover tile follows the pointer over rows and steps away when a
+  click selects the row under it (D696).
+- In an anchored menu, the context menu and the sidebar's row, section and sort
+  menus, a tile follows the pointer between items and leaves a checked or
+  disabled item to its own look. The sidebar menus grow from their button and
+  leave through an inert host copy with no ids, roles or labels.
+- A just-sent user message rises in once per send: the persisted row a native
+  session swaps in, or the row moving into history, resumes the rise; a message
+  sent after an output-less stop rises again; history never animates.
+- Reduced motion: no layers, no rise. Dark: the under layer is `#111111`.
+- Coverage: `apps/desktop/test/travel-motion.test.mjs`, `pnpm test:e2e:transcript`
+  (initial wait), `pnpm test:e2e:theme-surfaces` (dark rail); frame sampling in a
+  throwaway instance (2026-10-23).
 
 #### E2E-CHAT-runtime-status-keeps-row-position
 

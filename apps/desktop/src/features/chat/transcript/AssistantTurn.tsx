@@ -155,7 +155,9 @@ export function TranscriptEntryView({
   if (entry.kind === "compaction") {
     return <CompactionRow mark={entry.mark} />;
   }
-  return <MessageRow message={entry.message} isRunning={isRunning} />;
+  // Keyed: the unkeyed tail slot must not hand one message's row, and the
+  // arrival it claimed (D696), to the next message.
+  return <MessageRow key={entry.message.id} message={entry.message} isRunning={isRunning} />;
 }
 
 function transcriptEntryKey(entry: TranscriptEntry): string {

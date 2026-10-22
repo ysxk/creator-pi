@@ -59,7 +59,7 @@ test("shared surface motion out-ranks each menu's own entrance", () => {
   );
   assert.match(
     surfaceMotion,
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.is-open\[data-surface-motion\],\s*\.is-open\[data-surface-motion\]\[data-surface-state="closing"\] \{\s*animation: none;/,
+    /@media \(prefers-reduced-motion: reduce\) \{\s*\.is-open\[data-surface-motion\],\s*\.is-open\[data-surface-motion\]\[data-surface-state="closing"\],\s*\.sidebar-floating-menu \{\s*animation: none;/,
   );
 });
 

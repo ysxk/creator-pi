@@ -172,7 +172,7 @@ All color references in components use **semantic token names**, never raw hex v
 | Token | Hex | Tailwind mapping | Usage |
 |---|---|---|---|
 | `--color-bg-primary` | `#181818` | Codex `gray-900` | Main surface |
-| `--color-bg-sidebar` / under | `#000000` (dark) / `#f3f3f3` (light) | Codex `surface-under` / gray-75 | Sidebar rail |
+| `--color-bg-sidebar` / under | `#111111` (dark; near-black, never `#000`, D696) / `#f3f3f3` (light) | Codex `surface-under` / gray-75 | Sidebar rail |
 | `--ds-bg-sidebar-image` | `none` (optional `<image>`) | — | Sidebar `background-image` only (gradients / pictures). `--ds-bg-sidebar` stays a color for glass tint, borders, and `color-mix` |
 | `--color-bg-secondary` | `#212121` | Codex `gray-800` | Elevated surfaces, composer |
 | `--color-bg-tertiary` | `#282828` | Codex `gray-750` | Hover / opaque elevated |
@@ -426,6 +426,11 @@ Weights use `--font-weight-*` tokens only (Codex uses variable-font intermediate
 - `--font-weight-strong` 560: destination page titles (Codex electron metric)
 - `--font-weight-semibold` 600: brand, CTA buttons
 - Never use 700+
+- Dark compensation (D696): under `data-theme="dark"` the steps above 400 read
+  460 / 505 / 530 / 560, because light text on a dark ground spreads. Each value
+  stays inside the PingFang face it had (460 resolves to Medium, 505–560 to
+  Semibold), so Chinese keeps its weight and Latin text in the variable system
+  face thins. Body text keeps 400: PingFang has no lighter Regular
 
 ## 6. Spacing, radius, elevation, borders
 
@@ -566,8 +571,12 @@ contract.
 
 Composer elevation (Codex `elevation-prominent`):
 
-- soft: `0 3px 7.5px rgba(0,0,0,0.039)` + `0 0 20px rgba(0,0,0,0.051)` (Codex `#0000000a` / `#0000000d`, both themes)
-- no stroke (D297): the composer lifts by shadow alone; `--ds-elevation-stroke` remains a token for floating layers only
+- rest (D694): a 0.5px `--ds-composer-stroke` ring and the layered
+  `--ds-shadow-composer` lift (two drops and an inset; a faint ring in dark
+  too, amending D297's stroke-less composer)
+- focus: a 1px `--ds-composer-focus-ring`, a 4px `--ds-composer-focus-halo`
+  and the deeper `--ds-shadow-composer-focus`; rest and focus keep the same
+  layer list so the change interpolates on the snap spring
 
 Shadow token values (light theme only):
 
@@ -589,7 +598,7 @@ floating layers where an edge is an elevation cue rather than a partition.
 | Tile | `--ds-tile` (3.5% text mix); hover `--ds-tile-hover` (6%); deep `--ds-tile-deep` (8%) | Panels, list rows, cards, form fields, chips, code blocks, empty states |
 | Raised | `--ds-raised` + `--ds-raised-shadow` | The active pill of a segmented control, a disclosed detail block, a recorder keycap |
 | Dock | `--ds-bg-dock` (the column), `--ds-bg-dock-raised` (its header and viewer strips) | The work-panel column and the bars inside it. Both are tokens, not literals, so a contributed theme can move them (D419) |
-| Sidebar / settings rail | `--ds-bg-sidebar` (opaque fallback: light `#f3f3f3`, dark `#000000`), `--ds-bg-sidebar-image`, shared macOS glass tint/sheen | One `sidebar-surface` material for both navigation columns; content stays opaque |
+| Sidebar / settings rail | `--ds-bg-sidebar` (opaque fallback: light `#f3f3f3`, dark `#111111`), `--ds-bg-sidebar-image`, shared macOS glass tint/sheen | One `sidebar-surface` material for both navigation columns; content stays opaque |
 | Settings search | `--ds-settings-field-bg` (light `#ffffff`, dark `#212121`) | Search pill on the settings rail |
 | Active settings item | `--ds-settings-nav-active` (light 12% `#1a1c1f` mixed over white; dark 10% `--gray-0` over transparent) | Selected navigation pill |
 | Inset search | `--ds-field-inset-bg`, `--ds-field-inset-focus-bg` (light `#f3f3f3` / white; dark 5% / 7% primary-text mix over transparent) | Plugin search and Agent capability search, including focus |
@@ -797,6 +806,13 @@ Surfaces also leave (D694):
   without ids, fields showing what was typed — and skips the copy when another
   overlay replaces it in the same task, under reduced motion, or when the
   dialog holds content that would load again (iframes, media, canvas).
+- The sidebar's floating menus (row, section and sort) portal to the body
+  themselves: they grow from where they were opened and leave through the same
+  host copy (D696).
+- Inside any floating menu one hover tile follows the pointer from item to
+  item on the snap spring instead of each item lighting up on its own; an item
+  showing a selection, or disabled, keeps its own look (D696,
+  `lib/hover-glide.ts`).
 
 Toast enter/exit keep the existing removal contract (`animationend` on
 `toast-out`) while using the motion tokens and a slightly softer scale.
@@ -853,6 +869,18 @@ High-frequency workstation feedback must remain compositor-friendly and bounded:
   reachable without introducing horizontal page overflow.
 - Stream-driven updates never restart route or shell animations. Every enter
   effect is mount/state-transition feedback, not a response to token arrival.
+  The one motion that follows the text itself is the ink bloom of characters
+  a reply has just revealed (D695, see 09-interaction-patterns §2.1).
+- Sidebar selection travels (D696): when the selected session changes, a pill
+  painted like the selection slides from the old row to the new one, across
+  the pinned, temporary and project lists, then hands over to the row's own
+  background; a hover tile follows the pointer over the rows. A glide toward a
+  row its list has scrolled away stays a plain switch.
+- A message the user has just sent rises into the transcript from the composer
+  (D696); a row older than a moment when it mounts never animates, so opening
+  a session shows its history still. One send is one rise: a row that replaces
+  the rising one (the persisted row of a native session, the first message of a
+  new task moving into its session) resumes the rise where it is.
 - Sidebar and work-panel dock transitions animate their allocated `width` and
   `flex-basis` together with the bounded opacity/transform offset. MainChat must
   reflow continuously during the 150–200ms transition, never jump to the final
@@ -1456,8 +1484,8 @@ adjacent form inputs; dense surfaces may override that metric locally.
 ## Dark floating surfaces (Codex parity)
 
 - Main surface: `#181818` (`gray-900`)
-- Sidebar / surface-under: `#000000`
-- Floating composer plate: Codex elevated-primary (`#212121f5` / `color-mix(gray-800 96%, transparent)`) with standard elevation-prominent (`0 0 0 .5px` stroke + `0 3px 7.5px #0000000a` + `0 0 20px #0000000d`); no heavier night-only lift
+- Sidebar / surface-under: `#111111` (D696; was `#000000`)
+- Floating composer plate: Codex elevated-primary (`#212121f5` / `color-mix(gray-800 96%, transparent)`) with a 0.5px light ring, a top inner light and a deep soft drop (D694)
 - Light workspace chips capsule: elevated gray `#f4f4f4` (not pure white-on-white)
 - Combined workspace chips: elevated translucent plate over main, not flat main gray
 - Stage Manager (macOS only): host re-asserts min bounds while collapsed (permanent watchdog). The watchdog does not run on Windows/Linux, so no platform re-layers its own window unprompted (D447)

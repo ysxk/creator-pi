@@ -659,10 +659,16 @@ may be retained while exactly one workspace supplies the visible shell context.
   approaches the viewport; thinking disclosures always retain Mermaid source.
 - Diagram render failure or the 20,000-character / 500-edge safety limit keeps
   the source visible and copyable instead of failing the assistant turn.
-- Cursor indicator: subtle pulsing accent line at the end of streaming inline
-  content. For Markdown lists and quotes, attach it to the terminal paragraph
-  or text leaf; never append it to a nested list container, which creates an
-  extra line box and shifts content while the response streams.
+- Ink bloom (D695): with smooth streaming on, each character a reply reveals
+  blooms from a soft blur into ink over 140ms, the next starting before the
+  last has settled, so the writing point reads as a brush stroke and no cursor
+  is drawn. Only characters still blooming are wrapped (`span.ink`), each with
+  the delay its own age gives it, so a re-render or a re-mounted block picks
+  the bloom up where it was; a block that has finished blooming renders as
+  plain text again, so nothing replays when a folded process opens. Inline
+  code, fenced code, math and media render as they always did. Text already
+  on screen when a pane opens mid-stream does not bloom; smooth streaming off
+  or reduced motion shows text plainly.
 - Before the first assistant or tool event, the active turn shows one compact
   localized `Working…` status with elapsed time. When the runtime reports a
   quiet interval, that same row names the wait: starting, waiting for the
@@ -672,7 +678,8 @@ may be retained while exactly one workspace supplies the visible shell context.
   answer output does not hide the row: the running turn keeps one tail status
   through output pauses. Pending permissions, questions, and plan/goal
   approvals suppress it; terminal turns and history reading have no live row.
-- When stream completes: cursor indicator replaced by success state (2s fade)
+- When the stream completes, the last characters finish their bloom; nothing
+  is left behind.
 
 ### 2.2 Auto-scroll
 

@@ -4,12 +4,17 @@ import type { AssistantTurnPart } from "../../../lib/assistant-turns";
 import type { SubagentOutcome, SubagentTiming } from "../../../lib/subagent-topology";
 import { useAppStore } from "../../../stores/app-store";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { useInkClock } from "../../../hooks/use-ink-clock";
 import { useSmoothText } from "../../../hooks/useSmoothText";
 import { ActivityGroup } from "./ActivityGroup";
 import { AssistantErrorMessage } from "./shared";
 import { useRenderBlocks, type RenderBlock } from "./render-blocks";
 
-/** Message bubble that optionally applies smooth text release. */
+/**
+ * Message bubble that optionally applies smooth text release. With it, the
+ * newly released characters bloom from blur into ink (D695), which also marks
+ * where the reply is writing, so no caret is drawn.
+ */
 const SmoothMessageBubble = memo(function SmoothMessageBubble({ message, streaming }: {
   message: UiMessage;
   streaming: boolean;
@@ -19,13 +24,17 @@ const SmoothMessageBubble = memo(function SmoothMessageBubble({ message, streami
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const enabled = smoothStreaming && !prefersReducedMotion;
   const displayContent = useSmoothText(message.content || "", streaming, enabled);
-  const showCursor = streaming && enabled && Boolean(displayContent);
+  const inkClock = useInkClock(displayContent.length, enabled);
   return (
     <div
-      className={`message-bubble assistant-turn-fragment${streaming ? " streaming" : ""}${showCursor ? " smooth-cursor" : ""}`}
+      className={`message-bubble assistant-turn-fragment${streaming ? " streaming" : ""}`}
       data-message-id={message.id}
     >
-      {displayContent ? <div className="prose-chat"><ChatMarkdown source={displayContent} streaming={streaming} /></div> : null}
+      {displayContent ? (
+        <div className="prose-chat">
+          <ChatMarkdown source={displayContent} streaming={streaming} inkClock={inkClock} />
+        </div>
+      ) : null}
       {message.error ? <AssistantErrorMessage message={message} /> : null}
     </div>
   );

@@ -74,6 +74,7 @@ import { BrandLogo } from "./BrandLogo";
 import { NotificationCenter } from "./NotificationCenter";
 import { ProjectEditDialog } from "./ProjectEditDialog";
 import { useArmedDelete } from "../hooks/use-armed-delete";
+import { useSidebarGlide } from "../hooks/use-sidebar-glide";
 import { ProjectDeleteDialog } from "./ProjectDeleteDialog";
 import { SessionRenameDialog } from "./SessionRenameDialog";
 import { useUpdateState } from "../hooks/use-update-state";
@@ -490,6 +491,7 @@ export function Sidebar({
   const displayProjectSort: ProjectSort = projectSort;
   const activeProjectPath = normalizeProjectPath(activeProjectPathState ?? workspace?.path);
   const selectedSessionId = selectingSessionId ?? activeSessionId;
+  const glide = useSidebarGlide(page === "chat" ? selectedSessionId ?? null : null);
   const openProjectPaths = useMemo(
     () =>
       openProjectPathsState
@@ -2396,7 +2398,10 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="sidebar-body no-drag">
+      <div className="sidebar-body no-drag" ref={glide.rootRef}>
+        {/* Selection and hover that travel between rows (D696). */}
+        <span ref={glide.pillRef} className="sidebar-selection-glide" aria-hidden />
+        <span ref={glide.hoverRef} className="sidebar-hover-glide" aria-hidden />
 
         {pinnedSessions.length > 0 ? (
           <section

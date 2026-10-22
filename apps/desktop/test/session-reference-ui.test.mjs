@@ -113,6 +113,7 @@ const { MessageRow } = load(new URL("../src/features/chat/transcript/MessageRow.
   "@pi-desktop/shared": await import("@pi-desktop/shared"),
   "../../../hooks/use-preview-target": { useOpenChatFileRef: () => () => {} },
   "../../../lib/chat-links": { splitChatText: () => [] },
+  "../../../lib/message-arrival": { claimArrival: () => null },
   "../../../components/Markdown": { Markdown: ({ source }) => source },
   "../../../components/icons": new Proxy({}, { get: () => Icon }),
   "../../../components/ui": {

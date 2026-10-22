@@ -287,7 +287,7 @@ test("the reply lends its Markdown the previews and the viewer; nothing else get
   assert.match(mention, /if \(variant === "thumb"\) \{\s*return \(\s*<span className="chat-media-thumb"/);
   assert.match(markdown, /\[CHAT_MEDIA_TAG\]: ChatMediaNode/);
   // Both places an assistant reply is drawn go through the provider.
-  assert.match(turnParts, /<ChatMarkdown source=\{displayContent\} streaming=\{streaming\} \/>/);
+  assert.match(turnParts, /<ChatMarkdown source=\{displayContent\} streaming=\{streaming\} inkClock=\{inkClock\} \/>/);
   assert.match(messageRow, /<ChatMarkdown source=\{displayed\} \/>/);
   assert.match(chatMarkdown, /<MarkdownChatMediaContext\.Provider value=\{media\}>/);
   assert.match(chatMarkdown, /<GeneratedImageViewer/);

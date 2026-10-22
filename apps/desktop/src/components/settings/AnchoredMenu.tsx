@@ -26,6 +26,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { usePresence } from "../../hooks/use-presence";
+import { installHoverGlide } from "../../lib/hover-glide";
 import { surfaceOrigin } from "../../lib/motion";
 
 const MARGIN = 8;
@@ -93,6 +94,8 @@ export function AnchoredMenu({
     above: boolean;
   } | null>(null);
   const presence = usePresence(open);
+  // Hover travels from item to item inside the menu (D696).
+  if (presence.present) installHoverGlide();
   // The exit shows what the open menu last showed: a caller may already have
   // emptied its rows (a filter cleared, a selection applied) as it closed.
   const shownChildren = useRef(children);

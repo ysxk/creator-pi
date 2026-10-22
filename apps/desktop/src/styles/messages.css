@@ -3613,40 +3613,38 @@
   font-size: var(--text-sm);
 }
 
-/* ── Smooth streaming cursor and layout stabilization ── */
-
-@keyframes smooth-stream-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
+/* ── Streaming text: layout stabilization and ink bloom ── */
 
 .assistant-turn-fragment.streaming .prose-chat {
   text-wrap: wrap;
 }
 
-.assistant-turn-fragment.smooth-cursor .prose-chat > :last-child:not(ul):not(ol):not(blockquote):not(pre):not(table):not(.table-wrap)::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child:not(:has(ul, ol)):not(:has(p))::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > p:last-child::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > p:last-child::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > pre:last-child > code::after {
-  content: "";
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  background: var(--ds-text-primary);
-  animation: smooth-stream-blink 1s step-end infinite;
+/*
+  A live reply's newest characters bloom from a soft blur into ink (D695,
+  lib/ink-bloom.ts), which also marks where it is writing, so no caret is
+  drawn. Two identical keyframes alternate on every render of a block (`ink-0`
+  / `ink-1`) so each render restarts the young spans at the point their own age
+  gives them;
+  `both` keeps a character that waits for its turn hidden until then. Only a
+  handful of inline spans move at a time, by opacity and filter.
+*/
+.ink {
+  animation-duration: var(--motion-ink-duration);
+  animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+  animation-fill-mode: both;
+}
+
+.ink-0 {
+  animation-name: ds-ink-bloom-0;
+}
+
+.ink-1 {
+  animation-name: ds-ink-bloom-1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :last-child:not(ul):not(ol):not(blockquote):not(pre):not(table):not(.table-wrap)::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child:not(:has(ul, ol)):not(:has(p))::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > p:last-child::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > p:last-child::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > pre:last-child > code::after {
+  .ink {
     animation: none;
-    opacity: 0.7;
   }
 }
 
