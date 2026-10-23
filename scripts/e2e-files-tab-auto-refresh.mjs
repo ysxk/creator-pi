@@ -1,0 +1,98 @@
+#!/usr/bin/env node
+/** Refresh the production host file viewer and tree after agent tool calls end. */
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { repositoryRoot, resolveElectronBinary } from "./e2e/boot.mjs";
+
+const root = repositoryRoot();
+const require = createRequire(join(root, "packages/agent-runtime/package.json"));
+const { build } = require("esbuild");
+const temp = await mkdtemp(join(tmpdir(), "pi-files-tab-auto-refresh-"));
+try {
+  await build({
+    entryPoints: [join(root, "scripts/e2e/files-tab-auto-refresh.tsx")],
+    outfile: join(temp, "renderer.js"),
+    bundle: true,
+    platform: "browser",
+    format: "iife",
+    jsx: "automatic",
+    define: { "process.env.NODE_ENV": '"production"', "import.meta.env.DEV": "false" },
+    loader: { ".css": "empty" },
+    alias: {
+      "@pi-desktop/i18n": join(root, "packages/i18n/src/index.ts"),
+      react: join(root, "apps/desktop/node_modules/react"),
+      "react-dom": join(root, "apps/desktop/node_modules/react-dom"),
+    },
+    nodePaths: [join(root, "apps/desktop/node_modules")],
+  });
+  const viewerStyles = await readFile(join(root, "apps/desktop/src/styles/work-panel.css"), "utf8");
+  await writeFile(join(temp, "work-panel.css"), `${viewerStyles}\nhtml,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}`);
+  await writeFile(
+    join(temp, "index.html"),
+    '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="work-panel.css"><div id="root"></div><script src="renderer.js"></script>',
+  );
+  await writeFile(
+    join(temp, "main.cjs"),
+    `
+const { app, BrowserWindow } = require("electron");
+const path = require("node:path");
+app.disableHardwareAcceleration();
+app.setPath("userData", path.join(__dirname, "profile"));
+app.whenReady().then(async () => {
+  const window = new BrowserWindow({ show: false, width: 900, height: 420,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+  window.webContents.on("console-message", (event) => console.error(event.message));
+  try {
+    await window.loadFile(path.join(__dirname, "index.html"));
+    const result = await window.webContents.executeJavaScript("window.filesTabAutoRefreshProbe()");
+    console.log("FILES_TAB_AUTO_REFRESH " + JSON.stringify(result));
+    app.exit(0);
+  } catch (error) {
+    console.error("FILES_TAB_AUTO_REFRESH " + (error?.stack ?? String(error)));
+    app.exit(1);
+  }
+});
+`,
+  );
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const child = spawn(resolveElectronBinary(root).electronBinary, [
+    "--headless=new",
+    "--disable-gpu",
+    join(temp, "main.cjs"),
+  ], { env, stdio: ["ignore", "pipe", "pipe"] });
+  let output = "";
+  for (const stream of [child.stdout, child.stderr]) {
+    stream.on("data", (chunk) => { output += chunk; });
+  }
+  const timeout = setTimeout(() => child.kill("SIGKILL"), 45_000);
+  let code;
+  try {
+    code = await new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", resolve);
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+  const line = output.split(/\r?\n/).find((item) => item.startsWith("FILES_TAB_AUTO_REFRESH {"));
+  assert(line, `renderer returned no auto-refresh result (exit=${code}): ${output.slice(-4000)}`);
+  const result = JSON.parse(line.slice("FILES_TAB_AUTO_REFRESH ".length));
+  console.log(line);
+  assert.equal(code, 0, output.slice(-4000));
+  assert.equal(result.readsAfterMessage, 0, "a non-tool agent event must not re-read the file");
+  assert.deepEqual(result.editRefresh.reads, ["target.txt"], "a burst of tool calls re-reads the open file once");
+  assert.deepEqual(result.editRefresh.lists, [""], "a burst of tool calls re-lists each loaded folder once");
+  assert.equal(result.editRefresh.scrollTop, 0, "a refresh keeps the user's scroll position");
+  assert.equal(result.editRefresh.lineJumps, 1, "a refresh does not repeat the requested line jump");
+  assert.deepEqual(result.treeAfterBack, ["notes.txt", "target.txt", "added.txt"]);
+  assert.equal(result.viewerPath, "notes.txt");
+  assert.equal(result.viewerShowsNotes, true);
+  assert.equal(result.viewerShowsStale, false, "a re-read for a file no longer open must not land");
+} finally {
+  await rm(temp, { recursive: true, force: true });
+}

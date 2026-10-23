@@ -20,6 +20,7 @@ import { AudioPlayer } from "../AudioPlayer";
 import { Markdown } from "../Markdown";
 import { FileTypeBadge } from "../FileTypeBadge";
 import { fileDirOf } from "../../lib/chat-links";
+import { sameFsRead, subscribeToolSettled } from "../../lib/agent-tool-settle";
 import { Button, cx } from "../ui";
 import { TooltipButton } from "../ui";
 import {
@@ -183,6 +184,10 @@ export function FilesTab() {
   /** The inline player could not decode the selected media; show the notice instead. */
   const [mediaFailed, setMediaFailed] = useState(false);
   const viewerBodyRef = useRef<HTMLDivElement>(null);
+  /** Bumped when the viewer changes file, so a stale re-read cannot land. */
+  const fileGeneration = useRef(0);
+  /** A requested line is scrolled to once per open, not after each re-read. */
+  const lineJumpPending = useRef(false);
 
   // Workspace switches reset all browsing state. Guarded so it only fires on
   // an actual root change: an unconditional [root] effect also runs on the
@@ -192,6 +197,7 @@ export function FilesTab() {
   useEffect(() => {
     if (prevRoot.current === root) return;
     prevRoot.current = root;
+    fileGeneration.current += 1;
     setDirs({});
     setExpanded(new Set());
     setSelected(null);
@@ -237,6 +243,8 @@ export function FilesTab() {
 
   const openFile = useCallback(
     async (rel: string, mimeType?: string, position?: { line?: number; column?: number }) => {
+      fileGeneration.current += 1;
+      lineJumpPending.current = position?.line != null;
       setSelected(rel);
       setSelectedMimeType(mimeType);
       setSelectedLine(position?.line);
@@ -253,8 +261,9 @@ export function FilesTab() {
   );
 
   useEffect(() => {
-    if (!file || selectedLine == null) return;
+    if (!file || selectedLine == null || !lineJumpPending.current) return;
     const frame = requestAnimationFrame(() => {
+      lineJumpPending.current = false;
       const lineNode = viewerBodyRef.current?.querySelector(
         `[data-line="${selectedLine}"]`,
       );
@@ -301,6 +310,53 @@ export function FilesTab() {
       column: fileRequest.column,
     });
   }, [fileRequest, root, loadDir, openFile]);
+
+  // After the agent finishes a tool call, re-read the open file and every
+  // listed folder so edits, new files and deletions show without reopening.
+  // Unchanged results keep their identity; the scroll position stays put.
+  const refreshShown = useCallback(async () => {
+    const rootAtStart = root;
+    const listed = Object.keys(dirs);
+    const relist = rootAtStart
+      ? listed.map(async (rel) => {
+          let next: DirState;
+          try {
+            next = { entries: (await api.fsList(rel)).entries };
+          } catch {
+            next = { entries: [], error: true };
+          }
+          if (prevRoot.current !== rootAtStart) return;
+          setDirs((prev) => (prev[rel] ? { ...prev, [rel]: next } : prev));
+        })
+      : [];
+    const reread = (async () => {
+      if (selected === null) return;
+      const generation = fileGeneration.current;
+      try {
+        const next = await api.fsRead(selected, selectedMimeType);
+        if (generation !== fileGeneration.current) return;
+        setFileError(false);
+        setFile((prev) => (prev && sameFsRead(prev, next) ? prev : next));
+      } catch {
+        if (generation !== fileGeneration.current) return;
+        setFileError(true);
+      }
+    })();
+    await Promise.all([...relist, reread]);
+  }, [root, dirs, selected, selectedMimeType]);
+
+  const refreshShownRef = useRef(refreshShown);
+  useEffect(() => {
+    refreshShownRef.current = refreshShown;
+  }, [refreshShown]);
+
+  useEffect(
+    () =>
+      subscribeToolSettled(api.onAgentEvent, () => {
+        void refreshShownRef.current();
+      }),
+    [],
+  );
 
   const renderDir = (rel: string, depth: number): React.ReactNode => {
     const state = dirs[rel];
@@ -375,6 +431,7 @@ export function FilesTab() {
             tooltip={t("panel.files.back")}
             ariaLabel={t("panel.files.back")}
             onClick={() => {
+              fileGeneration.current += 1;
               setSelected(null);
               setSelectedMimeType(undefined);
               setSelectedLine(undefined);

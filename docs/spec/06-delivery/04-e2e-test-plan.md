@@ -4688,6 +4688,26 @@ window; opening a normal panel afterward must still work.
 
 ---
 
+#### E2E-FILES-agent-tool-call-refreshes-open-file
+
+- **Preconditions**: Isolated Electron/Chromium, an active workspace, and
+  deterministic filesystem IPC fixtures; no real project files or provider.
+- **Steps**: 1) Open a long file at a line, as a transcript `path:line` chip
+  does, then scroll the viewer back to the top. 2) Send a non-tool agent
+  event. 3) Change the file and add one to the root folder, then end three
+  tool calls at once. 4) Hold the next re-read of that file, end another tool
+  call, go back, open a different file, and release the held read.
+- **Expected**: The non-tool event reads nothing. The burst re-reads the open
+  file once and re-lists the loaded root once; the edit shows without
+  reopening, the scroll stays at the top, and the line jump does not repeat.
+  Back shows the added file in the tree. The released stale read never
+  replaces the second file.
+- **Specs linked**: `04-ux/08-component-spec.md` §5.4, D698
+- **Status**: `pnpm test:e2e:files-auto-refresh` mounts production `FilesTab`;
+  `apps/desktop/test/agent-tool-settle.test.mjs` covers the scheduling.
+
+---
+
 #### E2E-059a: Transcript message plates follow WorkBuddy density
 
 - **Preconditions**: A session contains at least one short user prompt, one
