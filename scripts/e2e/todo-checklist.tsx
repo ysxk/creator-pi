@@ -56,6 +56,8 @@ window.todoChecklistProbe = async () => {
   const checks: string[] = [];
   const first = await action("create", "Todo first") as string;
   const second = await action("create", "Todo second") as string;
+  // A checklist is on screen only while a turn runs (D672, D699).
+  useAppStore.setState({ runningSessions: { [first]: true, [second]: true } });
   await mount(first);
   await until(() => snapshot(first)?.revision === 0, "Initial empty snapshot must recover");
   assert(!dock(), "Empty session must hide the dock");
@@ -106,8 +108,6 @@ window.todoChecklistProbe = async () => {
   await until(() => dockText().includes("Task 1"), "Returning session restores its checklist");
   checks.push("session-switch-isolation");
 
-  // A finished checklist is on screen only while its turn runs (D672).
-  useAppStore.setState({ runningSessions: { [first]: true } });
   const finished = await write(first, [
     { content: "Done", status: "completed", priority: "high" },
     { content: "Dropped", status: "cancelled", priority: "low" },
@@ -124,11 +124,19 @@ window.todoChecklistProbe = async () => {
     "All-cancelled list must show cancelled status, not a 0/0 count");
   useAppStore.setState({ runningSessions: { [first]: false } });
   await until(() => !dock(), "A finished checklist must leave when its turn ends");
+  // Work left open when the turn is interrupted or ends does not hang either (D699).
+  useAppStore.setState({ runningSessions: { [first]: true } });
+  await write(first, items(3, "Open"));
+  await until(() => dockText().includes("Open 1"), "An open checklist shows while its turn runs");
+  useAppStore.setState({ runningSessions: { [first]: false } });
+  await until(() => !dock(), "An open checklist must leave when its turn stops");
+  checks.push("open-checklist-leaves-when-its-turn-stops");
   const cleared = await write(first, []);
   await until(() => snapshot(first)?.revision === cleared.revision && !dock(), "Clear must advance revision and hide dock");
   checks.push("complete-cancel-clear-stale-event");
   checks.push("finished-checklist-leaves-with-its-turn");
 
+  useAppStore.setState({ runningSessions: { [first]: true } });
   await action("suppressEvents", true);
   const durable = await write(first, items(1, "Persisted"));
   await action("restart");
@@ -139,6 +147,7 @@ window.todoChecklistProbe = async () => {
   checks.push("sqlite-host-restart-cached-snapshot-recovery");
 
   const third = await action("create", "First-read failure") as string;
+  useAppStore.setState({ runningSessions: { [third]: true } });
   await action("suppressEvents", true);
   const recoverable = await write(third, items(1, "Recovered"));
   await action("suppressEvents", false);

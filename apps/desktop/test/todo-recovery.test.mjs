@@ -55,7 +55,11 @@ async function harness() {
   let mounted = [];
   const render = (sessionId) => {
     effects.length = 0;
-    Object.assign(useAppStore.getInitialState(), { sessionTodos: useAppStore.getState().sessionTodos });
+    // The dock shows only while a turn runs (D699); recovery is what is tested here.
+    Object.assign(useAppStore.getInitialState(), {
+      sessionTodos: useAppStore.getState().sessionTodos,
+      runningSessions: { [sessionId]: true },
+    });
     const html = renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(TodoDock, { sessionId })));
     mounted = effects.map((effect, index) => {
       const old = mounted[index];

@@ -9931,8 +9931,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   snapshot. Invalid or unauthorized writes do not mutate or emit. TodoDock
   renders plain text, does not take focus, reopens on session changes,
   lists every ordered row with the dock's own list as the scrollport,
-  keeps a collapsed dock to one row, shows a finished checklist
-  only while the turn that finished it runs (D672),
+  keeps a collapsed dock to one row, shows a checklist, finished or with work
+  still open, only while the turn that wrote it runs (D672, D699),
   rejects stale events, and skips local recovery for `remote:` sessions because
   RACP v1 has no Todo snapshot operation.
 - **Specs**: `03-runtime/03-tools-and-permissions.md`,

@@ -31,7 +31,9 @@ test("TodoDock renders bounded session progress and cancelled state", async () =
         ),
       );
 
+    // The checklist is on screen only while a turn runs (D672, D699).
     Object.assign(useAppStore.getInitialState(), {
+      runningSessions: { "session-todo-test": true },
       sessionTodos: {
         "session-todo-test": {
           sessionId: "session-todo-test",
@@ -76,11 +78,6 @@ test("TodoDock renders bounded session progress and cancelled state", async () =
           ],
         },
       },
-    });
-    // A finished checklist is on screen only while its turn runs (D672), so
-    // the cancelled label is read during the run.
-    Object.assign(useAppStore.getInitialState(), {
-      runningSessions: { "session-todo-test": true },
     });
     assert.match(render(), /Cancelled/);
     assert.doesNotMatch(render(), /0\/0/);
@@ -151,15 +148,78 @@ test("a finished checklist leaves with the turn that finished it", async () => {
       render({ ...finished, runningSessions: { [sessionId]: true }, messages: [promptBefore, promptAfter] }),
       "",
     );
-    // Work still open stays visible whether or not a turn runs.
-    const open = checklist(
-      [
-        { content: "audit", status: "completed", priority: "medium" },
-        { content: "report", status: "pending", priority: "medium" },
-      ],
-      finishedAt,
+  } finally {
+    await server.close();
+  }
+});
+
+test("a checklist with open work leaves when its turn stops (D699)", async () => {
+  const server = await createServer({
+    root: fileURLToPath(new URL("..", import.meta.url)),
+    configFile: false,
+    server: { middlewareMode: true, hmr: false, ws: false },
+    esbuild: { jsx: "automatic" },
+    appType: "custom",
+    optimizeDeps: { noDiscovery: true, include: [] },
+  });
+  try {
+    const { TodoDock } = await server.ssrLoadModule("/src/components/TodoDock.tsx");
+    const { useAppStore } = await server.ssrLoadModule("/src/stores/app-store.ts");
+    const i18n = createInstance();
+    await i18n.init({ lng: "en", resources: { en: { translation: catalogs.en } } });
+    const sessionId = "session-open-todos";
+    const prompt = (createdAt) => ({
+      id: `m-${createdAt}`, role: "user", content: "go", status: "complete", createdAt,
+    });
+    const render = (state) => {
+      Object.assign(useAppStore.getInitialState(), {
+        activeSessionId: sessionId,
+        runningSessions: {},
+        messages: [],
+        ...state,
+      });
+      return renderToStaticMarkup(
+        createElement(I18nextProvider, { i18n }, createElement(TodoDock, { sessionId })),
+      );
+    };
+    const open = (updatedAt) => ({
+      sessionTodos: {
+        [sessionId]: {
+          sessionId,
+          revision: 3,
+          updatedAt,
+          todos: [
+            { content: "audit", status: "completed", priority: "medium" },
+            { content: "render", status: "in_progress", priority: "medium" },
+            { content: "report", status: "pending", priority: "medium" },
+          ],
+        },
+      },
+    });
+    const promptBefore = prompt("2026-10-23T08:00:00.000Z");
+    const promptAfter = prompt("2026-10-23T08:05:00.000Z");
+    const writtenInFirstTurn = open(Date.parse("2026-10-23T08:00:30.000Z"));
+    const running = { runningSessions: { [sessionId]: true } };
+
+    // The turn that wrote it is running: the plan is read as it advances.
+    assert.match(render({ ...writtenInFirstTurn, ...running, messages: [promptBefore] }), /1\/3/);
+    // The turn was interrupted, failed or ended with work left: the plan
+    // does not hang above the composer with a step still turning.
+    assert.equal(render({ ...writtenInFirstTurn, messages: [promptBefore] }), "");
+    // A later turn does not bring it back on its own...
+    assert.equal(
+      render({ ...writtenInFirstTurn, ...running, messages: [promptBefore, promptAfter] }),
+      "",
     );
-    assert.match(render({ ...open, messages: [promptBefore, promptAfter] }), /1\/2/);
+    // ...but does once the agent picks the plan up again in that turn.
+    assert.match(
+      render({
+        ...open(Date.parse("2026-10-23T08:05:10.000Z")),
+        ...running,
+        messages: [promptBefore, promptAfter],
+      }),
+      /1\/3/,
+    );
   } finally {
     await server.close();
   }

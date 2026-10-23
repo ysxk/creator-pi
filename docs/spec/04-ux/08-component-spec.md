@@ -2964,12 +2964,15 @@ reasoning-level control.
 - The Composer stack places TodoDock above Plan/Goal approval surfaces when the
   active session has a non-empty host-owned checklist. An empty checklist does
   not reserve layout space.
-- A finished checklist, one whose items are all completed or cancelled, stays
-  only while the turn that finished it is running and leaves when that turn
-  ends (D672). It does not return when a later turn starts: it is shown during
-  a run only if it was written after the latest prompt, and steering does not
-  count as a prompt. A checklist with work still open stays visible whether or
-  not a turn runs. The host keeps the checklist; only the dock steps aside.
+- The checklist stays only while the turn that wrote it is running and leaves
+  when that turn stops, however it stops: finished, ended with work still open,
+  failed, or interrupted (D672, D699). A finished checklist, one whose items
+  are all completed or cancelled, is therefore seen until its last tick, and
+  an interrupted plan does not hang above the composer with a step still
+  turning. It does not return when a later turn starts: it is shown during a
+  run only if it was written after the latest prompt, and steering does not
+  count as a prompt. The host keeps the checklist; only the dock steps aside,
+  and it comes back as soon as the agent writes the checklist again.
 - The dock is one quiet card that opens by default and lists the plan in order
   (D683). Each row is a status mark plus one line of plain text, with no tinted
   tile: a filled circle with a check for completed, a turning arc for

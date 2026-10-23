@@ -5697,7 +5697,7 @@ eleven-tool-round desktop paths are verified by
 
 - **前提：** 隔离的本地 Electron 配置、确定性的 Agent/Host fixture、两个 Desktop 会话，不使用真实 Provider 或付费 API。
 - **步骤：** 启动调用 `TodoWrite` 的多步骤 Agent 回合，观察 Composer 上方默认展开的 TodoDock，收起后切换会话，确认清单按会话隔离并重新展开。展开一个超过 dock 高度上限的清单，确认渲染全部条目、列表在 dock 内滚动而不撑高 Composer 栈；完成和取消条目，确认全部取消状态；清空清单后重载/重启 Host。发送乱序旧 `todos.changed` 事件，确认它不能覆盖新快照；再覆盖非法参数、Plan/Goal、委托和远程会话路径。
-- **预期：** 切换会话时重新展开、收起状态只占一行、列表渲染全部条目并以自身为滚动容器、拒绝旧事件；已结束的清单只在完成它的回合运行期间显示，回合结束即消失（D672）。
+- **预期：** 切换会话时重新展开、收起状态只占一行、列表渲染全部条目并以自身为滚动容器、拒绝旧事件；清单（无论已结束还是仍有未完成条目）只在写入它的回合运行期间显示，回合一停即消失（D672、D699）。
 - **链接规格：** `03-runtime/03-tools-and-permissions.md`、`03-runtime/04-data-storage.md`、`03-runtime/06-host-rpc-protocol.md`、`04-ux/08-component-spec.md`、ADR 0312。
 - **验收：** C / E / F / Quality / Security。
 - **里程碑：** M6+。
