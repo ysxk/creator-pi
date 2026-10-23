@@ -172,7 +172,7 @@ All color references in components use **semantic token names**, never raw hex v
 | Token | Hex | Tailwind mapping | Usage |
 |---|---|---|---|
 | `--color-bg-primary` | `#181818` | Codex `gray-900` | Main surface |
-| `--color-bg-sidebar` / under | `#111111` (dark; near-black, never `#000`, D696) / `#f3f3f3` (light) | Codex `surface-under` / gray-75 | Sidebar rail |
+| `--color-bg-sidebar` / under | `#111111` (dark; near-black, never `#000`, D696) / `#f8fafc` (light, D697) | Codex `surface-under` / gray-75 | Sidebar rail |
 | `--ds-bg-sidebar-image` | `none` (optional `<image>`) | — | Sidebar `background-image` only (gradients / pictures). `--ds-bg-sidebar` stays a color for glass tint, borders, and `color-mix` |
 | `--color-bg-secondary` | `#212121` | Codex `gray-800` | Elevated surfaces, composer |
 | `--color-bg-tertiary` | `#282828` | Codex `gray-750` | Hover / opaque elevated |
@@ -190,23 +190,30 @@ All color references in components use **semantic token names**, never raw hex v
 | `--color-error` | `#EF4444` | `text-red-500` | Error, denied |
 | `--color-info` | `#6366F1` | `text-indigo-500` | Informational |
 
-### 4.3 Light theme (Codex electron-light)
+### 4.3 Light theme (Bamboo White)
 
-Neutral gray scale only — no blue-slate surfaces. Chrome components must consume semantic `--ds-*` tokens so light ink stays dark on `#f3f3f3` / `#ffffff`.
+A white sheet, slate ink, hairline strokes and a single bamboo-green accent.
+The sidebar and settings rail are the one surface that steps down, to slate-50
+`#f8fafc`, and that 1.5% step is their edge: the built-in theme draws no seam
+beside them (D697). Chrome components must consume semantic `--ds-*` tokens so
+ink stays dark on `#f8fafc` / `#ffffff`; `--ds-text-muted` still clears 4.5:1
+on the rail.
 
 | Token | Hex / value | Usage |
 |---|---|---|
-| `--color-bg-primary` | `#ffffff` | Main surface |
-| `--color-bg-secondary` / sidebar | `#f3f3f3` (gray-75) | Sidebar surface |
-| `--color-bg-tertiary` | `#f3f3f3` | Nested / hover base |
-| `--color-bg-inset` | `#ededed` (gray-100) | Code blocks, inset |
-| `--color-text-primary` | `#1a1c1f` | Body + brand |
-| `--color-text-secondary` | `color-mix(#1a1c1f 70%, transparent)` | Nav items, chips, thread titles |
-| `--color-text-muted` | `#5d5d5d` (gray-500) | Section labels |
-| `--color-text-faint` | `#afafaf` (gray-300) | Placeholder |
-| `--color-border-default` | `color-mix(#1a1c1f 8%, transparent)` | Default borders |
-| `--color-border-subtle` | `color-mix(#1a1c1f 5%, transparent)` | Sidebar edge / dividers |
-| `--color-accent` | `#1a1c1f` | Primary accent, CTA, footer badge (neutral ink) |
+| `--color-bg-primary` | `#ffffff` | Main surface, composer, dock |
+| `--ds-bg-sidebar` / `--ds-settings-rail-bg` / under | `#f8fafc` (slate-50, D697) | Sidebar and settings rail; the macOS tint (`--ds-sidebar-glass-tint`) is the same opaque value |
+| `--color-bg-secondary` | `#ffffff` | Elevated surfaces |
+| `--color-bg-tertiary` | `#f8fafc` | Nested / hover base |
+| `--color-bg-inset` | `#f1f5f9` (slate-100) | Code blocks, inset |
+| `--color-text-primary` | `#0f172a` (slate-900) | Body + brand |
+| `--color-text-secondary` | `#334155` (slate-700) | Nav items, chips, thread titles |
+| `--color-text-muted` | `#64748b` (slate-500) | Section labels |
+| `--color-text-faint` | `#94a3b8` (slate-400) | Placeholder |
+| `--color-border-default` | `color-mix(#0f172a 8%, transparent)` | Default borders |
+| `--color-border-subtle` | `color-mix(#0f172a 5%, transparent)` | Dividers |
+| `--ds-pane-seam` | `color-mix(#0f172a 6%, transparent)` | Where white meets white: the work panel's edge, not the sidebar's (`--ds-sidebar-seam`, D697) |
+| `--color-accent` | `#059669`; text-bearing fills `#047857` | Primary accent, selection, toggles |
 | `--color-success` / warning / error | green-500 / orange-500 / red-500 | Status |
 
 **Invariant:** never paint chrome text with raw `gray-0` (`#fff`) under `data-theme="light"`. Use `--ds-text-primary` / `--ds-text-secondary`.
@@ -598,7 +605,7 @@ floating layers where an edge is an elevation cue rather than a partition.
 | Tile | `--ds-tile` (3.5% text mix); hover `--ds-tile-hover` (6%); deep `--ds-tile-deep` (8%) | Panels, list rows, cards, form fields, chips, code blocks, empty states |
 | Raised | `--ds-raised` + `--ds-raised-shadow` | The active pill of a segmented control, a disclosed detail block, a recorder keycap |
 | Dock | `--ds-bg-dock` (the column), `--ds-bg-dock-raised` (its header and viewer strips) | The work-panel column and the bars inside it. Both are tokens, not literals, so a contributed theme can move them (D419) |
-| Sidebar / settings rail | `--ds-bg-sidebar` (opaque fallback: light `#f3f3f3`, dark `#111111`), `--ds-bg-sidebar-image`, shared macOS glass tint/sheen | One `sidebar-surface` material for both navigation columns; content stays opaque |
+| Sidebar / settings rail | `--ds-bg-sidebar` (opaque fallback: light `#f8fafc` (D697), dark `#111111`), `--ds-bg-sidebar-image`, shared macOS glass tint/sheen | One `sidebar-surface` material for both navigation columns; content stays opaque |
 | Settings search | `--ds-settings-field-bg` (light `#ffffff`, dark `#212121`) | Search pill on the settings rail |
 | Active settings item | `--ds-settings-nav-active` (light 12% `#1a1c1f` mixed over white; dark 10% `--gray-0` over transparent) | Selected navigation pill |
 | Inset search | `--ds-field-inset-bg`, `--ds-field-inset-focus-bg` (light `#f3f3f3` / white; dark 5% / 7% primary-text mix over transparent) | Plugin search and Agent capability search, including focus |

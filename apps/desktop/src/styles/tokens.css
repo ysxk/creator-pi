@@ -118,6 +118,9 @@
   /* The composer's 0.5px edge (D694): a faint light ring, not a stroke. */
   --ds-composer-stroke: color-mix(in oklab, var(--gray-0) 6%, transparent);
   --ds-pane-seam: transparent;
+  /* The sidebar's edge (chrome.css): the pane seam, unless a theme lets the
+     rail's own tone be the edge (D697). */
+  --ds-sidebar-seam: var(--ds-pane-seam);
   /* Image viewers: the veil over the window, and the controls floating on it.
      Dark keeps the opaque stage it had; light frosts the window instead. */
   --ds-viewer-veil: var(--ds-bg-primary);
@@ -398,15 +401,16 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  /* Bamboo White: one continuous white sheet, slate ink, hairline strokes,
-     and a single bamboo-green accent. */
+  /* Bamboo White: a white sheet beside a rail one step down, slate ink,
+     hairline strokes, and a single bamboo-green accent. */
   --ds-bg-primary: #ffffff;
-  --ds-settings-rail-bg: #ffffff;
-  --ds-bg-sidebar: var(--ds-settings-rail-bg, #ffffff);
+  /* The rail sits 1.5% below the sheet instead of behind a line (D697). */
+  --ds-settings-rail-bg: #f8fafc;
+  --ds-bg-sidebar: var(--ds-settings-rail-bg, #f8fafc);
   --ds-bg-secondary: #ffffff;
   --ds-bg-tertiary: #f8fafc;
   --ds-bg-inset: #f1f5f9;
-  --ds-bg-under: #ffffff;
+  --ds-bg-under: #f8fafc;
   /* The dock shares the sheet; a hairline, not a grey fill, sets it apart. */
   --ds-bg-dock: #ffffff;
   --ds-bg-dock-raised: #ffffff;
@@ -416,8 +420,8 @@
   --ds-bg-active: color-mix(in oklab, #0f172a 7%, transparent);
   --ds-bg-composer: #ffffff;
   /* Opaque on purpose: the native vibrancy behind a translucent tint reads as
-     the grey rail this theme removes. */
-  --ds-sidebar-glass-tint: #ffffff;
+     a grey rail, not this measured step. */
+  --ds-sidebar-glass-tint: #f8fafc;
   --ds-sidebar-glass-sheen-top: transparent;
   --ds-sidebar-glass-sheen-bottom: transparent;
   --ds-bg-chip: color-mix(in oklab, #0f172a 4%, transparent);
@@ -518,6 +522,12 @@
   --ds-filter-active-bg: #047857;
   --ds-filter-active-fg: #ffffff;
   --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 82%, transparent);
+}
+
+/* The built-in Bamboo White lets the rail's tone be the sidebar's edge (D697);
+   a contributed theme keeps its pane seam. */
+:root[data-theme="light"]:not([data-plugin-theme]) {
+  --ds-sidebar-seam: transparent;
 }
 
 @theme {

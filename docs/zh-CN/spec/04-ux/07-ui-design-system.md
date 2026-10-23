@@ -145,7 +145,7 @@ PI-Desktop 的行为类似于桌面应用程序 shell，因此意外拖动
 | 代币 | 十六进制 | Tailwind 映射 | 用途 |
 |---|---|---|---|
 | `--color-bg-primary` | `#181818` | 法典 `gray-900` | 主表面 |
-| `--color-bg-sidebar`/下 | `#111111`（深色；近黑，不用 `#000`，D696）/`#f3f3f3`（浅色） | 法典 `surface-under` / grey-75 | 侧栏导轨 |
+| `--color-bg-sidebar`/下 | `#111111`（深色；近黑，不用 `#000`，D696）/`#f8fafc`（浅色，D697） | 法典 `surface-under` / grey-75 | 侧栏导轨 |
 | `--ds-bg-sidebar-image` | `none`（可选 `<image>`） | — | 仅用于侧栏 `background-image`（渐变/图片）。`--ds-bg-sidebar` 保持颜色，供 glass tint、边框与 `color-mix` 使用 |
 | `--color-bg-secondary` | `#212121` | 法典 `gray-800` | 高架表面，输入框 |
 | `--color-bg-tertiary` | `#282828` | 法典 `gray-750` | 悬停/不透明升高 |
@@ -163,23 +163,28 @@ PI-Desktop 的行为类似于桌面应用程序 shell，因此意外拖动
 | `--color-error` | `#EF4444` | `text-red-500` | 错误，被拒绝 |
 | `--color-info` | `#6366F1` | `text-indigo-500` | 信息性 |
 
-### 4. 3 灯光主题（Codex electro-light）
+### 4.3 浅色主题（竹白）
 
-仅中性灰度 - 无蓝石板表面。 Chrome 组件必须使用语义 `--ds-*` 标记，以便浅色墨水在 `#f3f3f3` / `#ffffff` 上保持深色。
+一张白纸、石板灰墨色、发丝线和唯一的竹绿强调色。侧栏和设置导航是唯一降一阶的表面，降到 slate-50
+`#f8fafc`，这 1.5% 的明度差就是它们的边界：内置主题不在旁边画分隔线（D697）。Chrome 组件必须使用
+语义 `--ds-*` 变量，以便墨色在 `#f8fafc` / `#ffffff` 上保持深色；`--ds-text-muted` 在侧栏上仍满足
+4.5:1。
 
-| 代币 | 十六进制/值 | 用途 |
+| 变量 | 十六进制/值 | 用途 |
 |---|---|---|
-| `--color-bg-primary` | `#ffffff` | 主表面 |
-| `--color-bg-secondary` / 侧边栏 | `#f3f3f3`（灰色-75） | 侧边栏表面 |
-| `--color-bg-tertiary` | `#f3f3f3` | 嵌套/悬停底座 |
-| `--color-bg-inset` | `#ededed`（灰色-100） | 代码块，插图 |
-| `--color-text-primary` | `#1a1c1f` | 机身+品牌 |
-| `--color-text-secondary` | `color-mix(#1a1c1f 70%, transparent)` | 导航项目、筹码、话题标题 |
-| `--color-text-muted` | `#5d5d5d`（灰色-500） | 部分标签 |
-| `--color-text-faint` | `#afafaf`（灰色-300） | 占位符 |
-| `--color-border-default` | `color-mix(#1a1c1f 8%, transparent)` | 默认边框 |
-| `--color-border-subtle` | `color-mix(#1a1c1f 5%, transparent)` | 侧边栏边缘/分隔线 |
-| `--color-accent` | `#1a1c1f` | 主要强调、CTA、页脚徽章（中性墨水） |
+| `--color-bg-primary` | `#ffffff` | 主表面、输入框、停靠栏 |
+| `--ds-bg-sidebar` / `--ds-settings-rail-bg` / 底层 | `#f8fafc`（slate-50，D697） | 侧栏和设置导航；macOS 的着色（`--ds-sidebar-glass-tint`）是同一个不透明值 |
+| `--color-bg-secondary` | `#ffffff` | 浮起表面 |
+| `--color-bg-tertiary` | `#f8fafc` | 嵌套/悬停底座 |
+| `--color-bg-inset` | `#f1f5f9`（slate-100） | 代码块、内嵌区域 |
+| `--color-text-primary` | `#0f172a`（slate-900） | 正文 + 品牌 |
+| `--color-text-secondary` | `#334155`（slate-700） | 导航项、标签、会话标题 |
+| `--color-text-muted` | `#64748b`（slate-500） | 分区标签 |
+| `--color-text-faint` | `#94a3b8`（slate-400） | 占位符 |
+| `--color-border-default` | `color-mix(#0f172a 8%, transparent)` | 默认边框 |
+| `--color-border-subtle` | `color-mix(#0f172a 5%, transparent)` | 分隔线 |
+| `--ds-pane-seam` | `color-mix(#0f172a 6%, transparent)` | 白色与白色相接处：工作面板的边界，不用于侧栏（`--ds-sidebar-seam`，D697） |
+| `--color-accent` | `#059669`；带文字的实心填充用 `#047857` | 主要强调、选中、开关 |
 | `--color-success`/警告/错误 | 绿色-500 / 橙色-500 / 红色-500 | 状态 |
 
 **不变：**切勿在 `data-theme="light"` 下使用原始 `gray-0` (`#fff`) 绘制镀铬文本。使用 `--ds-text-primary` / `--ds-text-secondary`。
@@ -530,7 +535,7 @@ shadow-lg:  0 8px 24px rgba(0,0,0,0.12)
 | 色块 | `--ds-tile`（文字色 3.5% 混合）；悬停 `--ds-tile-hover`（6%）；加深 `--ds-tile-deep`（8%） | 面板、列表行、卡片、表单字段、芯片、代码块、空状态 |
 | 抬起 | `--ds-raised` + `--ds-raised-shadow` | 分段控件的当前项、展开的详情块、录制键帽 |
 | 停靠列 | `--ds-bg-dock`（列本身）、`--ds-bg-dock-raised`（其标题栏与查看器条目栏） | 工作面板列及其内部条目栏。两者都是标记而非字面量，插件主题可以覆盖（D419） |
-| 主侧栏 / 设置导航 | `--ds-bg-sidebar`（不透明回退：浅色 `#f3f3f3`、深色 `#111111`）、`--ds-bg-sidebar-image` 和共享 macOS tint/sheen | 两处导航使用同一 `sidebar-surface` 材质，内容区保持不透明 |
+| 主侧栏 / 设置导航 | `--ds-bg-sidebar`（不透明回退：浅色 `#f8fafc`（D697）、深色 `#111111`）、`--ds-bg-sidebar-image` 和共享 macOS tint/sheen | 两处导航使用同一 `sidebar-surface` 材质，内容区保持不透明 |
 | 设置搜索 | `--ds-settings-field-bg`（浅色 `#ffffff`、深色 `#212121`） | 导航轨搜索框 |
 | 设置选中项 | `--ds-settings-nav-active`（浅色为 12% `#1a1c1f` 混合白底；深色为 10% `--gray-0` 混合透明底） | 选中导航胶囊 |
 | 内嵌搜索 | `--ds-field-inset-bg`、`--ds-field-inset-focus-bg`（浅色 `#f3f3f3` / 白色；深色为 5% / 7% 主文本色混合透明底） | 插件搜索和 Agent 能力搜索，包含焦点状态 |

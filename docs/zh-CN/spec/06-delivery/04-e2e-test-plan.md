@@ -8704,9 +8704,11 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
   和标签的宿主副本退场。
 - 刚发出的用户消息每次发送浮入一次：原生会话换上的持久化行、移入历史的行都接着当前进度浮完；在没有
   输出时停止后再发送的消息会重新浮入；历史消息从不动。
-- 减少动态效果：没有滑动图层，也不浮入。暗色：底层为 `#111111`。
-- 覆盖：`apps/desktop/test/travel-motion.test.mjs`、`pnpm test:e2e:transcript`（初始等待）、
-  `pnpm test:e2e:theme-surfaces`（暗色侧栏）；在临时实例里逐帧采样（2026-10-23）。
+- 减少动态效果：没有滑动图层，也不浮入。暗色：底层为 `#111111`。竹白：侧栏和设置导航为
+  `#f8fafc`，旁边不画分隔线；工作面板保留它的发丝线（D697）。
+- 覆盖：`apps/desktop/test/travel-motion.test.mjs`、`apps/desktop/test/sidebar-settings-return.test.mjs`、
+  `pnpm test:e2e:transcript`（初始等待）、`pnpm test:e2e:theme-surfaces`（两种主题的侧栏）；在临时
+  实例里逐帧采样（2026-10-23）。
 
 #### E2E-CHAT-runtime-status-keeps-row-position
 

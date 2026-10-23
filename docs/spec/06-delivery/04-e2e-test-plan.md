@@ -3135,7 +3135,7 @@ identify the platform validation still needed.
 
 - **Preconditions**: App running windowed on macOS with Settings open.
 - **Steps**: 1) Record the window position. 2) Drag the empty 46px band above the settings rail. 3) Drag the same band above the content pane. 4) Use Back, search, Project archive, and navigation controls. 5) In light and dark themes, sample the top row's color above the rail and above the content pane.
-- **Expected**: Either top-band drag moves the native window; Back, search, and navigation remain interactive and never initiate a window drag. The top row above the rail matches the rail surface (`#f4f4f4` light / `#111111` dark, D696) and the top row above the content pane matches the primary surface, so the band never renders a mismatched color over the rail.
+- **Expected**: Either top-band drag moves the native window; Back, search, and navigation remain interactive and never initiate a window drag. The top row above the rail matches the rail surface (`#f8fafc` light, D697 / `#111111` dark, D696) and the top row above the content pane matches the primary surface, so the band never renders a mismatched color over the rail.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/01-ui-ia.md`
 - **Acceptance**: Quality (key operations feel polished)
 - **Milestone**: M5
@@ -6541,8 +6541,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   session swaps in, or the row moving into history, resumes the rise; a message
   sent after an output-less stop rises again; history never animates.
 - Reduced motion: no layers, no rise. Dark: the under layer is `#111111`.
-- Coverage: `apps/desktop/test/travel-motion.test.mjs`, `pnpm test:e2e:transcript`
-  (initial wait), `pnpm test:e2e:theme-surfaces` (dark rail); frame sampling in a
+  Bamboo White: the sidebar and settings rail are `#f8fafc` with no seam beside
+  them, while the work panel keeps its hairline (D697).
+- Coverage: `apps/desktop/test/travel-motion.test.mjs`,
+  `apps/desktop/test/sidebar-settings-return.test.mjs`, `pnpm test:e2e:transcript`
+  (initial wait), `pnpm test:e2e:theme-surfaces` (both rails); frame sampling in a
   throwaway instance (2026-10-23).
 
 #### E2E-CHAT-runtime-status-keeps-row-position
