@@ -15844,9 +15844,12 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   group. Select pinned and standalone conversations. Open Settings and return.
   Enable reduced motion and inspect both row transition durations.
 - **Expected**: Project and conversation hover backgrounds, radii and transitions
-  match. The title button stays transparent. Only a conversation uses selected
-  fill, which wins over hover; workspace identity remains a separate dot with
-  no persistent header fill. Folding never promotes the project to selected.
+  match; over the conversation rows the hover fill is the travelling tile that
+  covers the hovered row (D696), so the probe reads that surface. The title
+  button stays transparent. Only a conversation uses selected fill, which wins
+  over hover and is read once the selection glide has landed; workspace
+  identity remains a separate dot with no persistent header fill. Folding
+  never promotes the project to selected.
   Pinned and standalone rows use the same selected surface. Keyboard focus
   retains an outline, action buttons retain local feedback, drop-target paint
   wins over hover, and blur releases hover without clearing selection. Settings
