@@ -69,10 +69,10 @@ function geometry(scroller: HTMLElement, title: HTMLElement): Geometry {
   };
 }
 
-/** Two ticks: one for the observer-driven layout, one for the follow frame. */
+// Hidden renderers can deliver frames later than a fixed wall-clock delay.
 async function settle() {
   for (let tick = 0; tick < 3; tick += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }
 }
 
@@ -322,7 +322,7 @@ globalThis.transcriptDisclosureProbe = async () => {
     // anchor has to compensate; the automatic collapse above may legitimately clamp.
     assert(
       Math.abs(processExpanded.titleTop - processCollapsed.titleTop) < 2,
-      "process expansion moved its title",
+      `process expansion moved its title: ${JSON.stringify({ processCollapsed, processExpanded })}`,
     );
     renderProcess(true);
     renderProcess(false);
