@@ -36,6 +36,15 @@ backoff and then quarantined into an application-owned dead-letter file, so no
 append can hold the FIFO head long enough to fill the cap for every session
 (UD656).
 
+Transcript replacement and revision activation require the session's queued
+appends to drain and their recovery-file removal to finish before the Host
+rewrite begins. An undrained session or a failed recovery-file write refuses
+the rewrite without dropping payloads. This avoids a recoverable old append
+outliving the history it belonged to, without introducing a cross-process
+rewrite transaction. Users retry the mutation after storage recovers.
+Quarantine and session deletion serialize the dead-letter state change with
+its durable write, so deletion cannot miss a copy still being written.
+
 ## Consequences
 
 - A burst is rejected or backpressured instead of exhausting process resources.

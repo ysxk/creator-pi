@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -92,54 +94,51 @@ test("transcript replacement waits for an in-flight append before dropping the s
   assert.equal(outbox.size(), 0);
 });
 
-test("a failed transcript rewrite gives back the appends it held, on disk too", async () => {
+test("a transcript rewrite refuses an undrained session without losing its queued payload", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "pi-outbox-replace-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
   const outbox = new PersistenceOutbox(dir, silent);
-  const file = join(dir, "session-message-outbox.json");
   const queued = {
-    key: "message:s1:tool-1",
-    sessionId: "s1",
+    key: "message:s1:tool-1", sessionId: "s1",
     message: { id: "tool-1", role: "tool", content: "only copy of this result" },
   };
-  // The host is down, so the drain before the rewrite cannot write it.
   await outbox.enqueue(queued, () => null);
+  await assert.rejects(outbox.prepareSessionReplacement("s1", () => null), /pending message persistence/i);
+  assert.equal(outbox.size(), 1);
+  assert.deepEqual(JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")), [queued]);
 
-  const lease = await outbox.prepareSessionReplacement("s1", () => null);
-  assert.equal(outbox.size(), 0, "a held append is not flushed into the rewrite");
-  assert.deepEqual(
-    JSON.parse(await readFile(file, "utf8")).map((entry) => entry.key),
-    [queued.key],
-    "the held append stays on disk until the rewrite settles",
-  );
-
-  await lease.rollback();
-  assert.equal(outbox.size(), 1, "a failed rewrite gives the append back");
-  assert.deepEqual(JSON.parse(await readFile(file, "utf8")).map((entry) => entry.key), [queued.key]);
-
-  const calls = [];
-  await outbox.flush(() => mockHost(async (_method, params) => { calls.push(params.message.id); }));
-  assert.deepEqual(calls, ["tool-1"]);
-  assert.equal(outbox.size(), 0);
+  const reopened = new PersistenceOutbox(dir, silent);
+  const appended = [];
+  await reopened.flush(() => mockHost(async (_method, params) => appended.push(params.message)));
+  assert.deepEqual(appended, [queued.message]);
 });
 
-test("a committed transcript rewrite discards the appends it held", async () => {
+test("a rewrite cannot bypass a failed durable queue clear", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "pi-outbox-replace-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
   const outbox = new PersistenceOutbox(dir, silent);
-  await outbox.enqueue(
-    { key: "message:s1:old", sessionId: "s1", message: { id: "old", role: "assistant", content: "x" } },
-    () => null,
-  );
-  await outbox.enqueue(
-    { key: "message:s2:other", sessionId: "s2", message: { id: "other", role: "assistant", content: "y" } },
-    () => null,
-  );
-  const lease = await outbox.prepareSessionReplacement("s1", () => null);
-  await lease.commit();
-  assert.equal(outbox.size(), 1, "only the other session's append remains");
-  assert.deepEqual(
-    JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")).map((entry) => entry.key),
-    ["message:s2:other"],
-  );
+  const file = join(dir, "session-message-outbox.json");
+  await outbox.enqueue({ key: "message:s1:old", sessionId: "s1", message: { id: "old" } }, () => null);
+  const rename = fs.rename;
+  const write = fs.writeFile;
+  const renameMock = t.mock.method(fs, "rename", async (from, to) => {
+    if (to === file) throw new Error("outbox disk unavailable");
+    return rename(from, to);
+  });
+  const writeMock = t.mock.method(fs, "writeFile", async (target, ...args) => {
+    if (target === file) throw new Error("outbox disk unavailable");
+    return write(target, ...args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    renameMock.mock.restore();
+    writeMock.mock.restore();
+    syncBuiltinESMExports();
+  });
+  const host = mockHost(async () => {});
+  await outbox.flush(() => host).catch(() => undefined);
+  await assert.rejects(outbox.prepareSessionReplacement("s1", () => host), /outbox disk unavailable/);
+  assert.equal(JSON.parse(await readFile(file, "utf8"))[0].message.id, "old");
 });
 
 function mockHost(handler) {
@@ -724,4 +723,89 @@ test("a backed-off head is retried on its own when the backoff ends", async () =
   assert.deepEqual(calls, ["a", "a", "b"], "the scheduled retry drains the queue without another enqueue");
   assert.equal(outbox.size(), 0);
   assert.equal(timers.filter((timer) => !timer.cancelled && timer.at > now.value).length, 0, "no timer is left once the queue is empty");
+});
+
+test("deleting during a dead-letter write removes its pending copy and preserves other sessions", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-delete-race-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const now = { value: 0 };
+  const options = { now: () => now.value, schedule: () => () => undefined };
+  const outbox = new PersistenceOutbox(dir, silent, options);
+  const host = mockHost(async () => { throw new Error("host busy"); });
+  await outbox.enqueue({ key: "message:keep:a", sessionId: "keep", message: { id: "a" } }, () => host);
+  assert.equal(await drain(outbox, host, now), 0);
+  await outbox.enqueue({ key: "message:gone:b", sessionId: "gone", message: { id: "b", content: "deleted secret" } }, () => null);
+
+  const started = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const rename = fs.rename;
+  let paused = false;
+  const renameMock = t.mock.method(fs, "rename", async (from, to) => {
+    if (to === join(dir, DEAD_LETTER_FILE) && !paused) {
+      paused = true;
+      started.resolve();
+      await release.promise;
+    }
+    return rename(from, to);
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    release.resolve();
+    renameMock.mock.restore();
+    syncBuiltinESMExports();
+  });
+  const draining = drain(outbox, host, now);
+  await started.promise;
+  const deleting = outbox.dropSession("gone");
+  await Promise.resolve();
+  release.resolve();
+  await Promise.all([draining, deleting]);
+  assert.deepEqual(JSON.parse(await readFile(join(dir, DEAD_LETTER_FILE), "utf8")).map((entry) => entry.sessionId), ["keep"]);
+  assert.deepEqual(JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")), []);
+  const reopened = new PersistenceOutbox(dir, silent, options);
+  await reopened.flush(() => mockHost(async () => assert.fail("deleted messages must not replay")));
+  await reopened.dropSession("keep");
+  assert.deepEqual(JSON.parse(await readFile(join(dir, DEAD_LETTER_FILE), "utf8")), []);
+});
+
+test("deletion retries a failed queue clear even after its memory entry was removed", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-delete-retry-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const outbox = new PersistenceOutbox(dir, silent);
+  const file = join(dir, "session-message-outbox.json");
+  await outbox.enqueue({ key: "message:gone:a", sessionId: "gone", message: { id: "a" } }, () => null);
+  const rename = fs.rename;
+  const mocked = t.mock.method(fs, "rename", async (from, to) => {
+    if (to === file) throw new Error("outbox disk unavailable");
+    return rename(from, to);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { mocked.mock.restore(); syncBuiltinESMExports(); });
+  await assert.rejects(outbox.dropSession("gone"), /outbox disk unavailable/);
+  mocked.mock.restore();
+  syncBuiltinESMExports();
+  await outbox.dropSession("gone");
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), []);
+});
+
+test("a background flush reports a failed queue clear without an unhandled rejection", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-flush-error-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const logs = [];
+  const outbox = new PersistenceOutbox(dir, (level, message) => logs.push({ level, message }));
+  const file = join(dir, "session-message-outbox.json");
+  const rename = fs.rename;
+  const mocked = t.mock.method(fs, "rename", async (from, to) => {
+    if (to === file && (await readFile(from, "utf8")).trim() === "[]") {
+      throw new Error("outbox disk unavailable");
+    }
+    return rename(from, to);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { mocked.mock.restore(); syncBuiltinESMExports(); });
+  const host = mockHost(async () => {});
+  await outbox.enqueue({ key: "message:s:a", sessionId: "s", message: { id: "a" } }, () => host);
+  await assert.rejects(outbox.flush(() => host), /outbox disk unavailable/);
+  await Promise.resolve();
+  assert.ok(logs.some((entry) => entry.level === "error" && /background flush failed/.test(entry.message)));
 });

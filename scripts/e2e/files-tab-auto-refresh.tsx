@@ -6,7 +6,11 @@ import { IPC } from "@pi-desktop/shared";
 import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { FilesTab } from "../../apps/desktop/src/components/workpanel/FilesTab";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
+import { transcriptActivationProbe } from "./transcript-activation";
 
+const browserErrors: string[] = [];
+window.addEventListener("error", (event) => browserErrors.push(event.message));
+window.addEventListener("unhandledrejection", (event) => browserErrors.push(String(event.reason)));
 const targetPath = "target.txt";
 const notesPath = "notes.txt";
 const targetLine = 65;
@@ -23,6 +27,7 @@ const listPaths: string[] = [];
 const scrollCalls: string[] = [];
 /** When set, the next read of this path waits until the probe releases it. */
 let heldRead: { path: string; release?: (content: string) => void } | null = null;
+let heldList: { path: string; release?: (names: string[]) => void } | null = null;
 const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
 
 const textResult = (content: string) => ({ kind: "text", content, size: content.length });
@@ -41,7 +46,13 @@ window.piDesktop = {
     if (channel === IPC.invoke.fsList) {
       const rel = String(input?.path ?? "");
       listPaths.push(rel);
-      const entries = (listings[rel] ?? []).map((name) => ({ name, kind: "file" }));
+      let names = listings[rel] ?? [];
+      if (heldList?.path === rel) {
+        const held = heldList;
+        heldList = null;
+        names = await new Promise<string[]>((resolve) => { held.release = resolve; });
+      }
+      const entries = names.map((name) => ({ name, kind: "file" }));
       return { ok: true, data: { entries } };
     }
     if (channel === IPC.invoke.fsRead) {
@@ -84,7 +95,27 @@ HTMLElement.prototype.scrollIntoView = function (options?: ScrollIntoViewOptions
 };
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const settleTimers = new Map<number, () => void>();
+const nativeSetTimeout = window.setTimeout.bind(window);
+const nativeClearTimeout = window.clearTimeout.bind(window);
+let timerId = -1;
+window.setTimeout = ((callback: TimerHandler, delay?: number, ...args: unknown[]) => {
+  if (delay !== 300 || typeof callback !== "function") return nativeSetTimeout(callback, delay, ...args);
+  const id = timerId--;
+  settleTimers.set(id, () => callback(...args));
+  return id;
+}) as typeof window.setTimeout;
+window.clearTimeout = (id) => {
+  if (id != null && settleTimers.delete(id)) return;
+  nativeClearTimeout(id);
+};
+async function settleTools() {
+  const callbacks = [...settleTimers.values()];
+  settleTimers.clear();
+  callbacks.forEach((callback) => callback());
+  await nextFrame();
+  await nextFrame();
+}
 
 async function until(predicate: () => boolean, label: string) {
   for (let frame = 0; frame < 240; frame++) {
@@ -134,7 +165,7 @@ void i18n
 
       // A non-tool event does not refresh anything.
       emitAgentEvent("message_update");
-      await sleep(600);
+      await settleTools();
       const readsAfterMessage = readPaths.length - readsBeforeEdit;
 
       // The agent edits the open file and adds one; three tool calls end at once.
@@ -143,8 +174,9 @@ void i18n
       emitAgentEvent("tool_end");
       emitAgentEvent("tool_end");
       emitAgentEvent("tool_end");
+      await settleTools();
       await until(() => viewerText().includes("line 1 edited by agent"), "edited file content");
-      await sleep(600);
+      await nextFrame();
       const editRefresh = {
         reads: readPaths.slice(readsBeforeEdit),
         lists: listPaths.slice(listsBeforeEdit),
@@ -152,10 +184,28 @@ void i18n
         lineJumps: scrollCalls.length,
       };
 
+      // A second tool settles while the first read is held. Its read must trail,
+      // not race the older snapshot back into the same file.
+      const overlapping: NonNullable<typeof heldRead> = { path: targetPath };
+      heldRead = overlapping;
+      const overlapStart = readPaths.length;
+      emitAgentEvent("tool_end");
+      await settleTools();
+      await until(() => overlapping.release !== undefined, "first overlapping read");
+      files[targetPath] = lines("NEWEST SAME FILE");
+      emitAgentEvent("tool_end");
+      await settleTools();
+      const readsWhileHeld = readPaths.length - overlapStart;
+      overlapping.release!(lines("OLDER SAME FILE"));
+      await nextFrame();
+      await nextFrame();
+      const overlap = { readsWhileHeld, newestVisible: viewerText().includes("NEWEST SAME FILE") };
+
       // A re-read still in flight when the user opens another file must not land.
       const held: NonNullable<typeof heldRead> = { path: targetPath };
       heldRead = held;
       emitAgentEvent("tool_end");
+      await settleTools();
       await until(() => held.release !== undefined, "held re-read");
       document.querySelector<HTMLButtonElement>(".file-viewer-header .icon-btn")!.click();
       await until(() => treeNames().includes("added.txt"), "refreshed tree after back");
@@ -165,15 +215,97 @@ void i18n
       notesRow!.click();
       await until(() => viewerText().includes("notes before"), "notes file");
       held.release!("STALE TARGET CONTENT");
-      await sleep(300);
+      await nextFrame();
+      await nextFrame();
 
-      return {
-        readsAfterMessage,
-        editRefresh,
-        treeAfterBack,
+      const switched = {
         viewerPath: document.querySelector(".file-viewer-path")?.textContent ?? null,
         viewerShowsStale: viewerText().includes("STALE TARGET CONTENT"),
         viewerShowsNotes: viewerText().includes("notes before"),
+      };
+
+      const initial: NonNullable<typeof heldRead> = { path: targetPath };
+      heldRead = initial;
+      const initialStart = readPaths.length;
+      useAppStore.setState({ workPanelFileRequest: { path: targetPath, seq: 2 } });
+      await until(() => initial.release !== undefined, "held initial open");
+      files[targetPath] = lines("NEWEST AFTER OPEN");
+      emitAgentEvent("tool_end");
+      await settleTools();
+      const initialReadsWhileHeld = readPaths.length - initialStart;
+      initial.release!("STALE INITIAL OPEN");
+      await until(() => viewerText().includes("NEWEST AFTER OPEN"), "refresh trailing initial open");
+
+      const staleOpen: NonNullable<typeof heldRead> = { path: targetPath };
+      heldRead = staleOpen;
+      useAppStore.setState({ workPanelFileRequest: { path: targetPath, seq: 3 } });
+      await until(() => staleOpen.release !== undefined, "open before file switch");
+      useAppStore.setState({ workPanelFileRequest: { path: notesPath, seq: 4 } });
+      await until(() => viewerText().includes("notes before"), "replacement file open");
+      staleOpen.release!("STALE ORIGINAL OPEN");
+      await nextFrame();
+      await nextFrame();
+      const initialSwitchSafe = viewerText().includes("notes before");
+
+      const workspaceRead: NonNullable<typeof heldRead> = { path: notesPath };
+      heldRead = workspaceRead;
+      emitAgentEvent("tool_end");
+      await settleTools();
+      await until(() => workspaceRead.release !== undefined, "read before workspace switch");
+      emitAgentEvent("tool_end");
+      await settleTools();
+      useAppStore.setState({ workspace: { path: "/other-workspace", name: "Other" }, workPanelFileRequest: null });
+      await until(() => treeNames().includes(targetPath), "new workspace tree");
+      const readsAtSwitch = readPaths.length;
+      workspaceRead.release!("STALE WORKSPACE");
+      await nextFrame();
+      await nextFrame();
+      const workspaceSafe = !document.querySelector(".file-viewer") && readPaths.length === readsAtSwitch;
+
+      const directory: NonNullable<typeof heldList> = { path: "" };
+      heldList = directory;
+      emitAgentEvent("tool_end");
+      await settleTools();
+      await until(() => directory.release !== undefined, "directory before workspace round trip");
+      listings[""] = [notesPath, targetPath, "middle-workspace.txt"];
+      useAppStore.setState({ workspace: { path: "/workspace", name: "Fixture" } });
+      await until(() => treeNames().includes("middle-workspace.txt"), "intermediate workspace directory");
+      listings[""] = [notesPath, targetPath, "latest-directory.txt"];
+      useAppStore.setState({ workspace: { path: "/other-workspace", name: "Other" } });
+      await until(() => treeNames().includes("latest-directory.txt"), "returned workspace directory");
+      directory.release!(["STALE-DIRECTORY.txt"]);
+      await nextFrame();
+      await nextFrame();
+      const directorySwitchSafe = treeNames().includes("latest-directory.txt") && !treeNames().includes("STALE-DIRECTORY.txt");
+
+      useAppStore.setState({ workPanelFileRequest: { path: notesPath, seq: 5 } });
+      await until(() => viewerText().includes("notes before"), "open before unmount");
+      const unmounted: NonNullable<typeof heldRead> = { path: notesPath };
+      heldRead = unmounted;
+      emitAgentEvent("tool_end");
+      await settleTools();
+      await until(() => unmounted.release !== undefined, "read before unmount");
+      emitAgentEvent("tool_end");
+      await settleTools();
+      emitAgentEvent("tool_end");
+      flushSync(() => root.unmount());
+      const readsAtUnmount = readPaths.length;
+      unmounted.release!("STALE UNMOUNT");
+      await settleTools();
+      const unmountSafe = readPaths.length === readsAtUnmount &&
+        (listeners.get(IPC.event.agentMessage)?.size ?? 0) === 0 && settleTimers.size === 0;
+
+      const transcript = await transcriptActivationProbe(i18n);
+      return {
+        initialReadsWhileHeld, initialSwitchSafe, workspaceSafe, unmountSafe,
+        directorySwitchSafe,
+        browserErrors,
+        transcript,
+        ...switched,
+        overlap,
+        readsAfterMessage,
+        editRefresh,
+        treeAfterBack,
       };
     };
   })
@@ -191,6 +323,14 @@ declare global {
       invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
     };
     filesTabAutoRefreshProbe: () => Promise<{
+      transcript: { ordinaryReturn: boolean; runningPreserved: boolean; freshSearch: boolean };
+      browserErrors: string[];
+      overlap: { readsWhileHeld: number; newestVisible: boolean };
+      initialReadsWhileHeld: number;
+      initialSwitchSafe: boolean;
+      workspaceSafe: boolean;
+      directorySwitchSafe: boolean;
+      unmountSafe: boolean;
       readsAfterMessage: number;
       editRefresh: { reads: string[]; lists: string[]; scrollTop: number; lineJumps: number };
       treeAfterBack: Array<string | null>;

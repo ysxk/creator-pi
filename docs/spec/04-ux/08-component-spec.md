@@ -1172,14 +1172,18 @@ entirely inside the plugin's isolated page:
 - Host file tab freshness (D698): 300ms after any agent tool call finishes,
   in any session, the mounted host file tab re-reads the open file and
   re-lists every folder it has loaded. Calls that finish while a refresh is
-  scheduled join it, so a burst costs one read per file and folder. Any tool
+  scheduled join it, so a burst costs one read per file and folder. Reads are
+  single-flight: tool completions during an in-flight refresh queue one trailing
+  refresh rather than letting an older response overwrite newer content. The
+  initial file open shares this ownership with automatic re-reads. Any tool
   counts, since a shell command can write as well as Write or Edit. An
   unchanged result keeps the rendered content; a changed one replaces it in
   place, keeping the scroll position and not repeating a requested line jump.
   A file the agent deleted shows the read error, and a re-read that lands
-  after the user opened another file, went back, or switched workspace is
-  dropped. Plugin file views, the Review tab, and inline media players are
-  not refreshed.
+  after the user opened another file, went back, switched workspace, or unmounted
+  the tab is dropped. Workspace changes and unmount also release queued refresh
+  work. Plugin file views, the Review tab, and inline media players are not
+  refreshed.
 - Header tabs: the strip is a `tablist` containing one `tab` for every open
   Review, file, or plugin view. Clicking a tab activates it; the active tab is
   scrolled into view. Its close button and middle-click close it, selecting the

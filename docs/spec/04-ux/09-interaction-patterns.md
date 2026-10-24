@@ -350,6 +350,11 @@ may be retained while exactly one workspace supplies the visible shell context.
   time or revisited: activation re-pins the transcript even if the user had
   scrolled a retained pane up, so switching never lands on the oldest loaded
   rows (D687, ADR 0137).
+  Ordinary activation also releases a retained search snapshot or pending search
+  read, so bottom-following displays the current tail rather than the end of an
+  obsolete historical window. Ordinary paged history and run state remain
+  retained. A new explicit search/navigation after activation owns its own view;
+  later activation revalidation cannot clear that newer request.
   History continuation (D269) does not page earlier rows from a collapsed
   scroller or from a pinned overflowing transcript whose `scrollTop` has been
   reset to 0; a real gesture in the near-top band still continues history. An

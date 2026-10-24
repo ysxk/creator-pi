@@ -23,7 +23,7 @@ import {
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
-import type { PersistenceOutbox, SessionReplacementLease } from "../persistence-outbox";
+import type { PersistenceOutbox } from "../persistence-outbox";
 import type { PluginRuntime } from "../plugin-runtime";
 import { readSessionCollaboration } from "../services/session-collaboration";
 import { searchSessionsAcrossSources } from "../services/session-search";
@@ -156,7 +156,6 @@ export function registerSessionIpc({
     rejectNativeMutation(sessionId, purpose);
     const releaseSessionOperation = await acquireSessionOperation(sessionId);
     let rewriteFence: ReturnType<typeof beginTranscriptRewrite> | undefined;
-    let outboxLease: SessionReplacementLease | undefined;
     try {
       if (activeTurns.has(sessionId)) {
         throw Object.assign(
@@ -165,7 +164,7 @@ export function registerSessionIpc({
         );
       }
       rewriteFence = beginTranscriptRewrite(sessionId);
-      outboxLease = await persistenceOutbox.prepareSessionReplacement(sessionId, () => currentHost);
+      await persistenceOutbox.prepareSessionReplacement(sessionId, () => currentHost);
       if (sidecar) {
         sidecar.clearProjectInstructionRoot(sessionId);
         sidecar.clearVendorAuthBindings(sessionId);
@@ -174,11 +173,9 @@ export function registerSessionIpc({
           .catch(() => undefined);
       }
       const result = await run();
-      // The rewrite has landed. If the outbox file cannot be rewritten, the
-      // held appends stay in it only until the next outbox write, so this is
-      // logged rather than reported as a failed rewrite.
-      await outboxLease.commit().catch((commitError) => {
-        logger.app("session", "error", "transcript rewrite could not discard held outbox appends", {
+      // The host already committed; failed recovery-file cleanup must not replay fenced events.
+      await persistenceOutbox.discardQuarantinedSession(sessionId).catch((commitError) => {
+        logger.app("session", "error", "transcript rewrite could not discard quarantined appends", {
           sessionId,
           data: { error: String(commitError) },
         });
@@ -186,13 +183,6 @@ export function registerSessionIpc({
       rewriteFence.commit();
       return result;
     } catch (error) {
-      // Held appends first: they are older than anything the fence replays.
-      await outboxLease?.rollback().catch((rollbackError) => {
-        logger.app("session", "error", "transcript rewrite could not restore held outbox appends", {
-          sessionId,
-          data: { error: String(rollbackError) },
-        });
-      });
       rewriteFence?.rollback();
       throw error;
     } finally {

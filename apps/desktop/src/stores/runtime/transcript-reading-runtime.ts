@@ -125,7 +125,7 @@ export function createTranscriptReadingRuntime({ get, set }: StoreAccess, read: 
     },
   };
 
-  /** One lifecycle boundary for pane eviction, new turns, and authoritative edits. */
+  /** One lifecycle boundary for activation, pane eviction, new turns, and edits. */
   function reconcile(state: AppState, previous: AppState) {
     for (const [id, view] of Object.entries(state.transcriptViews)) {
       const evicted = !state.retainedSessionIds.includes(id);
@@ -133,6 +133,11 @@ export function createTranscriptReadingRuntime({ get, set }: StoreAccess, read: 
         (view.focus || view.loading === "target") &&
         state.runningSessions[id] &&
         !previous.runningSessions[id];
+      const activated =
+        state.activeSessionId === id &&
+        previous.activeSessionId !== id &&
+        previous.transcriptViews[id] === view &&
+        (view.focus || view.loading === "target");
       const rewritten =
         state.activeSessionId === id &&
         previous.activeSessionId === id &&
@@ -140,7 +145,7 @@ export function createTranscriptReadingRuntime({ get, set }: StoreAccess, read: 
         !previous.runningSessions[id] &&
         state.messages !== previous.messages &&
         transcriptWasRewritten(previous.messages, state.messages);
-      if (evicted || started || rewritten) returnToLatestTranscript(id);
+      if (evicted || started || activated || rewritten) returnToLatestTranscript(id);
     }
   }
 

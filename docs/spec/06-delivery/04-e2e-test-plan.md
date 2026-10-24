@@ -378,6 +378,17 @@
 - **Coverage:** `session-turn-ended.test.mjs` exercises the event persistence
   fence and rollback with deterministic event delivery; session IPC contract
   tests assert the fence/drain/rewrite ordering. No live provider is required.
+- **Recovery boundary:** Seed a pending append and make the Host unavailable
+  or leave the FIFO head in backoff. Replacement and revision activation must
+  refuse before their rewrite RPC, preserving the queued payload. Recover
+  storage and retry: the old append must reach the Host and disappear from the
+  recovery file before rewriting. Restart Host and outbox immediately after
+  the Host rewrite, without post-rewrite cleanup; deleted/old-branch messages
+  must not reappear. A failed queue-file clear also refuses the rewrite.
+  `transcript-rewrite-outbox-rollback.test.mjs` covers both IPC entrances,
+  retry, failure before commit and loss of the response after commit.
+  `node scripts/e2e-outbox-rewrite-recovery.mjs` exercises the real Host,
+  disk outbox and cold recovery in an isolated HOME/data/workspace.
 
 ### E2E-CONVERSATION-minimap-jump-leaves-follow
 
@@ -1825,20 +1836,23 @@ identify the platform validation still needed.
   `session.persistence.outbox.is.full`. 4) Confirm
   `session-message-outbox.dead-letter.json` holds that key with its payload and
   error, and that `session-message-outbox.json` drops below the cap. 5) Restart
-  the app and confirm the quarantined append is not replayed. 6) Optional:
-  delete the failing session and confirm its dead letter is dropped.
+  the app and confirm the quarantined append is not replayed. 6) Pause the
+  dead-letter file replacement, delete the failing session, release the write,
+  and await deletion. Repeat with a failed cleanup write and retry deletion.
 - **Expected**: The failing append is paused four times with a growing backoff
   and quarantined on the fifth consecutive failure, then skipped. Later
   appends from every session drain, no enqueue is rejected with `outbox is
   full`, and the queued outbox file empties. The dead letter survives a
-  restart without being replayed.
+  restart without being replayed. Deletion removes even an in-flight quarantine
+  copy from memory and disk, while retaining other sessions' records. Cleanup
+  failure is reported and a subsequent retry actually clears the file.
 - **Specs linked**: `03-runtime/04-data-storage.md`,
   `03-runtime/06-host-rpc-protocol.md`, ADR 0041, D318, D444, D597, UD656
 - **Acceptance**: F (persistence)
 - **Milestone**: M2
 - **Status**: Unit-covered (`persistence-outbox.test.mjs` bounded retry,
-  quarantine, dead-letter persistence and cap tests); desktop journey
-  outstanding
+  quarantine, dead-letter persistence/cap, controlled deletion/write races,
+  and failed cleanup retry); desktop journey outstanding
 
 
 #### E2E-011: Switch between project and temporary sessions
@@ -1852,8 +1866,10 @@ identify the platform validation still needed.
   rapidly project → Temporary → project while the first two transcript reads
   are delayed, and observe which row responds and which destination commits. 5)
   Hover/focus Temporary, switch to it again to exercise the warm cache, then
-  repeat with reduced motion enabled. 6) Observe chat content and workspace
-  chrome.
+  repeat with reduced motion enabled. 6) Search an old message in the project
+  session, switch to Temporary, and return through the sidebar without a new
+  search. Repeat while a search-window page is pending. 7) Explicitly
+  navigate to another search hit after switching back.
 - **Expected**: The sidebar contains no Recents aggregate; retained projects
   have scoped groups and path-less sessions remain under Temporary; each
   transcript loads correctly; selecting Temporary clears project context and
@@ -1867,10 +1883,11 @@ identify the platform validation still needed.
   the destination commits, with the composer keeping its settled home/docked
   shape but inert so no prompt can reach the session being left; no transcript is
   dimmed at any point. A warm revisit reveals the retained pane immediately at
-  its own content and scroll position, then revalidates in place without a
-  visible change. Reduced motion keeps the progress track static and preserves
-  the same destination without a skeleton remount or animated traversal through
-  history.
+  its newest message, discarding the prior search window and cancelling its
+  pending reads; ordinary paged history remains retained. An explicit new
+  search still opens its target. Reduced
+  motion keeps the progress track static and preserves the same destination
+  without a skeleton remount or animated traversal through history.
 - **Specs linked**: `03-runtime/10-session-state-machine.md`,
   `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`
@@ -4696,12 +4713,19 @@ window; opening a normal panel afterward must still work.
   does, then scroll the viewer back to the top. 2) Send a non-tool agent
   event. 3) Change the file and add one to the root folder, then end three
   tool calls at once. 4) Hold the next re-read of that file, end another tool
-  call, go back, open a different file, and release the held read.
+  call, go back, open a different file, and release the held read. 5) Hold a
+  refresh, edit the same file again, and end another tool call before releasing
+  the read. Repeat with delayed directory listings and initial file opens.
 - **Expected**: The non-tool event reads nothing. The burst re-reads the open
   file once and re-lists the loaded root once; the edit shows without
   reopening, the scroll stays at the top, and the line jump does not repeat.
   Back shows the added file in the tree. The released stale read never
-  replaces the second file.
+  replaces the second file. Overlapping refresh requests cannot apply older
+  file contents or directory listings after newer ones; a tool call ending
+  during a refresh causes a follow-up read of the latest state. Initial opens,
+  file/workspace switches and unmounts invalidate stale results. The final
+  displayed contents and tree reflect the latest edit without a repeated line
+  jump or a changed scroll position.
 - **Specs linked**: `04-ux/08-component-spec.md` §5.4, D698
 - **Status**: `pnpm test:e2e:files-auto-refresh` mounts production `FilesTab`;
   `apps/desktop/test/agent-tool-settle.test.mjs` covers the scheduling.
