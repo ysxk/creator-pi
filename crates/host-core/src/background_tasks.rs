@@ -12,6 +12,7 @@
 //! every running task, so an application exit never leaves orphans behind.
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -112,6 +113,18 @@ pub struct BackgroundTaskRegistry {
     pub(crate) tasks: HashMap<String, BackgroundTask>,
     /// Insertion order, for stable oldest-first pruning of finished entries.
     order: Vec<String>,
+    /// Tasks whose runner is still starting; they count against the limit.
+    starting: Arc<AtomicUsize>,
+}
+
+/// A place under [`MAX_RUNNING_TASKS`] held while a task's runner starts.
+/// Dropping it, on success or failure, gives the place back.
+pub(crate) struct StartSlot(Arc<AtomicUsize>);
+
+impl Drop for StartSlot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
 }
 
 /// Process-wide change counter. Every start, exit, and stop bumps it; the RPC
@@ -140,6 +153,16 @@ impl BackgroundTaskRegistry {
 
     fn is_running(task: &BackgroundTask) -> bool {
         Self::snapshot(task).0 == BackgroundTaskState::Running
+    }
+
+    /// Hold a place for a task about to start, or `None` at the limit. The
+    /// caller holds the `AppState` lock, so the check and the hold are one step.
+    pub(crate) fn reserve_start(&self) -> Option<StartSlot> {
+        if self.running_count() + self.starting.load(Ordering::Acquire) >= MAX_RUNNING_TASKS {
+            return None;
+        }
+        self.starting.fetch_add(1, Ordering::AcqRel);
+        Some(StartSlot(self.starting.clone()))
     }
 
     pub fn running_count(&self) -> usize {
@@ -191,18 +214,24 @@ pub(crate) async fn spawn_background_task_detached(
 ) -> Result<String, (String, String)> {
     let on_changed: Arc<dyn Fn() + Send + Sync> = Arc::new(bump_change_counter);
     let config = resolve_runner_config(command_shell_id, command, workspace, scratch)?;
+    // The limit is checked before the runner exists: spawning hands it the
+    // command, which starts at once, so a refusal after that would come too
+    // late to prevent the command's side effects.
+    let slot = state
+        .lock()
+        .await
+        .background_tasks
+        .reserve_start()
+        .ok_or_else(|| {
+            (
+                "TOOL_FAILED".to_string(),
+                format!(
+                    "too many background tasks are running (limit {MAX_RUNNING_TASKS}); stop one first"
+                ),
+            )
+        })?;
     let runner = tools::spawn_tool_runner(&config).await?;
     let mut st = state.lock().await;
-    if st.background_tasks.running_count() >= MAX_RUNNING_TASKS {
-        // Runner dropped here kills its process tree (kill-on-drop / job close).
-        drop(runner);
-        return Err((
-            "TOOL_FAILED".into(),
-            format!(
-                "too many background tasks are running (limit {MAX_RUNNING_TASKS}); stop one first"
-            ),
-        ));
-    }
     let task = register_spawned_task(
         &mut st.background_tasks,
         session_id,
@@ -211,6 +240,8 @@ pub(crate) async fn spawn_background_task_detached(
         runner,
         on_changed,
     );
+    // The registered task now counts as running, so its start place goes.
+    drop(slot);
     // A start is a state change too. Without this bump the renderer would only
     // learn about the task once it finished, so the running-tasks bar would stay
     // empty for exactly as long as the process was alive.
@@ -620,6 +651,58 @@ mod tests {
             assert_eq!(output["state"], serde_json::json!("stopped"));
             assert_eq!(st.background_tasks.running_count(), 0);
         }
+    }
+
+    /// A task refused at the limit must not have run at all: the limit used
+    /// to be checked only after the runner had been handed the command.
+    #[tokio::test]
+    async fn a_refused_start_never_runs_its_command() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = tokio::sync::Mutex::new(crate::state::AppState::open(dir.path()).unwrap());
+        let marker = dir.path().join("ran.txt");
+        let command = "echo ran > ran.txt";
+        let mut held: Vec<StartSlot> = {
+            let st = state.lock().await;
+            (0..MAX_RUNNING_TASKS)
+                .map(|_| st.background_tasks.reserve_start().unwrap())
+                .collect()
+        };
+
+        let refused = spawn_background_task_detached(
+            &state,
+            "session-1",
+            command,
+            crate::tools::shell::default_shell_id(),
+            dir.path(),
+            None,
+        )
+        .await;
+        assert_eq!(refused.unwrap_err().0, "TOOL_FAILED");
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(!marker.exists(), "a refused task must not run its command");
+        assert!(state.lock().await.background_tasks.summaries().is_empty());
+
+        held.pop();
+        let id = spawn_background_task_detached(
+            &state,
+            "session-1",
+            command,
+            crate::tools::shell::default_shell_id(),
+            dir.path(),
+            None,
+        )
+        .await
+        .unwrap();
+        let mut ran = false;
+        for _ in 0..100 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            if marker.exists() {
+                ran = true;
+                break;
+            }
+        }
+        assert!(ran, "a freed place lets the next task start");
+        assert_eq!(state.lock().await.background_tasks.summaries()[0].id, id);
     }
 
     /// Application exit must not leave an orphan: `AppState::shutdown` signals
