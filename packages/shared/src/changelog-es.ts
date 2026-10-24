@@ -2,6 +2,21 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.6",
+    "date": "2026-10-24",
+    "highlights": [
+      "Agrupa el razonamiento, las herramientas, los comandos y el progreso de cada turno bajo un único encabezado plegable que permanece abierto mientras se ejecuta.",
+      "Amplía las imágenes con la rueda del ratón en ambos visores y arrastra las imágenes ampliadas para desplazarte.",
+      "Los archivos y las carpetas abiertos se actualizan tras las llamadas a herramientas, sin que lecturas antiguas sustituyan contenido más reciente.",
+      "Las conversaciones con muchos archivos multimedia limitan el tamaño de cada solicitud y dejan de reintentar antes cuando el proveedor nunca responde.",
+      "Las listas de tareas desaparecen del cuadro de entrada cuando termina su turno, también si se interrumpe o falla.",
+      "El texto en streaming, los menús, los diálogos y la selección de la barra lateral tienen animaciones más fluidas y respetan la reducción de movimiento.",
+      "Bamboo White incorpora una barra lateral con un sombreado sutil, junto con superficies oscuras y grosores de texto más suaves.",
+      "Al eliminar mensajes o cambiar de versión de una respuesta, el contenido obsoleto en cola ya no reaparece al reiniciar; eliminar una conversación también borra las copias de recuperación en curso.",
+      "Al volver a una conversación se muestran los mensajes más recientes en lugar de la búsqueda anterior, sin afectar a las nuevas búsquedas.",
+    ],
+  },
+  {
     "version": "0.18.5",
     "date": "2026-10-20",
     "highlights": [

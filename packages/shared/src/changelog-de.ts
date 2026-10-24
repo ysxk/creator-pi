@@ -2,6 +2,21 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.6",
+    "date": "2026-10-24",
+    "highlights": [
+      "Gedanken, Werkzeuge, Befehle und Fortschritt einer Runde lassen sich unter einer gemeinsamen Überschrift einklappen; während der Ausführung bleibt der Bereich geöffnet.",
+      "Bilder lassen sich in beiden Ansichten mit dem Mausrad zoomen und vergrößerte Bilder durch Ziehen verschieben.",
+      "Geöffnete Dateien und Ordner werden nach Werkzeugaufrufen aktualisiert, ohne dass veraltete Leseergebnisse neuere Inhalte überschreiben.",
+      "Anfragen in medienreichen Gesprächen bleiben größenbegrenzt; bei dauerhaft ausbleibenden Antworten enden Wiederholungen früher.",
+      "Checklisten verschwinden über dem Eingabefeld, sobald ihre Runde endet, auch bei Abbruch oder Fehlern.",
+      "Streaming-Text, Menüs, Dialoge und die Seitenleistenauswahl bewegen sich flüssiger und beachten die Einstellung für reduzierte Bewegung.",
+      "Bamboo White erhält eine dezent abgesetzte Seitenleiste; dunkle Flächen und Schriftgewichte wirken sanfter.",
+      "Nach dem Löschen von Nachrichten oder dem Wechsel einer Antwortversion werden veraltete Warteschlangeninhalte beim Neustart nicht wiederhergestellt; das Löschen eines Gesprächs entfernt auch gerade geschriebene Wiederherstellungskopien.",
+      "Beim Zurückkehren zu einem Gespräch werden die neuesten Nachrichten statt des alten Suchfensters angezeigt; neue Suchanfragen bleiben erhalten.",
+    ],
+  },
+  {
     "version": "0.18.5",
     "date": "2026-10-20",
     "highlights": [

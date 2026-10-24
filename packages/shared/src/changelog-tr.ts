@@ -2,6 +2,21 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.6",
+    "date": "2026-10-24",
+    "highlights": [
+      "Bir turun düşüncelerini, araçlarını, komutlarını ve ilerlemesini tek bir süreç başlığı altında daraltın; tur çalışırken bölüm açık kalır.",
+      "Her iki görüntüleyicide fare tekerleğiyle yakınlaştırın ve büyütülmüş görüntüleri sürükleyerek kaydırın.",
+      "Açık dosya ve klasörler araç çağrılarından sonra yenilenir; eski okuma sonuçları yeni içeriğin üzerine yazmaz.",
+      "Yoğun medya içeren konuşmalarda istek boyutu sınırlanır ve hiç yanıt vermeyen sağlayıcılarda yeniden denemeler daha erken durur.",
+      "Kontrol listeleri, kesilen veya başarısız olan turlar dahil, ait oldukları tur sona erdiğinde yazma alanından ayrılır.",
+      "Akış metni, menüler, iletişim kutuları ve kenar çubuğu seçimi daha akıcı animasyonlarla hareket azaltma ayarına uyar.",
+      "Bamboo White temasına hafif tonlu bir kenar çubuğu, koyu görünüme ise daha yumuşak yüzeyler ve yazı kalınlıkları eklendi.",
+      "Mesajları silmek veya yanıt sürümünü değiştirmek, yeniden başlatmada eski kuyruk içeriğini geri getirmez; konuşmayı silmek, yazılmakta olan kurtarma kopyalarını da temizler.",
+      "Bir konuşmaya döndüğünüzde eski arama penceresi yerine son mesajlar gösterilir ve yeni aramalar korunur.",
+    ],
+  },
+  {
     "version": "0.18.5",
     "date": "2026-10-20",
     "highlights": [

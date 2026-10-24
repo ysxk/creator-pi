@@ -2,6 +2,21 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const enEntries: ChangelogEntry[] = [
   {
+    version: "0.18.6",
+    date: "2026-10-24",
+    highlights: [
+      "Collapse a turn's thinking, tools, commands and progress under one process header; it stays open while the turn runs.",
+      "Zoom images with the mouse wheel in both viewers and drag enlarged images to pan.",
+      "Open files and folders refresh after agent tool calls without stale reads replacing newer contents.",
+      "Media-heavy conversations keep request payloads bounded, and providers that never respond stop retrying sooner.",
+      "Checklists leave the composer when their turn stops, including interrupted or failed turns.",
+      "Streaming text, menus, dialogs and sidebar selection now animate more smoothly and respect reduced motion.",
+      "Bamboo White uses a subtly shaded sidebar, with gentler dark surfaces and refined text weight.",
+      "Deleting messages or switching reply versions no longer replays obsolete queued content after restart; deleting a conversation also clears in-flight recovery copies.",
+      "Returning to a conversation leaves its old search window behind and shows the latest messages without breaking new searches.",
+    ],
+  },
+  {
     version: "0.18.5",
     date: "2026-10-20",
     highlights: [
