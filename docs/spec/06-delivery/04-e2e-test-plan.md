@@ -7689,12 +7689,16 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   visible without an unhandled rejection and the control remains retryable.
   An ended task keeps its row only for a short grace window and can be closed
   from the bar, so finished commands do not accumulate above the composer.
+  Switching to another session hides the first session's tasks (and any open
+  output preview); a task a subagent started appears in its parent's bar.
 - **Specs linked**: `03-runtime/03-tools-and-permissions.md` (§5),
   `03-runtime/06-host-rpc-protocol.md` (§4)
 - **Acceptance criterion**: C, E, F
 - **Milestone**: M6+
 - **Status**: Partially automated (host-core `background_tasks::tests` and the
   renderer contract test `apps/desktop/test/background-tasks.test.mjs`;
+  session scoping is pinned by `background-tasks-bar-visibility.test.mjs` and
+  the agent-runtime delegate Bash test;
   `node scripts/e2e-background-tasks-host.mjs` runs the real Host/process/pipe
   stress path without providers, and `node scripts/e2e-background-tasks.mjs`
   exercises production React components in isolated Electron at 1280px, 700px,

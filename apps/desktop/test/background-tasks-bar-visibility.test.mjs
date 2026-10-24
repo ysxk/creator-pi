@@ -18,11 +18,12 @@ const {
   nextExpiryAt,
   observeTasks,
   selectVisibleTasks,
+  tasksForSession,
 } = await import("../src/features/chat/background-tasks/bar-visibility.ts");
 
-const task = (id, state, exitCode) => ({
+const task = (id, state, exitCode, sessionId = "session-1") => ({
   id,
-  sessionId: "session-1",
+  sessionId,
   command: `cmd ${id}`,
   commandShellId: "bash",
   state,
@@ -109,4 +110,31 @@ test("an unchanged snapshot keeps the previous state object", () => {
   const running = [task("a", "running")];
   const state = observeTasks(EMPTY_VISIBILITY, running, 0);
   assert.equal(observeTasks(state, running, 500), state);
+});
+
+test("a session's bar never shows a command another session started", () => {
+  // Regression: a render job started in session A appeared above session B's
+  // composer, where Stop would have killed A's process.
+  const registry = [
+    task("render-a", "running", undefined, "session-a"),
+    task("server-b", "running", undefined, "session-b"),
+  ];
+  const state = observeTasks(EMPTY_VISIBILITY, registry, 0);
+
+  assert.deepEqual(ids(selectVisibleTasks(state, tasksForSession(registry, "session-b"), 0)), [
+    "server-b",
+  ]);
+  assert.deepEqual(ids(selectVisibleTasks(state, tasksForSession(registry, "session-a"), 0)), [
+    "render-a",
+  ]);
+  assert.deepEqual(tasksForSession(registry, "session-c"), []);
+});
+
+test("another session's finished task sets no expiry timer in this session", () => {
+  let state = observeTasks(EMPTY_VISIBILITY, [task("a", "running", undefined, "session-a")], 0);
+  const ended = [task("a", "exited", 0, "session-a")];
+  state = observeTasks(state, ended, 100);
+
+  assert.equal(nextExpiryAt(state, tasksForSession(ended, "session-b"), 100), null);
+  assert.equal(nextExpiryAt(state, tasksForSession(ended, "session-a"), 100), 100 + ENDED_VISIBLE_MS);
 });

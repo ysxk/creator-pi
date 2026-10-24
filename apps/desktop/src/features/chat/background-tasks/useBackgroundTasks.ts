@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type BackgroundTaskOutput, type BackgroundTaskSummary } from "../../../lib/api";
 import {
   type BarVisibility,
@@ -7,12 +7,14 @@ import {
   nextExpiryAt,
   observeTasks,
   selectVisibleTasks,
+  tasksForSession,
 } from "./bar-visibility";
 
 const REFRESH_MS = 1_000;
 type Failure = "load" | "output" | "stop";
 
-export function useBackgroundTasks() {
+/** Background commands started by `sessionId`, including its subagents. */
+export function useBackgroundTasks(sessionId: string) {
   const [tasks, setTasks] = useState<BackgroundTaskSummary[]>([]);
   // Renderer-local view state: which tasks the bar may show. The registry in
   // host-core stays the source of truth for the processes themselves.
@@ -78,16 +80,23 @@ export function useBackgroundTasks() {
     };
   }, []);
 
-  // Only what the bar should render: running tasks, a finished task during its
-  // post-exit grace window, and the row whose output the user is reading.
-  const visibleTasks = selectVisibleTasks(visibility, tasks, clock, expandedId);
+  // An open output preview belongs to the session it was opened in.
+  useEffect(() => {
+    setExpandedId(null);
+  }, [sessionId]);
+
+  // Only what the bar should render: this session's running tasks, a finished
+  // one during its post-exit grace window, and the row whose output the user
+  // is reading. Bookkeeping stays app-wide so switching back keeps it.
+  const sessionTasks = useMemo(() => tasksForSession(tasks, sessionId), [tasks, sessionId]);
+  const visibleTasks = selectVisibleTasks(visibility, sessionTasks, clock, expandedId);
 
   useEffect(() => {
-    const expiry = nextExpiryAt(visibility, tasks, clock, expandedId);
+    const expiry = nextExpiryAt(visibility, sessionTasks, clock, expandedId);
     if (expiry === null) return;
     const timer = setTimeout(() => setClock(Date.now()), Math.max(0, expiry - clock));
     return () => clearTimeout(timer);
-  }, [visibility, tasks, clock, expandedId]);
+  }, [visibility, sessionTasks, clock, expandedId]);
 
   const selectedState = tasks.find((task) => task.id === expandedId)?.state;
   useEffect(() => {

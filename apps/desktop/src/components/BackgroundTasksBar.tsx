@@ -16,12 +16,17 @@ const NO_OUTPUT = "—";
  * Only work that is still running, or that the renderer just watched finish,
  * earns a row here: a command that ended long ago is history, not something
  * the user is waiting on, and it must not sit above the composer forever.
- * Running tasks float to the top.
+ * Running tasks float to the top. Each composer shows only its own
+ * session's commands; another session's dev server is not this one's to stop.
  */
-export function BackgroundTasksBar(): React.JSX.Element | null {
+export function BackgroundTasksBar({
+  sessionId,
+}: {
+  sessionId: string;
+}): React.JSX.Element | null {
   const { t } = useTranslation();
   const { tasks, expandedId, output, stoppingIds, error, toggleOutput, stop, dismiss } =
-    useBackgroundTasks();
+    useBackgroundTasks(sessionId);
   const outputText = useMemo(
     () => formatOutput(output, expandedId ?? ""),
     [output, expandedId],

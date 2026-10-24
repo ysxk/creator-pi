@@ -99,9 +99,12 @@ test("the renderer bar lists tasks, offers output and stop, and mounts above the
   assert.match(controller, /api\.backgroundTasksStop\(id\)/);
   assert.match(bar, /aria-label=\{t\("backgroundTasks\.title"\)\}/);
   assert.match(composer, /import \{ BackgroundTasksBar \} from "\.\/BackgroundTasksBar";/);
-  assert.match(composer, /<BackgroundTasksBar \/>/);
+  assert.match(
+    composer,
+    /\{activeSessionId \? <BackgroundTasksBar sessionId=\{activeSessionId\} \/> : null\}/,
+  );
   // The bar renders before the composer shell (above the input, not inside it).
-  const barIndex = composer.indexOf("<BackgroundTasksBar />");
+  const barIndex = composer.indexOf("<BackgroundTasksBar sessionId=");
   const shellIndex = composer.indexOf('className={`composer-shell');
   assert.ok(barIndex > 0 && shellIndex > barIndex, "bar must precede the composer shell");
 });
@@ -144,7 +147,7 @@ test("the bar shows only live work: a finished row expires and can be closed", a
   );
   // The grace window is a named constant, not a magic number in the component.
   assert.match(visibility, /export const ENDED_VISIBLE_MS = 10_000;/);
-  assert.match(controller, /selectVisibleTasks\(visibility, tasks, clock, expandedId\)/);
+  assert.match(controller, /selectVisibleTasks\(visibility, sessionTasks, clock, expandedId\)/);
   assert.match(controller, /observeTasks\(current, result\.tasks, observedAt\)/);
   assert.match(controller, /dismissTask\(current, id\)/);
   // A finished row offers closing instead of stopping: it must be able to leave
@@ -152,4 +155,13 @@ test("the bar shows only live work: a finished row expires and can be closed", a
   assert.match(bar, /\{t\("backgroundTasks\.dismiss"\)\}/);
   assert.match(bar, /onClick=\{\(\) => dismiss\(task\.id\)\}/);
   assert.match(i18nEn, /backgroundTasks: \{[^}]*dismiss: "Dismiss"/);
+});
+
+test("the bar is scoped to the composer's session, not the app-wide registry", () => {
+  assert.match(bar, /useBackgroundTasks\(sessionId\)/);
+  assert.match(controller, /tasksForSession\(tasks, sessionId\)/);
+  assert.match(controller, /nextExpiryAt\(visibility, sessionTasks, clock, expandedId\)/);
+  // An output preview opened in one session must not follow the user into
+  // another one.
+  assert.match(controller, /setExpandedId\(null\);\s*\}, \[sessionId\]\);/);
 });

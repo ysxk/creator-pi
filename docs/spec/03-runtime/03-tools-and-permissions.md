@@ -391,7 +391,10 @@ Host execution baseline:
   `backgroundTaskId` as soon as the shell starts, no timeout applies, and the
   process survives `tools.abort` and `agent.abort`. The host owns the process
   tree, reports it through the composer's running-tasks bar, and stops it on
-  request or on app shutdown. At most 32 tasks run concurrently and each stream
+  request or on app shutdown. The host registry is app-wide, but each session's
+  bar lists only tasks whose `sessionId` is that session; a subagent's Bash runs
+  under its parent session id, so its tasks appear in the parent's bar. A draft
+  with no session yet shows no bar. At most 32 tasks run concurrently and each stream
   keeps its last 256KB.
 - Background output is drained before a terminal state is published, including
   output queued when the process exits or is stopped. UTF-8 characters split

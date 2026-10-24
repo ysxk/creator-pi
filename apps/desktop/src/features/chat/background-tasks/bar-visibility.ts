@@ -88,6 +88,19 @@ export function observeTasks(
 }
 
 /**
+ * The registry is app-wide, but each composer belongs to one session: only
+ * that session's commands may appear (or be stopped) there. A subagent runs
+ * its Bash calls under the parent session id, so its commands count as the
+ * parent's.
+ */
+export function tasksForSession(
+  tasks: readonly BackgroundTaskSummary[],
+  sessionId: string,
+): BackgroundTaskSummary[] {
+  return tasks.filter((task) => task.sessionId === sessionId);
+}
+
+/**
  * Tasks the bar may render right now: running ones always, finished ones only
  * inside the grace window or while the user is reading their output
  * (`pinnedId`), and never ones the user closed.

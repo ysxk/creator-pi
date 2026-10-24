@@ -516,7 +516,7 @@ export function Composer({
     >
       <div className="composer-stack">
         {activeSessionId ? <TodoDock sessionId={activeSessionId} /> : null}
-        <BackgroundTasksBar />
+        {activeSessionId ? <BackgroundTasksBar sessionId={activeSessionId} /> : null}
         {planCheckpoint?.status === "pending" ? (
           <PlanApprovalBar proposal={planCheckpoint} />
         ) : null}

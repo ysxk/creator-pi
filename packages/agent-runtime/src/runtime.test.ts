@@ -1549,6 +1549,33 @@ describe("DesktopAgentRuntime configuration matching", () => {
     }
   });
 
+  it("tags a subagent's background Bash with the parent session id", async () => {
+    // The composer's running-tasks bar groups commands by session id, so a
+    // delegate's dev server must land in the parent session's bar.
+    const host = { call: vi.fn().mockResolvedValue({ ok: true, content: "done" }) };
+    const runtime = createRuntime({ host });
+    const internal = runtime as unknown as {
+      agent: Agent;
+      scopeDelegateTools: (tools: AgentTool[], definition: SubagentDefinition, owner: string) => AgentTool[];
+    };
+    const bash = internal.agent.state.tools.find((tool) => tool.name === "Bash");
+    if (!bash) throw new Error("Bash tool is missing");
+    const definition: SubagentDefinition = {
+      name: "runner", description: "Runs commands", prompt: "Run it", source: "user", tools: ["Bash"],
+    };
+    const [delegate] = internal.scopeDelegateTools([bash], definition, "runner-run");
+    try {
+      await delegate.execute("child-background", { command: "npm run dev", runInBackground: true });
+      expect(host.call).toHaveBeenLastCalledWith("tools.execute", expect.objectContaining({
+        sessionId: "session-1",
+        toolName: "Bash",
+        runInBackground: true,
+      }));
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("reads a millisecond Bash timeout as seconds and clamps it to the ceiling", async () => {
     const host = {
       call: vi.fn().mockResolvedValue({ ok: true, content: "done" }),

@@ -82,6 +82,13 @@ async function mount(count = 10) {
     command: `node output-fixture.mjs --task=${index} ${"long-command-".repeat(8)}`,
     commandShellId: "bash", state: "running", elapsedMs: 1_000,
   }));
+  // The registry is app-wide; another session's command must never reach
+  // this composer's bar.
+  tasks.push({
+    id: "foreign-task", sessionId: "other-session",
+    command: "python3 render_a.py --out video_a.mp4",
+    commandShellId: "bash", state: "running", elapsedMs: 1_000,
+  });
   document.body.innerHTML = '<main id="root"></main>';
   useAppStore.setState({
     activeSessionId: "fixture",
@@ -98,7 +105,7 @@ async function mount(count = 10) {
       <div className="composer-dock composer-dock-docked">
         <div className="composer-stack">
           <TodoDock sessionId="fixture" />
-          <BackgroundTasksBar />
+          <BackgroundTasksBar sessionId="fixture" />
           <AskToolCard request={{
             sessionId: "fixture", requestId: "fixture-ask", toolCallId: "fixture-ask",
             questions: [{ question: "Keep the background commands running?", options: ["Continue", "Stop"] }],
@@ -156,6 +163,14 @@ async function probe() {
     row(9).scrollIntoView({ block: "nearest" });
     click(9);
     await until(() => !!document.querySelector(".background-task-output")?.textContent?.includes("task-9"), "last task output is unreachable");
+  });
+
+  await check("another session's running command stays out of this bar", async () => {
+    await mount(3);
+    await frame();
+    const commands = [...document.querySelectorAll(".background-task-command")].map((node) => node.textContent);
+    assert(commands.length === 3, `expected only this session's 3 rows, got ${commands.length}`);
+    assert(!commands.some((text) => text?.includes("render_a.py")), "a foreign session's task rendered");
   });
 
   await check("only the selected log refreshes and remains bounded", async () => {
