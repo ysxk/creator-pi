@@ -40,6 +40,14 @@ export const PROVIDER_SETUP_MAX_RETRY_DELAY_MS = 8_000;
  * per phase.
  */
 export const PROVIDER_TRANSIENT_MAX_RETRIES = PROVIDER_RETRY_MAX_RETRIES;
+/**
+ * Retries allowed after an attempt the idle watchdog ended before the provider
+ * responded at all, counted while such attempts follow one another. They still
+ * draw on the transient budget above; this only stops a provider that stays
+ * silent for the whole watchdog from being sent the same request ten times
+ * over — three silent attempts is already about nine minutes of waiting.
+ */
+export const PROVIDER_RESPONSE_STALL_MAX_RETRIES = 2;
 
 export type ProviderRetryPhase = "request" | "stream";
 
@@ -577,8 +585,10 @@ export function streamIdleTimeoutMs(): number {
   return Math.max(STREAM_IDLE_TIMEOUT_FLOOR_MS, Math.floor(value));
 }
 
-function streamIdleTimeoutMessage(timeoutMs: number): string {
-  return `stream stalled: no provider events for ${timeoutMs}ms`;
+function streamIdleTimeoutMessage(timeoutMs: number, beforeResponse: boolean): string {
+  return beforeResponse
+    ? `stream stalled before the provider responded: no provider events for ${timeoutMs}ms`
+    : `stream stalled: no provider events for ${timeoutMs}ms`;
 }
 
 /**
@@ -598,23 +608,29 @@ function streamIdleTimeoutMessage(timeoutMs: number): string {
  * attempt refuse to start and its backoff sleep reject. The abandoned stream is
  * drained either way, so its queued events are released rather than left to
  * pile up behind a consumer that has stopped reading.
+ *
+ * `beforeResponse` tells `onStall` whether the stream had produced nothing at
+ * all. The adapters emit their first event once the response has begun, so
+ * that means no response arrived — it does not say whether the request body
+ * was still being sent.
  */
 export function withStreamIdleTimeout(
   inner: AssistantMessageEventStream,
   model: Model<Api>,
   timeoutMs: number,
-  onStall?: () => void,
+  onStall?: (stall: { beforeResponse: boolean }) => void,
 ): AssistantMessageEventStream {
   if (timeoutMs <= 0) return inner;
   const outer = createAssistantMessageEventStream();
 
   void (async () => {
     const iterator = inner[Symbol.asyncIterator]();
+    let responded = false;
     for (;;) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const idle = new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error(streamIdleTimeoutMessage(timeoutMs))),
+          () => reject(new Error(streamIdleTimeoutMessage(timeoutMs, !responded))),
           timeoutMs,
         );
       });
@@ -626,11 +642,11 @@ export function withStreamIdleTimeout(
         // Stop before draining: the abort is what keeps the adapter from
         // starting another request behind the retry the runtime is already
         // running (see the doc comment above).
-        onStall?.();
+        onStall?.({ beforeResponse: !responded });
         drainAbandonedStream(iterator);
         const message = setupErrorMessage(
           model,
-          new Error(streamIdleTimeoutMessage(timeoutMs)),
+          new Error(streamIdleTimeoutMessage(timeoutMs, !responded)),
           false,
         );
         outer.push({ type: "error", reason: "error", error: message });
@@ -642,6 +658,7 @@ export function withStreamIdleTimeout(
         outer.end(await inner.result());
         return;
       }
+      responded = true;
       outer.push(step.value);
       if (step.value.type === "done" || step.value.type === "error") {
         return;

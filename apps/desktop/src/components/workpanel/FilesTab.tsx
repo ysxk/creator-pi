@@ -20,6 +20,8 @@ import { AudioPlayer } from "../AudioPlayer";
 import { Markdown } from "../Markdown";
 import { FileTypeBadge } from "../FileTypeBadge";
 import { fileDirOf } from "../../lib/chat-links";
+import { sameFsRead, subscribeToolSettled } from "../../lib/agent-tool-settle";
+import { createRefreshCoordinator } from "../../lib/refresh-coordinator";
 import { Button, cx } from "../ui";
 import { TooltipButton } from "../ui";
 import {
@@ -183,6 +185,18 @@ export function FilesTab() {
   /** The inline player could not decode the selected media; show the notice instead. */
   const [mediaFailed, setMediaFailed] = useState(false);
   const viewerBodyRef = useRef<HTMLDivElement>(null);
+  /** Bumped when the viewer changes file, so a stale re-read cannot land. */
+  const fileGeneration = useRef(0);
+  const fileReader = useRef<(() => Promise<void>) | null>(null);
+  const workspaceGeneration = useRef(0);
+  const directoryReaders = useRef(new Map<string, () => Promise<void>>());
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  /** A requested line is scrolled to once per open, not after each re-read. */
+  const lineJumpPending = useRef(false);
 
   // Workspace switches reset all browsing state. Guarded so it only fires on
   // an actual root change: an unconditional [root] effect also runs on the
@@ -192,6 +206,10 @@ export function FilesTab() {
   useEffect(() => {
     if (prevRoot.current === root) return;
     prevRoot.current = root;
+    fileGeneration.current += 1;
+    fileReader.current = null;
+    workspaceGeneration.current += 1;
+    directoryReaders.current.clear();
     setDirs({});
     setExpanded(new Set());
     setSelected(null);
@@ -205,12 +223,23 @@ export function FilesTab() {
   const loadDir = useCallback(
     async (rel: string) => {
       if (!root) return;
-      try {
-        const res = await api.fsList(rel);
-        setDirs((prev) => ({ ...prev, [rel]: { entries: res.entries } }));
-      } catch {
-        setDirs((prev) => ({ ...prev, [rel]: { entries: [], error: true } }));
+      let read = directoryReaders.current.get(rel);
+      if (!read) {
+        const generation = workspaceGeneration.current;
+        const isCurrent = () => mounted.current && generation === workspaceGeneration.current;
+        read = createRefreshCoordinator(async () => {
+          if (!isCurrent()) return;
+          let next: DirState;
+          try {
+            next = { entries: (await api.fsList(rel)).entries };
+          } catch {
+            next = { entries: [], error: true };
+          }
+          if (isCurrent()) setDirs((prev) => ({ ...prev, [rel]: next }));
+        });
+        directoryReaders.current.set(rel, read);
       }
+      await read();
     },
     [root],
   );
@@ -236,25 +265,37 @@ export function FilesTab() {
   );
 
   const openFile = useCallback(
-    async (rel: string, mimeType?: string, position?: { line?: number; column?: number }) => {
+    (rel: string, mimeType?: string, position?: { line?: number; column?: number }) => {
+      const generation = ++fileGeneration.current;
+      lineJumpPending.current = position?.line != null;
       setSelected(rel);
       setSelectedMimeType(mimeType);
       setSelectedLine(position?.line);
       setFile(null);
       setFileError(false);
       setMediaFailed(false);
-      try {
-        setFile(await api.fsRead(rel, mimeType));
-      } catch {
-        setFileError(true);
-      }
+      const isCurrent = () => mounted.current && generation === fileGeneration.current;
+      const read = createRefreshCoordinator(async () => {
+        if (!isCurrent()) return;
+        try {
+          const next = await api.fsRead(rel, mimeType);
+          if (!isCurrent()) return;
+          setFileError(false);
+          setFile((prev) => (prev && sameFsRead(prev, next) ? prev : next));
+        } catch {
+          if (isCurrent()) setFileError(true);
+        }
+      });
+      fileReader.current = read;
+      return read();
     },
     [],
   );
 
   useEffect(() => {
-    if (!file || selectedLine == null) return;
+    if (!file || selectedLine == null || !lineJumpPending.current) return;
     const frame = requestAnimationFrame(() => {
+      lineJumpPending.current = false;
       const lineNode = viewerBodyRef.current?.querySelector(
         `[data-line="${selectedLine}"]`,
       );
@@ -301,6 +342,33 @@ export function FilesTab() {
       column: fileRequest.column,
     });
   }, [fileRequest, root, loadDir, openFile]);
+
+  // After the agent finishes a tool call, re-read the open file and every
+  // listed folder so edits, new files and deletions show without reopening.
+  // Unchanged results keep their identity; the scroll position stays put.
+  const refreshShown = useCallback(async () => {
+    const listed = Object.keys(dirs);
+    await Promise.all([...listed.map((rel) => loadDir(rel)), fileReader.current?.()]);
+  }, [dirs, loadDir]);
+
+  const refreshShownRef = useRef(refreshShown);
+  useEffect(() => {
+    refreshShownRef.current = refreshShown;
+  }, [refreshShown]);
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = createRefreshCoordinator(async () => {
+      if (!disposed) await refreshShownRef.current();
+    });
+    const unsubscribe = subscribeToolSettled(api.onAgentEvent, () => {
+      void refresh();
+    });
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [root]);
 
   const renderDir = (rel: string, depth: number): React.ReactNode => {
     const state = dirs[rel];
@@ -375,6 +443,8 @@ export function FilesTab() {
             tooltip={t("panel.files.back")}
             ariaLabel={t("panel.files.back")}
             onClick={() => {
+              fileGeneration.current += 1;
+              fileReader.current = null;
               setSelected(null);
               setSelectedMimeType(undefined);
               setSelectedLine(undefined);

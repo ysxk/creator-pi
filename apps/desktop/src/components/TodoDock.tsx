@@ -5,7 +5,7 @@ import { Button } from "./ui";
 import { IconChevronDown, IconChevronUp } from "./icons";
 import {
   checklistSummary,
-  finishedChecklistVisible,
+  checklistVisible,
   latestPromptTime,
 } from "../features/chat/todos/finished-checklist";
 import { useSessionTodosRecovery } from "../features/chat/todos/useSessionTodosRecovery";
@@ -105,15 +105,12 @@ export function TodoDock({ sessionId }: { sessionId: string }) {
 
   useSessionTodosRecovery(sessionId);
   if (!snapshot || snapshot.todos.length === 0) return null;
-  const summary = checklistSummary(snapshot);
-  const { completed, total, allCancelled, finished, current } = summary;
-  // A finished checklist leaves with the turn that finished it (D672).
-  if (
-    finished &&
-    !finishedChecklistVisible({ running, updatedAt: snapshot.updatedAt, turnStartedAt })
-  ) {
+  // The checklist leaves with the turn that wrote it (D672, D699).
+  if (!checklistVisible({ running, updatedAt: snapshot.updatedAt, turnStartedAt })) {
     return null;
   }
+  const summary = checklistSummary(snapshot);
+  const { completed, total, allCancelled, finished, current } = summary;
   const summaryLabel = allCancelled
     ? t("chat.todo.status.cancelled")
     : finished

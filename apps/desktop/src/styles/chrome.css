@@ -290,8 +290,9 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  /* Transparent in dark, where the tone change is the edge. */
-  box-shadow: inset -1px 0 0 var(--ds-pane-seam);
+  /* Transparent in dark and the built-in Bamboo White, where the rail's tone
+     is the edge (D697); a contributed theme keeps its pane seam. */
+  box-shadow: inset -1px 0 0 var(--ds-sidebar-seam);
 }
 
 .sidebar.is-entering {

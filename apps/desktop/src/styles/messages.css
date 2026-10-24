@@ -664,9 +664,50 @@
 
 /* Running labels stay readable; the small marker carries the live feedback
    so long tool names never flash between two text colours. */
-.tool-activity-label.running,
 .tool-row-name.running {
   color: var(--ds-text-secondary);
+}
+
+/*
+  A running process or group header (D694): muted words with a sheen of
+  full-strength ink crossing them (ActivityLabel). The sheen's masked window
+  and the copy of the words inside it travel in opposite directions by
+  transform alone, so the letters hold still while the light moves, nothing
+  repaints per frame, and the loop pauses with the window (#1064).
+*/
+.tool-activity-label.running {
+  position: relative;
+  color: var(--ds-text-muted);
+}
+
+.tool-activity-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mask-image: linear-gradient(90deg, transparent 30%, #000 50%, transparent 70%);
+  animation: ds-sheen-window var(--motion-sheen-duration) linear infinite;
+  animation-play-state: var(--motion-play);
+}
+
+.tool-activity-sheen > span {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: var(--ds-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: ds-sheen-text var(--motion-sheen-duration) linear infinite;
+  animation-play-state: var(--motion-play);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-activity-sheen {
+    display: none;
+  }
+
+  .tool-activity-label.running {
+    color: var(--ds-text-secondary);
+  }
 }
 
 .tool-activity-label.running::after,
@@ -1198,7 +1239,27 @@
 }
 
 .copy-btn.copied {
-  color: var(--ds-text-secondary);
+  color: var(--ds-success);
+}
+
+/*
+  Copy feedback, shared by every copy control (D694): the check pops in on the
+  pop spring in the success colour, and once the feedback clears the copy
+  glyph eases back instead of snapping (useCopy's `returning` beat).
+*/
+:is(.copy-btn, .tool-row-head-copy, .tool-row-copy, .code-copy-btn, .mermaid-action-btn).copied > svg {
+  color: var(--ds-success);
+  animation: ds-glyph-pop var(--motion-duration-pop) var(--motion-ease-pop);
+}
+
+:is(.copy-btn, .tool-row-head-copy, .tool-row-copy, .code-copy-btn, .mermaid-action-btn).copy-returning > svg {
+  animation: ds-glyph-return var(--motion-duration-glide) var(--motion-ease-glide);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.copy-btn, .tool-row-head-copy, .tool-row-copy, .code-copy-btn, .mermaid-action-btn):is(.copied, .copy-returning) > svg {
+    animation: none;
+  }
 }
 
 .copy-btn.primary {
@@ -2081,12 +2142,15 @@
   color: var(--ds-text-muted);
 }
 
-/* Long labels ellipsize inside the band-wide header instead of overrunning it. */
+/* Long labels ellipsize inside the band-wide header instead of overrunning it.
+   Their live seconds are tabular, so the count after them never shifts as a
+   timer ticks (D694). */
 .tool-activity-label {
   min-width: 0;
   flex: 0 1 auto;
   overflow: hidden;
   font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2118,7 +2182,8 @@
   margin-inline-start: auto;
   color: var(--ds-text-muted);
   opacity: 0.65;
-  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
+  /* It turns with the fold it opens (D694). */
+  transition: transform var(--motion-duration-snap) var(--motion-ease-snap);
 }
 
 .tool-activity-group.open > .tool-activity-header > .tool-activity-caret {
@@ -3365,12 +3430,94 @@
   padding-left: 18px;
 }
 
+/*
+  The turn process and an activity group fold by their single grid row
+  (D694): open on the snap spring, close quicker on the standard curve.
+  `hidden` still ends in display: none once the close has played
+  (`allow-discrete`), so a folded body costs no layout in a long transcript.
+  An open grows from 0fr only under `data-fold-opening`, which a reader's own
+  toggle sets for the length of the open (useFoldOpening): a body that first
+  renders open — a restored transcript, a new turn, a search reveal — appears
+  at full height instead of growing under the reading position.
+*/
+.turn-process-body,
+.process-activity-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--motion-duration-snap) var(--motion-ease-snap),
+    display var(--motion-duration-snap) allow-discrete;
+}
+
 .turn-process-body[hidden],
 .process-activity-body[hidden] {
   display: none;
+  grid-template-rows: 0fr;
+  transition:
+    grid-template-rows var(--motion-duration-normal) var(--motion-ease-standard),
+    display var(--motion-duration-normal) allow-discrete;
 }
 
-.turn-process-body > .assistant-turn-fragment {
+@starting-style {
+  [data-fold-opening] > .turn-process-body:not([hidden]),
+  [data-fold-opening] > .process-activity-body:not([hidden]) {
+    grid-template-rows: 0fr;
+  }
+}
+
+/* The row's one item. It clips vertically only, and as `clip`, not
+   `hidden`, so it never becomes a scroll container (sticky content keeps its
+   scroller); the 3px padding/margin pair leaves room for focus rings. */
+.turn-process-fold,
+.process-activity-fold {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: visible;
+  overflow-y: clip;
+  padding-block: 3px;
+  margin-block: -3px;
+}
+
+/* While a reader's open plays, what the fold reveals eases in a step behind
+   the growing row, first rows first. Zero specificity: a row's own animation
+   still wins. Rows that stream in later arrive as they always did. */
+:where([data-fold-opening] > .turn-process-body > .turn-process-fold) > *,
+:where([data-fold-opening] > .process-activity-body > .process-activity-fold) > * {
+  animation: ds-fold-item var(--motion-duration-glide) var(--motion-ease-glide) backwards;
+}
+
+:where([data-fold-opening] > .turn-process-body > .turn-process-fold) > :nth-child(2),
+:where([data-fold-opening] > .process-activity-body > .process-activity-fold) > :nth-child(2) {
+  animation-delay: 30ms;
+}
+
+:where([data-fold-opening] > .turn-process-body > .turn-process-fold) > :nth-child(3),
+:where([data-fold-opening] > .process-activity-body > .process-activity-fold) > :nth-child(3) {
+  animation-delay: 60ms;
+}
+
+:where([data-fold-opening] > .turn-process-body > .turn-process-fold) > :nth-child(n + 4),
+:where([data-fold-opening] > .process-activity-body > .process-activity-fold) > :nth-child(n + 4) {
+  animation-delay: 90ms;
+}
+
+/* Reduced motion keeps both fold states and drops the travel. */
+@media (prefers-reduced-motion: reduce) {
+  .turn-process-body,
+  .process-activity-body,
+  .turn-process-body[hidden],
+  .process-activity-body[hidden],
+  .tool-activity-caret {
+    transition-duration: 0.01ms;
+  }
+
+  :where([data-fold-opening] > .turn-process-body > .turn-process-fold) > *,
+  :where([data-fold-opening] > .process-activity-body > .process-activity-fold) > * {
+    animation: none;
+  }
+}
+
+.turn-process-fold > .assistant-turn-fragment {
   color: var(--ds-text-secondary);
   margin-block: 8px;
 }
@@ -3466,40 +3613,38 @@
   font-size: var(--text-sm);
 }
 
-/* ── Smooth streaming cursor and layout stabilization ── */
-
-@keyframes smooth-stream-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
+/* ── Streaming text: layout stabilization and ink bloom ── */
 
 .assistant-turn-fragment.streaming .prose-chat {
   text-wrap: wrap;
 }
 
-.assistant-turn-fragment.smooth-cursor .prose-chat > :last-child:not(ul):not(ol):not(blockquote):not(pre):not(table):not(.table-wrap)::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child:not(:has(ul, ol)):not(:has(p))::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > p:last-child::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > p:last-child::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > pre:last-child > code::after {
-  content: "";
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  background: var(--ds-text-primary);
-  animation: smooth-stream-blink 1s step-end infinite;
+/*
+  A live reply's newest characters bloom from a soft blur into ink (D695,
+  lib/ink-bloom.ts), which also marks where it is writing, so no caret is
+  drawn. Two identical keyframes alternate on every render of a block (`ink-0`
+  / `ink-1`) so each render restarts the young spans at the point their own age
+  gives them;
+  `both` keeps a character that waits for its turn hidden until then. Only a
+  handful of inline spans move at a time, by opacity and filter.
+*/
+.ink {
+  animation-duration: var(--motion-ink-duration);
+  animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+  animation-fill-mode: both;
+}
+
+.ink-0 {
+  animation-name: ds-ink-bloom-0;
+}
+
+.ink-1 {
+  animation-name: ds-ink-bloom-1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :last-child:not(ul):not(ol):not(blockquote):not(pre):not(table):not(.table-wrap)::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child:not(:has(ul, ol)):not(:has(p))::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > p:last-child::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > p:last-child::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > pre:last-child > code::after {
+  .ink {
     animation: none;
-    opacity: 0.7;
   }
 }
 

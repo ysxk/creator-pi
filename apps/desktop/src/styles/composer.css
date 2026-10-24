@@ -165,22 +165,26 @@
   width: 100%;
   border-radius: var(--ds-composer-radius, var(--radius-2xl));
   background: var(--ds-bg-composer);
-  /* The stroke is a hairline in light and nothing in dark (D297). */
+  /* At rest a 0.5px ring and a soft layered lift draw the edge (D694); the
+     empty second ring is focus's halo, kept in the list so focus interpolates. */
   box-shadow:
-    var(--ds-shadow-composer),
-    0 0 0 1px var(--ds-composer-stroke);
+    0 0 0 0.5px var(--ds-composer-stroke),
+    0 0 0 0 transparent,
+    var(--ds-shadow-composer);
   isolation: isolate;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    box-shadow var(--motion-duration-normal) var(--motion-ease-out),
+    box-shadow var(--motion-duration-snap) var(--motion-ease-snap),
     transform var(--motion-duration-normal) var(--motion-ease-out);
 }
 
-/* Focus deepens the lift; the stroke stays neutral, never an accent ring. */
+/* Focus closes a neutral double ring around a deeper lift with a slight
+   inset, never an accent outline (D694). */
 .composer-shell:focus-within {
   box-shadow:
-    0 7px 24px color-mix(in oklab, var(--ds-text-primary) 9%, transparent),
-    0 0 0 1px var(--ds-composer-stroke);
+    0 0 0 1px var(--ds-composer-focus-ring),
+    0 0 0 4px var(--ds-composer-focus-halo),
+    var(--ds-shadow-composer-focus);
 }
 
 /* Native file-system drops get a target cue without changing shell geometry. */
@@ -444,11 +448,24 @@
   background: var(--ds-accent);
   box-shadow: var(--ds-send-glow);
   color: var(--ds-bg-primary);
-  transition: opacity var(--motion-duration-fast) var(--motion-ease-out), transform var(--motion-duration-fast) var(--motion-ease-out);
+  /* The fill crossfades between ready and idle; a press springs back (D694). */
+  transition:
+    background-color var(--motion-duration-normal) var(--motion-ease-out),
+    color var(--motion-duration-normal) var(--motion-ease-out),
+    box-shadow var(--motion-duration-normal) var(--motion-ease-out),
+    opacity var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-pop) var(--motion-ease-pop);
+}
+
+/* A send that just became possible grows to size once. The animation restarts
+   each time the button leaves :disabled, so it marks the moment it is ready. */
+.send-btn:not(:disabled) {
+  animation: ds-ready-pop var(--motion-duration-pop) var(--motion-ease-pop);
 }
 
 .send-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: var(--ds-send-glow-hover);
 }
 
 .send-btn:disabled {
@@ -468,19 +485,23 @@
   border-radius: var(--radius-full);
   background: color-mix(in oklab, var(--ds-text-primary) 16%, transparent);
   color: var(--ds-text-primary);
+  /* It replaces the send button when a turn starts, and arrives the same way. */
+  animation: ds-ready-pop var(--motion-duration-pop) var(--motion-ease-pop);
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
     opacity var(--motion-duration-fast) var(--motion-ease-out),
-    transform var(--motion-duration-fast) var(--motion-ease-out);
+    transform var(--motion-duration-pop) var(--motion-ease-pop);
 }
 
 .stop-btn:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 22%, transparent);
 }
 
+/* Pressing is immediate; only the release springs. */
 .send-btn:active:not(:disabled),
 .stop-btn:active:not(:disabled) {
   transform: scale(0.94);
+  transition-duration: 90ms;
 }
 
 .nav-item {

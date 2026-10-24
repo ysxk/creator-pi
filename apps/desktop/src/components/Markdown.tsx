@@ -76,11 +76,13 @@ import {
   sourcePositionProps,
   type SourcePositionProps,
 } from "../lib/markdown-source";
+import { rehypeInkBloom, type InkClock } from "../lib/ink-bloom";
 import {
   normalizeLatexMathDelimiters,
   remarkLatexBracketDisplay,
 } from "../lib/latex-math";
 import { useAppStore } from "../stores/app-store";
+import { COPY_FEEDBACK_MS } from "../lib/motion";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { absoluteImagePath, remarkLocalImagePaths } from "../lib/markdown-image-paths";
 import { remarkNormalizeWrappedMarkdownLinkDestinations } from "../lib/markdown-link-destinations";
@@ -124,18 +126,33 @@ import {
  * states why, and why that trade is the right one.
  */
 
+/** The returning copy glyph's ease-in; longer than its glide. */
+const COPY_RETURN_MS = 450;
+
+/**
+ * Copy with feedback that clears itself (D694): `copied` while the check
+ * shows, then `returning` for the beat in which the copy glyph eases back.
+ */
 export function useCopy() {
-  const [copied, setCopied] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "copied" | "returning">("idle");
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const copy = useCallback((text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
       window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setCopied(false), 1500);
+      setPhase("copied");
+      timer.current = window.setTimeout(() => {
+        setPhase("returning");
+        timer.current = window.setTimeout(() => setPhase("idle"), COPY_RETURN_MS);
+      }, COPY_FEEDBACK_MS);
     });
   }, []);
-  return { copied, copy };
+  return { copied: phase === "copied", returning: phase === "returning", copy };
+}
+
+/** The class a copy control wears for its feedback state. */
+export function copyFeedbackClass({ copied, returning }: { copied: boolean; returning: boolean }) {
+  return copied ? "copied" : returning ? "copy-returning" : "";
 }
 
 /* ---------- theme (follows documentElement[data-theme]) ---------- */
@@ -249,7 +266,7 @@ export function HighlightedCode({
 
 function CodeBlock({ code, lang, ...position }: { code: string; lang: string } & SourcePositionProps) {
   const { t } = useTranslation();
-  const { copied, copy } = useCopy();
+  const { copied, returning, copy } = useCopy();
   return (
     <div className="code-block" {...position}>
       <div className="code-block-head">
@@ -258,7 +275,7 @@ function CodeBlock({ code, lang, ...position }: { code: string; lang: string } &
           {lang || "text"}
         </span>
         <TooltipButton
-          className={`code-copy-btn ${copied ? "copied" : ""}`}
+          className={`code-copy-btn ${copyFeedbackClass({ copied, returning })}`}
           tooltip={copied ? t("chat.copied") : t("chat.copy")}
           ariaLabel={t("chat.copy")}
           onClick={() => copy(code)}
@@ -313,7 +330,7 @@ function MermaidBlock({ code, ...position }: { code: string } & SourcePositionPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<"invalid" | "too-large" | null>(null);
   const [showSource, setShowSource] = useState(false);
-  const { copied, copy } = useCopy();
+  const { copied, returning, copy } = useCopy();
 
   useEffect(() => {
     setShowSource(false);
@@ -393,7 +410,7 @@ function MermaidBlock({ code, ...position }: { code: string } & SourcePositionPr
           ) : null}
           <TooltipButton
             type="button"
-            className={`mermaid-action-btn${copied ? " copied" : ""}`}
+            className={`mermaid-action-btn ${copyFeedbackClass({ copied, returning })}`}
             tooltip={copied ? t("chat.copied") : t("chat.copyDiagramSource")}
             ariaLabel={t("chat.copyDiagramSource")}
             onClick={() => copy(code)}
@@ -1021,6 +1038,7 @@ const Block = memo(function MarkdownBlock({
   workspaceRoot,
   baseDir,
   mediaPreviews,
+  inkClock,
 }: {
   raw: string;
   originalRaw: string;
@@ -1030,6 +1048,8 @@ const Block = memo(function MarkdownBlock({
   baseDir?: string;
   /** Show the clips and drawings this block names, under it. */
   mediaPreviews: boolean;
+  /** A live reply's bloom timing (D695), while this block may still be blooming. */
+  inkClock?: InkClock;
 }) {
   const context = useMemo(
     () => ({
@@ -1053,8 +1073,13 @@ const Block = memo(function MarkdownBlock({
     [originalRaw, workspaceRoot, baseDir, mediaPreviews],
   );
   const positionedRehypePlugins = useMemo(
-    () => [...rehypePlugins!, [rehypeSourcePositions, { offset: sourceOffset }]] as Options["rehypePlugins"],
-    [sourceOffset],
+    () => [
+      ...rehypePlugins!,
+      [rehypeSourcePositions, { offset: sourceOffset }],
+      // Last: it wraps finished text, after sanitizing and math rendering.
+      ...(inkClock ? [[rehypeInkBloom, { offset: sourceOffset, clock: inkClock }]] : []),
+    ] as Options["rehypePlugins"],
+    [inkClock, sourceOffset],
   );
   return (
     <Profiler
@@ -1088,6 +1113,7 @@ export const Markdown = memo(function Markdown({
   renderDiagrams = true,
   baseDir,
   streaming = false,
+  inkClock,
 }: {
   source: string;
   renderDiagrams?: boolean;
@@ -1095,6 +1121,8 @@ export const Markdown = memo(function Markdown({
   streaming?: boolean;
   /** Workspace-relative directory of the source file, for `./` / `../` links. */
   baseDir?: string;
+  /** Blooms the newest characters of a live reply in (D695). */
+  inkClock?: InkClock;
 }) {
   const workspaceRoot = useAppStore((s) => s.workspace?.path);
   // Lent by the transcript; absent for any other Markdown tree.
@@ -1144,6 +1172,9 @@ export const Markdown = memo(function Markdown({
     markdownTailLimit,
   );
   let sourceOffset = 0;
+  // Only a block that may still hold blooming characters reads the clock, and
+  // the render that stops passing it turns its finished spans back into text.
+  const inkSettled = inkClock?.settledBefore(performance.now()) ?? Number.POSITIVE_INFINITY;
   return (
     <MarkdownFileMenuContext.Provider value={openMarkdownFileMenu}>
       <MarkdownBaseDirContext.Provider value={baseDir ?? ""}>
@@ -1184,6 +1215,7 @@ export const Markdown = memo(function Markdown({
               workspaceRoot={workspaceRoot}
               baseDir={baseDir}
               mediaPreviews={mediaPreviews}
+              inkClock={start + raw.length > inkSettled ? inkClock : undefined}
             />
           );
         })}

@@ -49,6 +49,7 @@ import {
   type AssistantMessage,
   type AudioContent,
   type ImageContent,
+  type Message,
   type Model,
   type VideoContent,
   type Models,
@@ -271,6 +272,7 @@ import {
   createProviderRetryStream,
   delayWithAbort,
   PROVIDER_RATE_LIMIT_MAX_RETRIES,
+  PROVIDER_RESPONSE_STALL_MAX_RETRIES,
   PROVIDER_TRANSIENT_MAX_RETRIES,
   carriesRetryDelayHeaders,
   isTransientProviderRetryCode,
@@ -286,6 +288,11 @@ import {
 } from "./context-calibration.js";
 
 import { rebuildNodeNetworkTransport } from "./node-proxy.js";
+import {
+  createRequestMediaBudget,
+  mediaBudgetRefusal,
+  measureRequestMedia,
+} from "./request-media-budget.js";
 import {
   createProviderTransportHealth,
   explainsProviderFetchFailure,
@@ -1869,6 +1876,20 @@ export class DesktopAgentRuntime {
   private providerRequestBytes?: number;
   private providerRequestMessages?: number;
   /**
+   * Inline media the attempt in flight carries, measured from the request
+   * context itself: the native Gemini adapter takes no custom fetch, so
+   * `providerRequestBytes` is never captured there, and media is what makes a
+   * request large.
+   */
+  private providerRequestMedia?: { count: number; base64Bytes: number; omitted: number };
+  /** Keeps each request's inline media within one bound (`request-media-budget.ts`). */
+  private readonly requestMediaBudget = createRequestMediaBudget();
+  private requestMediaOmitted = 0;
+  /** Set by the idle watchdog when the attempt in flight stalled before any response. */
+  private providerStalledBeforeResponse = false;
+  /** Consecutive attempts that stalled before any response, since the last one that did not. */
+  private providerResponseStallRetryAttempt = 0;
+  /**
    * The estimate that describes the provider attempt in flight, parked by
    * `streamFn` and consumed when that attempt settles with a usage report.
    * Without the pair there is nothing to measure the estimator against.
@@ -2099,6 +2120,11 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         this.providerRetryHeaders = undefined;
         this.providerRequestBytes = undefined;
         this.providerRequestMessages = context.messages?.length;
+        this.providerRequestMedia = {
+          ...measureRequestMedia(context.messages ?? []),
+          omitted: this.requestMediaOmitted,
+        };
+        this.providerStalledBeforeResponse = false;
         // Park what this request is expected to cost, so the usage report that
         // settles it can be measured against it (`contextBudget` corrects the
         // same shape).
@@ -2231,9 +2257,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // configured budget ends as a STREAM_FAILED error and re-enters the
         // shared transient retry path instead of hanging the turn on a
         // connection the provider never closes.
-        return withStreamIdleTimeout(retryStream, m, streamIdleTimeoutMs(), () =>
-          stallAbort.abort(),
-        );
+        return withStreamIdleTimeout(retryStream, m, streamIdleTimeoutMs(), ({ beforeResponse }) => {
+          this.providerStalledBeforeResponse = beforeResponse;
+          stallAbort.abort();
+        });
       },
       // A vendor account has no long-lived key. Leaving it unset keeps pi-ai
       // from overriding the auth the provider just resolved for this request.
@@ -2250,7 +2277,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // Restored history may hold pictures from before they were checked.
         const safe = await normalizeMessagePictures(messages);
         return alignRetainedReasoningIdentity(
-          convertToLlm(this.dropDuplicateToolCalls(safe)), this.reasoningReplayIdentity(),
+          this.withinRequestMediaBudget(convertToLlm(this.dropDuplicateToolCalls(safe))),
+          this.reasoningReplayIdentity(),
         );
       },
       prepareRequest: ({ context }) => this.prepareToolDeclarations(context),
@@ -3740,7 +3768,11 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               ? rawContent.text
               : `${reference.kind === "video" ? "Video" : "Audio"} file ${reference.path}.`,
             this.provider,
-            { delegate: this.mutationOwners.has(toolCallId) },
+            {
+              delegate: this.mutationOwners.has(toolCallId),
+              admit: (size) =>
+                mediaBudgetRefusal(reference.kind, size, this.agent.state.messages),
+            },
           );
           text = media.text;
           if (media.block) imageBlocks.push(media.block);
@@ -6177,11 +6209,19 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
    * timeouts, truncated streams — share their own bounded budget across both
    * phases, so a flapping gateway is retried instead of surfacing an error
    * after a single attempt.
+   *
+   * An attempt the idle watchdog ended before the provider responded at all
+   * also draws on a smaller budget of its own: a provider silent for the whole
+   * watchdog several times running is not answering this request, and
+   * re-sending it unchanged ten times only multiplies the wait.
    */
   private claimProviderRetry(
     error: ReturnType<typeof classifyAgentError>,
     phase: "request" | "stream",
   ): number | undefined {
+    const stalledBeforeResponse = this.providerStalledBeforeResponse;
+    this.providerStalledBeforeResponse = false;
+    if (!stalledBeforeResponse) this.providerResponseStallRetryAttempt = 0;
     if (!error.retriable || error.details?.origin === "local") return undefined;
     const infinite = this.infiniteProviderRetry;
     if (error.code === "PROVIDER_RATE_LIMITED") {
@@ -6204,13 +6244,34 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     if (!isTransientProviderRetryCode(error.code)) return undefined;
     if (
       !infinite &&
-      this.providerTransientRetryAttempt >= PROVIDER_TRANSIENT_MAX_RETRIES
+      (this.providerTransientRetryAttempt >= PROVIDER_TRANSIENT_MAX_RETRIES ||
+        (stalledBeforeResponse &&
+          this.providerResponseStallRetryAttempt >= PROVIDER_RESPONSE_STALL_MAX_RETRIES))
     ) {
       return undefined;
     }
+    if (stalledBeforeResponse) this.providerResponseStallRetryAttempt += 1;
     const attempt = ++this.providerTransientRetryAttempt;
     this.activeProviderRetryAttempt = attempt;
     return attempt;
+  }
+
+  /**
+   * The request's messages with its inline media held to one bound; see
+   * `request-media-budget.ts`. Each newly left-out block is logged once, by
+   * count and size only.
+   */
+  private withinRequestMediaBudget(messages: Message[]): Message[] {
+    const result = this.requestMediaBudget.apply(messages);
+    this.requestMediaOmitted = result.omitted;
+    if (result.newlyOmitted > 0 || result.overBudget) {
+      process.stderr.write(
+        `[agent-runtime] request media budget: ${result.omitted} earlier media block(s) left out, ` +
+          `${result.base64Bytes} base64 bytes carried${result.overBudget ? " (over budget: unanswered media alone exceeds it)" : ""} ` +
+          `(session=${this.sessionId})\n`,
+      );
+    }
+    return result.messages;
   }
 
   private providerErrorWithDiagnostics(
@@ -6252,6 +6313,17 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         ...(this.providerRequestBytes !== undefined
           ? { requestBytes: this.providerRequestBytes }
           : {}),
+        ...(this.providerRequestMedia && this.providerRequestMedia.count + this.providerRequestMedia.omitted > 0
+          ? {
+              requestMediaCount: this.providerRequestMedia.count,
+              requestMediaBase64Bytes: this.providerRequestMedia.base64Bytes,
+              requestMediaOmitted: this.providerRequestMedia.omitted,
+            }
+          : {}),
+        // The watchdog can only tell that nothing came back. Whether the body
+        // was still uploading, queued at a relay or being processed upstream is
+        // not observable here, so the phase is named no more precisely.
+        ...(this.providerStalledBeforeResponse ? { stalledBeforeResponse: true } : {}),
         ...(this.activeCompaction
           ? {
               compactionGeneration: checkpointGeneration(
@@ -6320,6 +6392,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.pendingProviderRetry = undefined;
     this.providerTransientRetryAttempt = 0;
     this.providerRateLimitRetryAttempt = 0;
+    this.providerResponseStallRetryAttempt = 0;
+    this.providerStalledBeforeResponse = false;
     this.providerRetryHeaders = undefined;
     this.providerFetchFailure = undefined;
     this.providerTransportHealth.reset();
@@ -8135,6 +8209,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           if (!failed && !aborted) {
             this.providerTransientRetryAttempt = 0;
             this.providerRateLimitRetryAttempt = 0;
+            this.providerResponseStallRetryAttempt = 0;
           }
           // Re-run an invisible answer once before surfacing a finished turn.
           const silence =

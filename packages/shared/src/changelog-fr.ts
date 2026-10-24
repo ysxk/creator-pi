@@ -2,6 +2,21 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.6",
+    "date": "2026-10-24",
+    "highlights": [
+      "Regroupez la réflexion, les outils, les commandes et la progression d'un tour sous un seul en-tête repliable, qui reste ouvert pendant l'exécution.",
+      "Zoomez avec la molette dans les deux visionneuses et faites glisser les images agrandies pour vous déplacer.",
+      "Les fichiers et dossiers ouverts s'actualisent après les appels d'outils, sans qu'une ancienne lecture remplace un contenu plus récent.",
+      "Les conversations riches en médias limitent la taille des requêtes et cessent plus tôt les tentatives lorsque le fournisseur ne répond jamais.",
+      "Les listes de tâches quittent la zone de saisie à la fin de leur tour, y compris en cas d'interruption ou d'échec.",
+      "Le texte en streaming, les menus, les dialogues et la sélection latérale bénéficient d'animations plus fluides respectant la réduction des mouvements.",
+      "Bamboo White adopte une barre latérale subtilement teintée, avec des surfaces sombres et des graisses de texte plus douces.",
+      "Supprimer des messages ou changer de version de réponse ne restaure plus de contenu périmé en attente au redémarrage ; supprimer une conversation efface aussi les copies de récupération en cours.",
+      "Revenir dans une conversation affiche les derniers messages plutôt que l'ancienne fenêtre de recherche, sans perturber les nouvelles recherches.",
+    ],
+  },
+  {
     "version": "0.18.5",
     "date": "2026-10-20",
     "highlights": [

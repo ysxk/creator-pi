@@ -23,14 +23,15 @@ export function latestPromptTime(messages: readonly UiMessage[]): number | undef
 }
 
 /**
- * Whether a finished checklist still belongs on screen (D672).
+ * Whether the checklist belongs on screen (D672, D699).
  *
- * It stays while the turn that finished it is running, so its last item is
- * seen being ticked off, and leaves when that turn ends. A checklist finished
- * in an earlier turn does not come back when the next turn starts: it was
- * last written before the prompt that began it.
+ * It shows while the turn that wrote it is running, so the plan is read as it
+ * advances and a finished list's last item is seen being ticked off. It leaves
+ * when that turn stops, whether it finished, ended with work open, failed or
+ * was interrupted. A later turn brings it back only once the agent writes it
+ * again: until then it was last written before the prompt that began the turn.
  */
-export function finishedChecklistVisible(input: {
+export function checklistVisible(input: {
   running: boolean;
   updatedAt: number;
   turnStartedAt: number | undefined;

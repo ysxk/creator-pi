@@ -150,7 +150,13 @@ transcript-read API. The core runs no title completion of its own.
    thinking level; HTTP 429 setup and stream failures use the runtime-owned
    silent ten-retry budget, while other transient transport/provider failures
    share a runtime-owned bounded ten-retry budget across the setup and stream
-   phases (D127, D186, D245, D258, D378)
+   phases (D127, D186, D245, D258, D378). An attempt the idle watchdog ends
+   before the provider responded at all is retried at most twice in a row
+   (`PROVIDER_RESPONSE_STALL_MAX_RETRIES`), still drawing on that budget; any
+   other attempt or a completed response resets the streak, and
+   `infiniteProviderRetry` lifts this ceiling too. Its error says only that no
+   response arrived: whether the body was still uploading is not observable
+   (D700)
 9. stream normalized answer and thinking events to UI
 10. on tool calls, delegate to Rust host bridge with the durable `sessionId`;
     host resolves the session-bound workspace root
@@ -255,7 +261,8 @@ and the same visible message id is reused, so a retry never restarts the turn or
 re-runs a completed tool call.
 
 The application setting `infiniteProviderRetry` is off by default. When enabled,
-the main session and its builtin subagents skip only the ten-retry ceiling for
+the main session and its builtin subagents skip only the retry-count ceilings
+(the ten-retry budget, and the main session's silent-attempt cap of D700) for
 `NETWORK_ERROR`, `TIMEOUT`, `STREAM_FAILED`, retryable `PROVIDER_ERROR`
 (including 5xx gateway failures), and `PROVIDER_RATE_LIMITED`. The same backoff,
 `Retry-After` precedence, visible retry status, and abort/Stop path remain in

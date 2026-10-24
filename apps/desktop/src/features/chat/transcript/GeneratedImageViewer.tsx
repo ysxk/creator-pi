@@ -1,14 +1,16 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { IconChevronLeft, IconChevronRight, IconClose, IconDownload, IconExternal, IconFolder, IconMinus, IconPlus } from "../../../components/icons";
 import { Button, TooltipButton } from "../../../components/ui";
 import { useOpenChatFileRef } from "../../../hooks/use-preview-target";
 import { api } from "../../../lib/api";
 import { useBlockingOverlay } from "../../../lib/blocking-overlay";
+import { wheelZoomFactor } from "../../../lib/image-wheel-zoom";
 import { portalToBody } from "../../../lib/portal-visibility";
 import { useReferencedImageDataUrl } from "../../../lib/use-referenced-image-data-url";
 import { useAppStore } from "../../../stores/app-store";
 import { generatedImageDownloadName } from "./generated-image-download";
+import { useScrollDragPan } from "./useScrollDragPan";
 import { GeneratedImageThumbnail, type GeneratedImageRef } from "./GeneratedImageThumbnail";
 
 export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose, focusReturnRef }: {
@@ -21,6 +23,8 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
   const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const wheelAnchorRef = useRef<{ fx: number; fy: number; clientX: number; clientY: number } | null>(null);
   const knownNaturalSizesRef = useRef(new Map<string, { width: number; height: number }>());
   const navigationRequestRef = useRef(0);
   const pendingIndexRef = useRef<number | null>(null);
@@ -106,9 +110,53 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
     pendingIndexRef.current = null;
     onClose();
   };
+  const clampZoom = (value: number) => Math.min(maxZoom, Math.max(Math.min(0.1, fit), value));
   const changeZoom = (value: number) => {
-    if (src) setManualZoom({ src, value: Math.min(maxZoom, Math.max(Math.min(0.1, fit), value)) });
+    if (src) setManualZoom({ src, value: clampZoom(value) });
   };
+  const pan = useScrollDragPan(viewportRef);
+
+  // Several wheel events can land before React renders the previous one, so
+  // each builds on the last one's zoom rather than on a stale render value.
+  const zoomRef = useRef(zoom);
+  useLayoutEffect(() => { zoomRef.current = zoom; });
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
+    const wheel = (event: WheelEvent) => {
+      const image = imageRef.current;
+      if (!src || !size || !image) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const from = zoomRef.current;
+      const to = clampZoom(from * wheelZoomFactor(event, element.clientHeight));
+      if (to === from) return;
+      // Remember which part of the picture is under the cursor; once the new
+      // size is laid out, the scroll position puts that part back under it.
+      const rect = image.getBoundingClientRect();
+      const fraction = (offset: number, length: number) => Math.min(1, Math.max(0, offset / length));
+      wheelAnchorRef.current = {
+        fx: fraction(event.clientX - rect.left, rect.width),
+        fy: fraction(event.clientY - rect.top, rect.height),
+        clientX: event.clientX,
+        clientY: event.clientY,
+      };
+      zoomRef.current = to;
+      setManualZoom({ src, value: to });
+    };
+    element.addEventListener("wheel", wheel, { passive: false });
+    return () => element.removeEventListener("wheel", wheel);
+  }, [src, size, fit, maxZoom]);
+  useLayoutEffect(() => {
+    const anchor = wheelAnchorRef.current;
+    const element = viewportRef.current;
+    const image = imageRef.current;
+    wheelAnchorRef.current = null;
+    if (!anchor || !element || !image) return;
+    const rect = image.getBoundingClientRect();
+    element.scrollLeft += rect.left + anchor.fx * rect.width - anchor.clientX;
+    element.scrollTop += rect.top + anchor.fy * rect.height - anchor.clientY;
+  }, [zoom]);
   const reveal = async () => {
     if (!selected) return;
     try {
@@ -156,9 +204,12 @@ export function GeneratedImageViewer({ images, selectedIndex, onSelect, onClose,
           }}
         >
           {src && failedSrc !== src ? <img
+            ref={imageRef}
             src={src}
             alt={label}
             draggable={false}
+            {...pan.imageHandlers}
+            data-dragging={pan.dragging || undefined}
             data-sized={size ? "true" : undefined}
             style={size ? { width: size.width * zoom, height: size.height * zoom } : undefined}
             onLoad={(event) => {

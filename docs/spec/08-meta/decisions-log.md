@@ -87,10 +87,21 @@ so the prefix keeps them apart from this fork's D656 and later.
 | D688 | Desktop sessions check tool-result pictures before history and every request | **A picture a tool returns in a Desktop session (host tools, MCP, plugins, delegates) goes through pi's own `normalizeToolResultImages` in `afterToolCall`, after any extension replacement: an oversized one is resized, and one that cannot be decoded is replaced by a text note, so history keeps the safe version. The request hook (`convertToLlm`) applies the same check to every tool result in the context, which covers history restored from transcripts written before this, with results cached per block. Only `image/*` blocks are pictures; a clip or recording carried in an image block with a `video/*` or `audio/*` type (D660 / D667) passes untouched. The pi-coding-agent patch exports the normalizer as `@earendil-works/pi-coding-agent/tool-result-images`.** | Upstream's fix (eb608fd2e) changed only the normalizer pi's own session path calls; a Desktop session runs `pi-agent-core` directly and never reached it, so an undecodable MCP screenshot still failed every later request of the conversation. |
 | D689 | MCP OAuth checks the authorization server's issuer | **Port pi-mcp 1.2.0's issuer rules (c5f5b3282d) into the Desktop-owned MCP OAuth flow. Discovery rejects authorization-server metadata whose `issuer` differs from the server it was fetched for (RFC 8414 §3.3, trailing slash ignored) and records whether the server promises `iss` on responses. The callback then exchanges a code only when its `iss` matches that issuer (RFC 9207): a different `iss`, an `iss` that cannot be verified because the metadata names no issuer, or a missing `iss` from a server that promised one fails the login before any token request. Metadata without `issuer` and a callback without `iss` keep working, as before. PKCE, state, endpoint policy, and credential storage are unchanged.** | Desktop runs its own MCP OAuth client in Electron Main rather than pi-mcp, so upgrading the package would not have protected it. Without the check, a code issued by one authorization server could be sent to another's token endpoint (mix-up attack). |
 | D690 | Adopt Pi 1.3.0 | **All five direct Pi pins move to 1.3.0 with the three Desktop patches rebased (`docs/project/pi-130-adoption.md`). Taken with it: tool calls with an invalid `\u` escape keep every argument, and a completed call with malformed JSON arguments fails validation instead of running with a partial object; a previous model's or account's thinking is dropped from the outgoing request instead of being replayed as answer text (same-model replay, storage and display unchanged); and the 1.2/1.3 provider fixes (reasoning-first ordering for mixed gateway chunks, Anthropic/Bedrock error tool-result images, Anthropic strict-tool fallback, Gemini 4, Mistral and Claude/MiMo effort). Compaction without historical thinking, OpenRouter per-key catalogs, GPT-6 cache-preserving effort and the Kimi Code migration are not part of this change.** | A truncated or partial argument object could run a tool with less than the model asked for, and another model's reasoning replayed as text could leak into the new model's answer. The rest are upstream provider fixes Desktop reaches through pi-ai. |
+| D691 | A running session turns an arc in the sidebar | **Amend D135. The in-progress mark on a sidebar task row is an 11px ring: a faint `--ds-status-running-halo` track with a `--ds-status-running` half arc that turns once a second (`ds-spin`, transform only). It turns only while the window is active (`--motion-play`) and holds still under reduced motion; a still frame is still an arc, so the state reads without motion. The breathing halo it replaces and its `ds-breathe-halo` keyframes are gone. The related-session hover-card dot and tool-row dot keep breathing.** | The 7px dot with a slow breathing halo was easy to miss in a list of rows; a turning arc is the common sign for work in flight and stays distinct from the static selected ring. |
+| D692 | One fold for the whole turn process *(open state amended by D701)* | **Amend UD661. Each assistant turn has one turn-level process disclosure again; it folds every thought, tool, hosted search, progress paragraph and Bash/run row of the turn. Bash and run aliases are still never folded into an ordinary activity group: inside the open process they render as standalone rows in chronological order between the ordinary chunks, with their detail closed until opened. The process header reports live state only while the process owns the turn's last part, as UD661 had it per chunk. Renderer only; no persistence, protocol, setting or plugin contract change.** | Pulling every Bash row out of the process split a command-heavy turn into one process header per gap between commands, each showing the whole turn's elapsed time, and nothing could fold the turn as a whole. |
+| D693 | The mouse wheel zooms a picture in the image viewers | **Amend the attachment-preview passage of the component spec and D686. In both the composer's attachment preview and a reply's image viewer, a plain mouse wheel zooms, as a trackpad pinch already did in the attachment preview; the zoom is anchored at the picture point under the cursor and bounded by each viewer's existing zoom limits. The wheel no longer pans: the attachment preview keeps dragging to pan, and the reply viewer gains dragging to scroll a picture larger than its space. Renderer only; no persistence, protocol, setting or plugin contract change.** | Looking at a picture by wheel is the expected gesture; only the zoom buttons zoomed with a mouse, and the reply viewer ignored the wheel's zoom entirely. |
+| D694 | Motion personalities, and surfaces that leave | **Amend the motion rules of design-system §8 (D146) and, for the composer, D297. Motion is chosen by what moves, from four tokens generated from real springs by `scripts/motion-springs.mjs` and carried as CSS `linear()`: snap (stiffness 1200 / damping 80, no overshoot) for structure, glide (600 / 49) for content easing in, pop (380 / 18, about 19% overshoot) only for small feedback glyphs, and a 140ms ease-in exit. Every anchored menu (`AnchoredMenu`, `ContextMenu`) grows from the control that opened it and stays mounted through its exit (`usePresence`); a modal dialog rises on snap and leaves through a static copy its portal host plays out (`lib/overlay-exit.ts`), and trades its 1px border for a ring-and-lift shadow. The turn process and an activity group fold by their grid row, still ending in display: none after a close, and grow open only after the reader's own click. A running process label carries a transform-only sheen and tabular seconds; copy controls pop a success check and ease back after 2.5s; the composer rests on a 0.5px ring with a layered lift (a faint ring in dark too) and closes a neutral double ring on focus; the send button crossfades and pops when it becomes ready, and the stop button pops in. Reduced motion keeps every end state and drops the travel. Renderer only; no persistence, protocol, setting or plugin contract change.** | One 150ms ease-out curve served about 340 transitions, so folding, opening and feedback all felt alike; menus and dialogs arrived with motion but vanished at once; the process fold snapped open and shut; and the composer's theme overrides had kept its focus shadow from ever applying. |
+| D695 | Ink bloom for streaming text | **Amend the streaming cursor passage of `04-ux/09-interaction-patterns.md` §2.1. With smooth streaming on and reduced motion off, every character a reply reveals blooms from a 6px blur into ink over 140ms; characters revealed in one frame start up to 16ms apart, 64ms at most. Only characters still blooming are wrapped, by `rehypeInkBloom` after sanitizing, each with a negative animation delay taken from its own reveal time (`InkClock`), so a re-rendered or re-mounted block resumes the bloom instead of replaying it; two alternating animation names restart a reused span on time. Inline code, fenced code, math, media and custom elements are never wrapped, and text already on screen when a pane mounts does not bloom. The blinking caret is removed. Renderer only; the smooth-streaming setting keeps its meaning; no persistence, protocol or plugin contract change.** | The caret blinked like a terminal while characters snapped in. A bloom marks the writing point and reads as handwriting, and costs only the handful of characters in flight. |
+| D696 | Selection, hover and arrival that travel; dark polish | **Amend D694 and the sidebar selection paint. When the selected session changes, a pill painted like the selection slides from the old sidebar row to the new one, across the pinned, temporary and project lists, and a hover tile follows the pointer over the rows (`useSidebarGlide`). Inside every floating menu a hover tile follows the pointer between items (`lib/hover-glide.ts`); an item showing a selection keeps its own look. The sidebar's row, section and sort menus grow in and leave through the same host copy as dialogs. A user message just sent rises into the transcript (`claimArrival`: once per send, resumed by a row that replaces it, never for history). Dark theme: `--ds-bg-under` is `#111111` instead of `#000000`, and the medium, medium-plus, strong and semibold weights read 460 / 505 / 530 / 560, so Latin text thins while PingFang stays on the same face. Reduced motion keeps every state and drops the travel. Renderer only; no persistence, protocol or plugin contract change.** | The rest of the motion proposal: selection and hover jumped from row to row, the sidebar's menus vanished at once, a sent message appeared instantly, and pure black glared beside the `#181818` pane. |
+| D697 | Bamboo White rail steps down instead of drawing a seam | **Amend the Bamboo White light theme (commit e56f1c403, which recorded no decision) and design-system §4.3. The sidebar and settings rail, the under layer and the opaque macOS sidebar tint go from `#ffffff` to slate-50 `#f8fafc`, and in the built-in theme the sidebar drops its 6% hairline: it now reads its own edge token, `--ds-sidebar-seam`, which follows `--ds-pane-seam` and is transparent under `:root[data-theme="light"]:not([data-plugin-theme])`. The 1.5% tone step is the edge. The work panel keeps its hairline, since white still meets white there, and a contributed theme keeps the seam beside its sidebar. `--ds-text-muted` still clears 4.5:1 on the rail. Renderer only; no persistence, protocol or plugin contract change.** | The user chose the optional item of the motion proposal: Bamboo White read as one white sheet split by drawn lines, and the high-end UI guidance layers by a 1–3% tone step instead of a stroke. |
+| D699 | Every checklist leaves when its turn stops | **Amend D672, which kept a checklist with open work on screen whether or not a turn ran. TodoDock now applies D672's rule to every checklist: it shows only while the turn that wrote it is running (or, in a later turn, once the agent writes it again) and leaves when that turn stops, whether it finished, ended with work open, failed or was interrupted. Renderer only; the host still stores the checklist and `todos.get` still returns it.** | The user found an interrupted session whose plan stayed above the composer at 3/7 with step 4 still turning, long after the turn had stopped. |
+| D698 | The host file tab refreshes after agent tool calls | **Amend component spec §5.4; new scenario `E2E-FILES-agent-tool-call-refreshes-open-file`. 300ms after any agent `tool_end` in any session, the mounted host file tab re-reads the open file and re-lists every folder it has loaded; calls ending while a refresh is scheduled join it. Every tool counts, not only Write/Edit. Unchanged results keep their identity, a changed file is replaced in place without moving the scroll or repeating a line jump, and a re-read that lands after the viewer changed file or workspace is dropped. Plugin file views, the Review tab and inline media players are unchanged. Renderer only; no IPC, persistence or plugin contract change.** | The user asked for it: an open file kept showing what it held when opened while the agent rewrote it, and new files never appeared in a loaded folder until the tab was remounted. |
+| D700 | One request carries a bounded amount of media; silent providers stop being retried | **Amend D660, D667 and D685 (`03-runtime/16-tool-result-limits.md` §6.1) and the transient retry budget (`03-runtime/02-agent-runtime.md`). Every provider request holds its inline media (images, clips, recordings, in prompts and tool results) to the base64 of one clip at `MAX_INLINE_VIDEO_BYTES` (133 MB): media the model already received in an answered response is left out oldest first, each block replaced by a note that says so and how to get it back; media no answered response has seen is never left out, and `ViewVideo` / `ViewAudio` refuse a file that would push it past the bound. A left-out block stays out for the life of the runtime. Separately, an attempt the idle watchdog ends before the provider responded at all may be retried twice in a row, then the failure is final (`infiniteProviderRetry` still lifts the ceiling); other transient failures keep the ten-retry budget. Provider error details now carry the request's media count, base64 size, left-out count, and `stalledBeforeResponse`. Agent runtime only; the agent's own history, the persisted transcript, IPC and plugin contracts are unchanged.** | A session that watched six clips one after another sent all of them again with every request: a 209 MB request (157 MB of video as base64) that the provider never answered, re-sent unchanged ten times, with no request size in the logs. |
+| D701 | A running turn keeps its process open | **Amend D692 and the `turn-process-and-thinking-display` ADR. The turn-level process disclosure takes its automatic open state from whether the turn is running, not from whether it owns the turn's last part: it stays open through assistant text streamed between tool calls and, untouched, closes when the turn ends. Its header, timer and live thinking state still follow the last part. Renderer only; no persistence, protocol, setting or plugin contract change.** | Since the tail rule (cherry-picked 2026-10-16, kept by D692), every paragraph the agent wrote between tool calls folded the open process, and the next tool call unfolded it again. |
 | UD656 | Quarantine appends the host keeps refusing instead of stalling the outbox | **Amend ADR 0041 / D318 / D444 / D597: an append whose `session.appendMessage` or `session.recordUsage` call fails with an error the outbox cannot classify as a duplicate message id, a `PERMISSION_DENIED:` poison row, or a foreign-key orphan is retried on a bounded backoff (5s, doubling to a 60s cap) instead of ending the flush. The fifth consecutive failure on that head moves it into an application-owned dead-letter file, `session-message-outbox.dead-letter.json`, with its payload, session id, quarantine timestamp, and host error; only the newest 256 quarantined appends are kept, and the oldest is discarded with a warn. The flush then continues with the next entry, so one refused append can no longer hold the FIFO head, fill the 1024-entry cap, or fail every session's writes. Quarantined appends are never replayed automatically, and `session.delete` drops that session's quarantined appends too. No protocol version, storage schema, or queued-outbox format change.** | A `stream did not contain valid UTF-8` append stayed at the FIFO head for 14.8 hours while `session.persistence.outbox.is.full` fired 5990 times, so every session's appends failed until restart. Only three error classes had a drain, and every other error was treated as transient forever (#1560). |
 | UD659 | Reopen archived projects in the sidebar | **Amend D093 / D455: successful explicit project activation clears the normalized path's renderer-local archived flag and persists it, so Open from Project archive, reopening the same folder through Add project, and opening a project session reveal the project in the home sidebar. Selecting a row for inspection and ordinary session refreshes do not alter archive state. No host/project/session storage or protocol change. See ADR 0294, E2E-264, and issue #1653.** | Reopening a project changed the active workspace but left its path-keyed archived presentation flag set, hiding it from the sidebar after the user explicitly reopened it. |
 | UD660 | Composer file menu rows always show the full relative path | **Amend the `@` file-completion row presentation of D124 (specs `04-ux/08-component-spec.md` §11.8, `04-ux/09-interaction-patterns.md` §8a.1, E2E-102a): every row renders the leaf name — directories keep the trailing `/` — followed by the entry's complete workspace-relative path in a de-emphasized mono span that carries the raw `entry.path` without a trailing slash. The span takes the row's remaining width and ellipsizes before the leaf name can, and no row overflows the menu. The tooltip keeps the complete relative path and the accessible name becomes the path alone, because the visible row already includes the leaf name. D209/D362 chip rendering, completion, insertion, and serialization are unchanged; no earlier decision owned the old leaf-only row wording, so no entry is marked amended.** | Duplicate leaf names in different directories were indistinguishable until hover, and the relative location — often the actual intent of an `@` reference — was invisible in the persistent row. |
-| UD661 | Segmented turn process and independent thinking preference | **Supersede the `Detailed` / `Compact` display-mode behavior and the single whole-process disclosure recorded by D633 / D651 and the `turn-process-and-thinking-display` ADR: a turn renders as chronological collapsible process segments, Bash and run aliases stay outside every folded container (the turn-level process disclosure and any ordinary activity group) and remain visible even when every group is collapsed, and process/group folding defaults are independent of the thinking preference. The preference is the optional boolean `AppSettings.showThinking`; absent or non-boolean values fall back to the legacy `thinkingDisplayMode` field (`compact` hides, `detailed`/unknown/absent shows), which is retained only for persisted-settings compatibility. `showThinking` joins the portable application fields so it synchronizes like the legacy field; no other host protocol, persistence schema, permission, or plugin contract change. See the amended ADR, `04-ux/06-settings-ia.md`, `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and E2E-CHAT-turn-process-and-thinking-display.** | One flat container left long tool/search runs hard to scan and forced reasoning visibility and process folding into the same two-valued switch; an independent boolean plus always-visible Bash rows keeps shell-heavy turns readable without hiding the answer. |
+| UD661 | Segmented turn process and independent thinking preference *(Bash placement and per-chunk folding amended by D692)* | **Supersede the `Detailed` / `Compact` display-mode behavior and the single whole-process disclosure recorded by D633 / D651 and the `turn-process-and-thinking-display` ADR: a turn renders as chronological collapsible process segments, Bash and run aliases stay outside every folded container (the turn-level process disclosure and any ordinary activity group) and remain visible even when every group is collapsed, and process/group folding defaults are independent of the thinking preference. The preference is the optional boolean `AppSettings.showThinking`; absent or non-boolean values fall back to the legacy `thinkingDisplayMode` field (`compact` hides, `detailed`/unknown/absent shows), which is retained only for persisted-settings compatibility. `showThinking` joins the portable application fields so it synchronizes like the legacy field; no other host protocol, persistence schema, permission, or plugin contract change. See the amended ADR, `04-ux/06-settings-ia.md`, `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and E2E-CHAT-turn-process-and-thinking-display.** | One flat container left long tool/search runs hard to scan and forced reasoning visibility and process folding into the same two-valued switch; an independent boolean plus always-visible Bash rows keeps shell-heavy turns readable without hiding the answer. |
 | UD664 | Sidebar running activity defaults | **When unset, the master and Count badge resolve on while Activity rail resolves off. Explicit saved values remain authoritative. The master continues gating both affordances; turning it off does not rewrite either child preference. No schema or migration change.** | Running work stays visible through a quiet count, while the animated rail is something a user opts into. |
 
 ## B. Secondary implementation defaults
@@ -8053,3 +8064,205 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   the i18n catalog tests. See the amended ADR, `04-ux/06-settings-ia.md`,
   `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and
   E2E-CHAT-turn-process-and-thinking-display.
+
+## 2026-10-21 — One fold for the whole turn process (D692)
+
+- D692 amends UD661. A turn renders one turn-level process disclosure that folds
+  the whole process; collapsing it hides every thought, tool, progress paragraph
+  and Bash/run row of the turn behind one header.
+- Bash and run aliases keep UD661's row treatment inside that disclosure: never
+  folded into an ordinary activity group, standalone even when adjacent, in
+  chronological order between the ordinary chunks, detail closed until opened.
+- Under UD661 every Bash row ended a process chunk, so a turn that ran a command
+  after each step showed a dozen "Processed for 12m 5s" headers, all reporting the
+  whole turn's elapsed time. One disclosure removes both the repetition and the
+  wrong per-chunk time.
+- The disclosure reports live state only while it owns the turn's last part, so a
+  separate streamed answer still clears a superseded "Thinking" header.
+- Renderer only (`AssistantTurn.tsx`); no persistence, protocol, setting or plugin
+  contract change. Covered by the turn-process and transcript-render probes in
+  `pnpm test:e2e:transcript`. See the amended ADR, `04-ux/08-component-spec.md`,
+  `04-ux/09-interaction-patterns.md`, and E2E-CHAT-turn-process-and-thinking-display.
+
+## 2026-10-22 — Motion personalities and surfaces that leave (D694)
+
+- Four motion tokens replace one curve for everything: `--motion-ease-snap`
+  (388ms), `--motion-ease-glide` (405ms), `--motion-ease-pop` (692ms) and
+  `--motion-duration-exit` (140ms, on the existing `--motion-ease-in`). The
+  springs live in `scripts/motion-springs.mjs`, and
+  `apps/desktop/test/motion-tokens.test.mjs` fails when tokens.css drifts from
+  them.
+- Floating surfaces leave the way they arrived. `usePresence` holds a closing
+  `AnchoredMenu` or `ContextMenu` for its exit, inert at its last position.
+  Dialogs still unmount at once; their portal host (the overlay host or
+  `document.body`) plays a static copy without ids instead, and skips it when another overlay replaces the old one, under
+  reduced motion, and for content that would load again (iframes, media,
+  canvas).
+- Folds run on `grid-template-rows` with `transition-behavior: allow-discrete`,
+  so a closed body is still display: none. Only a reader's own open grows from
+  0fr (`data-fold-opening`, `useFoldOpening`); a first render, an automatic open
+  and a search reveal show at full height, so nothing grows under the reading
+  position.
+- A running label is muted text with a sheen that moves by transform only and
+  pauses with the window (#1064), and its seconds are tabular. Copy feedback is
+  a success check on the pop spring that clears itself after 2.5s. The composer
+  draws a ring and a layered lift, and a double ring on focus; the theme
+  overrides that out-ranked its `:focus-within` rule are gone, and D297's
+  strokeless dark composer gives way to a 6% ring.
+- Not adopted from the proposal: a backdrop blur behind dialogs (a blur over a
+  streaming transcript repaints every frame, §8.7) and a sliding hover
+  highlight inside menus, left for a later pass together with the sidebar's
+  sliding selection.
+- Renderer only. Covered by `motion-tokens.test.mjs` and
+  `surface-motion.test.mjs`, and by `pnpm test:e2e:transcript` for the fold.
+  See `04-ux/07-ui-design-system.md` §8 and §11.4 and `04-ux/08-component-spec.md`.
+
+## 2026-10-23 — Ink bloom for streaming text (D695)
+
+- With smooth streaming on, the characters a reply reveals bloom from a 6px
+  blur into ink over 140ms, a wave rather than characters snapping in; the
+  caret is gone.
+- `InkClock` (`lib/ink-bloom.ts`) remembers when each stretch of the reply
+  appeared, fed by `useInkClock` from the length on screen. `rehypeInkBloom`
+  runs last in a block's rehype chain and wraps only characters younger than
+  the bloom, each with a negative `animation-delay` equal to its age, so the
+  DOM never holds more than the characters in flight and a re-rendered or
+  re-mounted block resumes instead of replaying. Two identical keyframes
+  alternate per render of a block so a span React reuses for another character
+  restarts on that character's own time.
+- Finished spans do not linger: `Markdown` passes the clock only to blocks that
+  may still be blooming, and `useInkClock` renders the reply once more after
+  its last character settles, so every block ends as plain text. A span left
+  behind would replay its bloom when a folded turn process (display: none)
+  opened.
+- Never wrapped: inline code (file references read it as a string), fenced
+  code (highlighted from the raw block), math, media and custom elements.
+- Renderer only. Covered by `apps/desktop/test/ink-bloom.test.mjs`. See
+  `04-ux/09-interaction-patterns.md` §2.1 and `04-ux/07-ui-design-system.md` §8.7.
+
+## 2026-10-23 — Selection, hover and arrival that travel; dark polish (D696)
+
+- Sidebar: one pill slides between rows when the selection changes, one hover
+  tile follows the pointer; both live under the rows in the sidebar body, and a
+  row's own background steps aside only while a layer stands in for it.
+- Menus: one hover tile per floating menu follows the pointer between items
+  (a delegated listener, no per-menu code). The sidebar's floating menus gain
+  the grow-in and the host-copy exit dialogs already had.
+- A message the user just sent rises in from the composer. One send is one
+  arrival: a row mounting during it — the persisted row a native session swaps
+  in with a new id and the SDK's timestamp, or the first message of a new task
+  moving into its session — resumes the rise through a negative delay
+  (`--arrival-elapsed`) instead of rising twice or snapping into place.
+- Dark: `--ds-bg-under` `#111111`; weights 460 / 505 / 530 / 560 above body
+  text. The Bamboo White sidebar tint was left undecided here (decided the same
+  day: D697).
+- Renderer only. Covered by `apps/desktop/test/travel-motion.test.mjs` and the
+  `theme-surfaces` E2E. See `04-ux/07-ui-design-system.md` §4.2, §5.4, §8.4, §8.7.
+
+## 2026-10-23 — Bamboo White rail steps down to #f8fafc (D697)
+
+- The user's choice on the optional item of the motion proposal.
+- Light tokens: `--ds-settings-rail-bg`, `--ds-bg-sidebar`, `--ds-bg-under`
+  and `--ds-sidebar-glass-tint` read `#f8fafc`. The macOS tint stays opaque:
+  native vibrancy showing through would read as a grey rail.
+- The sidebar's edge is its own token, `--ds-sidebar-seam`, following
+  `--ds-pane-seam` by default; the built-in light theme (no `data-plugin-theme`)
+  sets it transparent. The work panel keeps `--ds-pane-seam`. A contributed
+  theme based on light inherits the tinted rail unless it sets its own, and
+  keeps the seam.
+- The settings rail already drew no right rule (D297); its tone separates it
+  from the content again.
+- Renderer only. Covered by `apps/desktop/test/sidebar-settings-return.test.mjs`,
+  `apps/desktop/test/macos-sidebar-vibrancy.test.mjs` and the `theme-surfaces`
+  E2E (light rail `rgb(248, 250, 252)`). See `04-ux/07-ui-design-system.md` §4.3.
+
+## 2026-10-23 — The host file tab refreshes after agent tool calls (D698)
+
+- The user asked whether the right-hand Files tab follows agent edits; it did
+  not, and they asked for it to.
+- Trigger: `api.onAgentEvent` filtered to `tool_end`, through
+  `apps/desktop/src/lib/agent-tool-settle.ts`. A shell command can write
+  files, so no tool is exempt. The first call schedules a refresh 300ms out
+  and later calls ride along with it, so a steady stream still refreshes every
+  300ms instead of waiting for silence.
+- `FilesTab` owns the subscription and drops it on unmount. A generation
+  counter, bumped on open, back and workspace switch, discards a stale re-read;
+  a folder re-list checks the workspace root it started under.
+- A requested line is scrolled to once per open: the jump no longer re-fires
+  when the file object changes.
+- Covered by `apps/desktop/test/agent-tool-settle.test.mjs` and
+  `pnpm test:e2e:files-auto-refresh` (production `FilesTab` in isolated
+  Electron with filesystem IPC fixtures), which fails on the previous
+  `FilesTab`.
+
+## 2026-10-23 — Every checklist leaves when its turn stops (D699)
+
+- Before: D672 retired only a finished checklist. A plan with open items, the
+  usual state after an interruption or a turn that ended mid-plan, stayed
+  above the composer indefinitely with its `in_progress` mark still turning.
+- `finishedChecklistVisible` became `checklistVisible` in
+  `features/chat/todos/finished-checklist.ts`, and `TodoDock` applies it to
+  every checklist. The rule itself is unchanged: visible while running, and
+  in a later turn only once written after the latest non-steering prompt.
+- The user also said earlier finished checklists stayed. Every other stored
+  checklist in their data was fully ticked, which D672 already hides when
+  `runningSessions` is false, and no path was found that leaves that flag
+  set after `agent_end` or `error`. Left open until a session that shows it
+  is found.
+- Covered by `apps/desktop/test/todo-dock-rendering.test.mjs` (fails on the
+  previous rule) and `test:e2e:todos` (`open-checklist-leaves-when-its-turn-stops`;
+  the harness now marks its sessions running wherever it expects a dock).
+
+## 2026-10-24 — One request carries a bounded amount of media (D700)
+
+- Incident: a session read six clips with `ViewVideo`, one per step. Each clip
+  stayed in the agent's in-memory context, so every later request carried all
+  of them; the persisted transcript dropping the bytes (D660) never affected
+  the requests. An offline reproduction with the installed build measured a
+  209 MB request for the sixth step and an identical body on each retry.
+  Response times rose 36 → 41 → 88 → 93 → 144 s, then the watchdog fired and
+  the retry counter reached 10.
+- Budget (`packages/agent-runtime/src/request-media-budget.ts`), applied in
+  the runtime's `convertToLlm` hook, the last view before the wire. "Answered"
+  means a later assistant message whose `stopReason` is neither `error` nor
+  `aborted`. Media before it is evictable, media after it is not. Blocks are
+  keyed by tool call id or user-message timestamp plus position, and the
+  budget remembers what it left out, so a retry or a later turn sends the
+  same shape and nothing reappears when the history shrinks.
+- The bound, `MAX_REQUEST_MEDIA_BASE64_BYTES`, is conservative and unmeasured:
+  a 112 MB body passed a CLIProxyAPI relay before and the 209 MB one did not
+  answer. It is the base64 of one maximum clip so that a clip the per-file
+  bound admits still travels alone.
+- Not covered: several large attachments in one user message are not checked
+  against the bound, and are sent and logged as over budget. After a reload,
+  tool-result media is gone anyway (D660); restored user attachments pass the
+  restore pools and then the same budget. Video and audio token estimates
+  still count each block as one image; estimating by duration is a separate
+  change.
+- Silent attempts: `withStreamIdleTimeout` tells `onStall` whether the stream
+  produced any event. The adapters emit their first event once a response has
+  begun, so none means no response arrived, not that the upload was still
+  running: the native Gemini adapter takes no custom fetch, so upload progress
+  is not observable, and the error says only "before the provider responded".
+  `PROVIDER_RESPONSE_STALL_MAX_RETRIES = 2`, counted while silent attempts
+  follow one another and reset by any other attempt or a completed response.
+- Covered by `request-media-budget.test.ts` (including six 40 MB clips against
+  the real bound), `provider-retry.test.ts` (stall phase), and `runtime.test.ts`
+  (the silent-attempt cap, the diagnostics, the `ViewVideo` refusal with a sparse
+  99 MB file, and the budget applied by the real `convertToLlm` hook).
+
+## 2026-10-24 — A running turn keeps its process open (D701)
+
+- Before: `AssistantTurn` passed one flag to `TurnProcess`, true only while the
+  process owned the turn's last part. Text streamed after a tool call is the
+  last part but sits outside the process (it may be the answer), so the
+  untouched process closed and its header read "Processed"; the next tool call
+  moved the text into the process and opened it again.
+- `TurnProcess` now takes `turnRunning` for its automatic open state and keeps
+  `isActive` (tail ownership) for the header, timer and live thinking, so
+  17d7efa45's fix for a superseded "Thinking" header still holds.
+- Visible side effect: while the final answer streams the process stays open
+  above it, and closes when the turn ends, as an untouched process always did.
+- Covered by the turn-process probe in `pnpm test:e2e:transcript` (text
+  streamed mid-turn keeps the running process open; fails on the previous
+  rule).

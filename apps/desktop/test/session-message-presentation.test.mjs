@@ -43,6 +43,7 @@ function loadComponent(name, extras = {}) {
     "../../../stores/app-store": { useAppStore },
     "../../../hooks/use-preview-target": { useOpenChatFileRef: () => () => {} },
     "../../../lib/chat-links": { splitChatText: () => [] },
+    "../../../lib/message-arrival": { claimArrival: () => null },
     "../../../components/Markdown": { Markdown: ({ source: text }) => text },
     "./ChatMarkdown": { ChatMarkdown: ({ source: text }) => text },
     "../../../components/icons": new Proxy({}, { get: () => Icon }),

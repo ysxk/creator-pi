@@ -367,7 +367,7 @@ globalThis.transcriptRenderProbe = async () => {
     );
 
     // A standalone Bash row is not an activity group: it updates through its own
-    // rendered command, outside every process disclosure.
+    // rendered command, directly inside the turn's one process disclosure.
     const bashMessages = (command: string): UiMessage[] => [
       message("bash-user", "user", "Run"),
       message("bash-row", "tool", "", {
@@ -382,8 +382,10 @@ globalThis.transcriptRenderProbe = async () => {
     const bashRow = container.querySelector<HTMLElement>('[data-message-id="bash-row"]');
     assert(bashRow, "the standalone Bash row did not render");
     assert(
-      bashRow.closest(".turn-process") === null,
-      "the Bash row must render outside every process disclosure",
+      // The body's one row item (D694) is the Bash row's direct parent.
+      bashRow.closest(".turn-run-row")?.parentElement?.classList.contains("turn-process-fold") === true &&
+        bashRow.closest(".turn-process-fold")?.parentElement?.classList.contains("turn-process-body") === true,
+      "the Bash row must render directly in the turn process body",
     );
     assert(container.textContent?.includes("printf before"), "the Bash command did not render");
     globalThis.__activityGroupRenders = [];

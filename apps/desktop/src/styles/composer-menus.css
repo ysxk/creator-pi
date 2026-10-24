@@ -4,11 +4,11 @@
   provider/model groups, and the composer plus menu.
 */
 
-/* DARK_COMPOSER_BOX — Codex elevated-primary + elevation-prominent */
+/* DARK_COMPOSER_BOX — Codex elevated-primary + elevation-prominent. The ring
+   and lift come from composer.css, so its focus state is not out-ranked here. */
 :root[data-theme="dark"] .composer-shell {
   /* Codex elevated-primary: #212121f5 / gray-800 96% (not flat solid) */
   background: var(--ds-bg-elevated-primary);
-  box-shadow: var(--ds-shadow-composer);
   border: 0;
   outline: 0;
 }

@@ -39,7 +39,7 @@ export function processContainsMessage(
   });
 }
 
-/** A `Bash`/run call rendered as its own row outside any process disclosure. */
+/** A `Bash`/run call rendered as its own row, never inside an activity group. */
 export type TurnProcessRunSegment = {
   kind: "run";
   key: string;
@@ -56,12 +56,12 @@ export type TurnProcessBodySegment = {
 export type TurnProcessSegment = TurnProcessRunSegment | TurnProcessBodySegment;
 
 /**
- * Split one turn's process into the order it renders (ADR
- * turn-process-and-thinking-display).
+ * Split one turn's process into the order it renders inside the turn's single
+ * process disclosure (ADR turn-process-and-thinking-display, D692).
  *
- * `Bash` and run aliases are pulled out of the process flow entirely: each is
- * its own `run` segment rendered as a standalone row with no process or group
- * ancestor, and adjacent calls stay separate. The remaining tools, thinking,
+ * `Bash` and run aliases are kept out of ordinary activity groups: each is its
+ * own `run` segment rendered as a standalone row directly in the process body,
+ * and adjacent calls stay separate. The remaining tools, thinking,
  * hosted searches and progress text keep their original order and are grouped
  * into `process` chunks between the run calls. Segment parts are the same part
  * objects as the input, so downstream reveal and active-tail identity still
@@ -123,8 +123,7 @@ export function projectTurnProcess(entry: AssistantTurnEntry) {
  * `hideThinking` is `!showThinking`: completed reasoning rows and excerpts are
  * hidden, while the live reasoning indicator still counts as a visible step so
  * a thinking-only process keeps its indicator. The helper counts exactly the
- * parts it is given; Bash and run aliases are segmented out before rendering
- * and never reach a process chunk, so they are never counted here.
+ * parts it is given, so a Bash or run row inside the process counts as a step.
  */
 export function visibleProcessSteps(
   parts: readonly AssistantTurnPart[],

@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
@@ -37,6 +38,7 @@ import {
   useTranscriptMenu,
 } from "./TranscriptMenu";
 import { getExtraMessageAttachments } from "./extra-attachments";
+import { claimArrival } from "../../../lib/message-arrival";
 
 function SkillInvocationText({ message }: { message: UiMessage }) {
   const command = message.command ?? "";
@@ -85,6 +87,8 @@ export const MessageRow = memo(function MessageRow({
   const deleteMessage = useAppStore((s) => s.deleteMessage);
   const isUser = message.role === "user";
   const isSessionMessage = Boolean(message.sessionMessage);
+  // A message the user just sent rises in from the composer (D696).
+  const [arrival] = useState(() => (isUser && !isSessionMessage ? claimArrival(message) : null));
   const editableUserMessage = isUser && !isSessionMessage;
   const workspaceRoot = useAppStore((s) => s.workspace?.path);
   const openFileRef = useOpenChatFileRef();
@@ -256,7 +260,8 @@ export const MessageRow = memo(function MessageRow({
   };
   return (
     <div
-      className={`message-row ${isSessionMessage ? "session-message" : isUser ? "user" : message.role}`}
+      className={`message-row ${isSessionMessage ? "session-message" : isUser ? "user" : message.role}${arrival !== null ? " just-sent" : ""}`}
+      style={arrival ? ({ "--arrival-elapsed": `${-arrival}ms` } as CSSProperties) : undefined}
       data-minimap-id={message.id}
       data-message-id={message.id}
       data-row-role={isSessionMessage ? undefined : "user"}

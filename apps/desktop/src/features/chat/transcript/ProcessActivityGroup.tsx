@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { AssistantActivityItem } from "../../../lib/assistant-turns";
 import { cachedActivitySummary } from "../../../lib/transcript-activity-summary";
 import { IconChevronRight, IconCircleAlert, IconSparkles } from "../../../components/icons";
+import { ActivityLabel } from "./ActivityLabel";
 import { DisclosureCollapseRail } from "./shared";
+import { useFoldOpening } from "./useFoldOpening";
 import { DisclosureScope, type useAutomaticDisclosure } from "./disclosure";
 
 /** Keep the body identity stable when a singleton grows into a group. */
@@ -23,9 +25,13 @@ export function ProcessActivityGroup({
   const grouped = items.length > 1;
   const open = !grouped || disclosure.open;
   const summary = useMemo(() => cachedActivitySummary(items), [items]);
+  const fold = useFoldOpening();
   if (items.length === 0) return null;
   return (
-    <div className={`process-activity-group${grouped ? " grouped" : " singleton"}${open ? " open" : ""}`}>
+    <div
+      className={`process-activity-group${grouped ? " grouped" : " singleton"}${open ? " open" : ""}`}
+      data-fold-opening={fold.opening ? "" : undefined}
+    >
       {grouped ? (
         <button
           type="button"
@@ -33,12 +39,13 @@ export function ProcessActivityGroup({
           ref={disclosure.titleRef}
           aria-expanded={open}
           aria-controls={detailsId}
-          onClick={disclosure.toggle}
+          onClick={() => {
+            if (!open) fold.markOpening();
+            disclosure.toggle();
+          }}
         >
           <span className="tool-activity-icon" aria-hidden><IconSparkles size={14} /></span>
-          <span className={`tool-activity-label${active ? " running" : ""}`}>
-            {t(summary.label, { count: summary.count })}
-          </span>
+          <ActivityLabel running={active} text={t(summary.label, { count: summary.count })} />
           {summary.thinking > 0 && summary.tools > 0 ? (
             <span className="tool-activity-count">{t("chat.activityIncludesThinking")}</span>
           ) : null}
@@ -61,7 +68,9 @@ export function ProcessActivityGroup({
         {...disclosure.bodyEvents}
       >
         {grouped ? <DisclosureCollapseRail label={t("chat.collapseActivityGroup")} onCollapse={disclosure.collapse} /> : null}
-        <DisclosureScope disclosure={disclosure} open={open}>{children}</DisclosureScope>
+        <div className="process-activity-fold">
+          <DisclosureScope disclosure={disclosure} open={open}>{children}</DisclosureScope>
+        </div>
       </div>
     </div>
   );

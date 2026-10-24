@@ -320,25 +320,19 @@
   transform: translateY(-50%);
 }
 
-/* A running session: a steady dot, with a halo that breathes behind it while
-   the window is active. The dot alone carries the state. */
+/* A running session: a turning arc on a faint track. The arc reads as "work
+   in flight" from any single frame, so a paused or reduced-motion frame
+   still shows the state; it turns only while the window is active. */
 .thread-item-status.running::before {
-  position: relative;
-  z-index: 1;
-  width: 7px;
-  height: 7px;
+  box-sizing: border-box;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--ds-status-running-halo);
+  border-top-color: var(--ds-status-running);
+  border-right-color: var(--ds-status-running);
   border-radius: var(--radius-full);
-  background: var(--ds-status-running);
   content: "";
-}
-
-.thread-item-status.running::after {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-full);
-  background: var(--ds-status-running-halo);
-  content: "";
-  animation: ds-breathe-halo var(--motion-breath-duration) var(--motion-ease-breath) infinite;
+  animation: ds-spin var(--motion-spin-duration) linear infinite;
   animation-play-state: var(--motion-play);
 }
 
@@ -389,7 +383,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .thread-item-status.running::after {
+  .thread-item-status.running::before {
     animation: none;
   }
   .thread-item-status.permission::before {

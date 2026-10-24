@@ -2,6 +2,21 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.18.6",
+    "date": "2026-10-24",
+    "highlights": [
+      "Recolha o raciocínio, as ferramentas, os comandos e o progresso de cada turno sob um único cabeçalho de processo, que permanece aberto durante a execução.",
+      "Amplie imagens com a roda do mouse nos dois visualizadores e arraste as imagens ampliadas para navegar.",
+      "Arquivos e pastas abertos são atualizados após chamadas de ferramentas, sem que leituras antigas substituam conteúdos mais recentes.",
+      "Conversas com muita mídia limitam o tamanho das solicitações e encerram mais cedo as tentativas quando o provedor nunca responde.",
+      "As listas de tarefas saem da área de composição quando seu turno termina, inclusive em caso de interrupção ou falha.",
+      "Texto em streaming, menus, caixas de diálogo e seleção da barra lateral têm animações mais suaves e respeitam a redução de movimento.",
+      "O tema Bamboo White ganha uma barra lateral sutilmente sombreada, com superfícies escuras e pesos de texto mais suaves.",
+      "Excluir mensagens ou trocar a versão de uma resposta não restaura mais conteúdo obsoleto da fila ao reiniciar; excluir uma conversa também remove cópias de recuperação em andamento.",
+      "Ao voltar a uma conversa, os últimos trechos da busca dão lugar às mensagens mais recentes, sem afetar novas buscas.",
+    ],
+  },
+  {
     "version": "0.18.5",
     "date": "2026-10-20",
     "highlights": [

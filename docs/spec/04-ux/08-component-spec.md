@@ -431,7 +431,7 @@ visually distinct from list content.
 | Collapsed | Icon rail — hover shows tooltip with session title |
 | Active session | Accent-blue outlined status ring plus active row background |
 | Selecting session | Destination row receives the active treatment immediately while transcript/workspace resolution continues |
-| Session in progress | Orange breathing dot; static under reduced motion |
+| Session in progress | Green half arc turning on a faint ring; still under reduced motion or while the window is inactive (D691) |
 | Session completed | Green check mark from the latest unread task notification when the row is not selected |
 | Session failed | Red circled alert mark from the latest unread task notification when the row is not selected |
 | Hover row | Project headers and all conversation rows share one full-row `--ds-bg-hover` surface, radius and transition; selected conversation fill takes precedence |
@@ -851,11 +851,17 @@ tool/search/thinking segment between progress paragraphs or Bash rows. It render
 group header only when at least two items are visible under the current thinking
 preference. A singleton uses its item disclosure directly, hidden thinking never
 creates an empty wrapper, and the existing Task topology remains the container for
-delegated work. Bash and run aliases are excluded from every process disclosure —
-neither a turn-level process disclosure nor an ordinary activity group — and render
-as standalone rows that stay visible even when every group is collapsed. Adjacent
-Bash rows each remain standalone, and a Bash row's detail stays closed until the
-user opens it.
+delegated work. One turn-level process disclosure folds the whole process (D692).
+Bash and run aliases are never folded into an ordinary activity group: they render
+as standalone rows directly inside that disclosure, in chronological order, so they
+stay visible whenever the process is open even with every group collapsed, and fold
+away with the process. Adjacent Bash rows each remain standalone, and a Bash row's
+detail stays closed until the user opens it.
+
+The turn-level process disclosure starts open while its turn runs and stays open
+through assistant text streamed between tool calls; untouched, it closes when the
+turn ends (D701). Its header still reports live state only while the process owns
+the turn's last part.
 
 The ordinary group owning the active execution segment starts open while a turn is
 active, then closes on completion only if untouched; other completed groups start
@@ -1163,6 +1169,21 @@ entirely inside the plugin's isolated page:
   calls the host; the host compares the current content with the recorded
   post-tool hash and
   returns a conflict without overwriting later work.
+- Host file tab freshness (D698): 300ms after any agent tool call finishes,
+  in any session, the mounted host file tab re-reads the open file and
+  re-lists every folder it has loaded. Calls that finish while a refresh is
+  scheduled join it, so a burst costs one read per file and folder. Reads are
+  single-flight: tool completions during an in-flight refresh queue one trailing
+  refresh rather than letting an older response overwrite newer content. The
+  initial file open shares this ownership with automatic re-reads. Any tool
+  counts, since a shell command can write as well as Write or Edit. An
+  unchanged result keeps the rendered content; a changed one replaces it in
+  place, keeping the scroll position and not repeating a requested line jump.
+  A file the agent deleted shows the read error, and a re-read that lands
+  after the user opened another file, went back, switched workspace, or unmounted
+  the tab is dropped. Workspace changes and unmount also release queued refresh
+  work. Plugin file views, the Review tab, and inline media players are not
+  refreshed.
 - Header tabs: the strip is a `tablist` containing one `tab` for every open
   Review, file, or plugin view. Clicking a tab activates it; the active tab is
   scrolled into view. Its close button and middle-click close it, selecting the
@@ -1392,7 +1413,7 @@ near-zero duration. A folded group keeps its rows mounted, `aria-hidden`, and
 | Active | neutral-accent outlined ring, active bg highlight, text-primary |
 | Inactive | bg-secondary, text-secondary |
 | Hover (inactive) | bg-tertiary |
-| In progress | warning-orange breathing dot; no motion under reduced-motion |
+| In progress | green turning arc; no motion under reduced-motion (D691) |
 | Completed | success-green check mark |
 | Failed | error-red circled alert mark |
 | Pinned project | filled accent Star replaces the Folder glyph; ordered before unpinned projects within the selected sort |
@@ -1831,7 +1852,9 @@ Single message render — either user (plaintext) or assistant (markdown streami
   picture any other block names gets the same thumbnail, in one wrapping row
   under that block, and clicking a picture's name in a reply opens the viewer
   on the file it completes to rather than the file view; a name the host
-  cannot find opens as a file, as before (D686). A bare name is also looked for in the folders the reply names,
+  cannot find opens as a file, as before (D686). In the viewer the mouse wheel
+  or a trackpad pinch zooms around the point under the cursor, and dragging a
+  picture larger than the space scrolls it (D693). A bare name is also looked for in the folders the reply names,
   a name that matches no file draws nothing, and one file is previewed once
   per reply. Fenced code, remote URLs and `path:line` references are not
   mentions.
@@ -2247,9 +2270,9 @@ One contiguous tool/search/thinking segment between progress paragraphs or Bash
 rows becomes an ordinary processing group only when it has two or more visible
 items under the current thinking preference. A singleton uses its item disclosure
 directly, and Task topology keeps its existing container. Bash and run aliases are
-excluded from every process disclosure — neither a turn-level process disclosure
-nor an ordinary group — and render as standalone rows that stay visible even when
-every group is collapsed; adjacent Bash rows each remain standalone. While the
+never folded into an ordinary group: they render as standalone rows directly inside
+the turn-level process disclosure (D692), visible whenever it is open even with
+every group collapsed; adjacent Bash rows each remain standalone. While the
 turn is active, the ordinary group owning the execution segment opens; when it
 settles, an untouched group closes. These group defaults do not depend on the
 thinking preference. No item payload opens itself: a tool, hosted-search or plan
@@ -2264,6 +2287,13 @@ terminally failed; terminal agent errors remain owned by the assistant error or
 TurnOutcomeCard surface. A user action on a group, item, or collapse rail claims
 that level and its containing group without toggling them, so streaming and completion
 never reverse the chosen state or close around focused/selected content.
+The turn-level process and a group fold by their row height (D694): a reader's own
+open grows on the snap spring with the revealed rows easing in a step behind, a
+close settles faster and still ends with the body out of layout, and the caret turns
+with it. Only a click animates an open; a body that renders open — a restored or new
+turn, a search reveal — appears at full height. A running header's label is muted
+with a passing sheen, and its seconds are tabular so the counts after it never
+shift.
 Elapsed labels use compact automatically carried units: seconds below one
 minute, minutes plus seconds below one hour, and hours plus minutes (and
 seconds when non-zero) from one hour onward. Zero-value units are omitted, so
@@ -2291,8 +2321,9 @@ seconds when non-zero) from one hour onward. Zero-value units are omitted, so
   auto-opens, so a final thinking item never selects an earlier tool. Live
   thinking follows its own indicator/disclosure policy and never opens sibling
   payloads.
-- Bash and run rows render standalone outside every process disclosure and stay
-  visible even when every group is collapsed; adjacent Bash rows remain separate.
+- Bash and run rows render standalone directly inside the turn-level process
+  disclosure and stay visible while it is open even when every group is collapsed;
+  adjacent Bash rows remain separate (D692).
 - The processing group spans the full available assistant column, so expanded
   result details keep a usable width even when the header or payload is short.
 - The visible label is a natural-language action (`Read`, `Ran`, `Searched`),
@@ -2942,12 +2973,15 @@ reasoning-level control.
 - The Composer stack places TodoDock above Plan/Goal approval surfaces when the
   active session has a non-empty host-owned checklist. An empty checklist does
   not reserve layout space.
-- A finished checklist, one whose items are all completed or cancelled, stays
-  only while the turn that finished it is running and leaves when that turn
-  ends (D672). It does not return when a later turn starts: it is shown during
-  a run only if it was written after the latest prompt, and steering does not
-  count as a prompt. A checklist with work still open stays visible whether or
-  not a turn runs. The host keeps the checklist; only the dock steps aside.
+- The checklist stays only while the turn that wrote it is running and leaves
+  when that turn stops, however it stops: finished, ended with work still open,
+  failed, or interrupted (D672, D699). A finished checklist, one whose items
+  are all completed or cancelled, is therefore seen until its last tick, and
+  an interrupted plan does not hang above the composer with a step still
+  turning. It does not return when a later turn starts: it is shown during a
+  run only if it was written after the latest prompt, and steering does not
+  count as a prompt. The host keeps the checklist; only the dock steps aside,
+  and it comes back as soon as the agent writes the checklist again.
 - The dock is one quiet card that opens by default and lists the plan in order
   (D683). Each row is a status mark plus one line of plain text, with no tinted
   tile: a filled circle with a check for completed, a turning arc for
@@ -3529,8 +3563,9 @@ Anatomy:
   the image is horizontally and vertically centered, keeps its aspect ratio,
   and initially fits available space without upscaling small images. The
   preview supports zoom, fit reset, original-image download, and previous/next
-  navigation across the draft's images. Dragging with the primary pointer or
-  scrolling pans the image at any zoom; pointer capture keeps a drag continuous
+  navigation across the draft's images. The mouse wheel or a trackpad pinch
+  zooms around the point under the cursor (D693). Dragging with the primary
+  pointer pans the image at any zoom; pointer capture keeps a drag continuous
   outside the image, and release/cancel ends it without dismissing the modal.
   A visible portion remains in bounds. Fit reset and switching images recenter
   the image; switching images also resets zoom. Escape,

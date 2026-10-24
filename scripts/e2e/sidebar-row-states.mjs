@@ -12,9 +12,22 @@ export async function checkSidebarRowStates({ cdp, check, waitFor, seed }) {
     const element = document.querySelector(${JSON.stringify(selector)});
     if (!element) throw new Error('Missing row-state target');
     const style = getComputedStyle(element);
+    // D696: while the pointer is over the session rows, one hover tile under
+    // them is the hovered row's fill and the row's own background steps
+    // aside. Read the surface the user sees: the tile, when it covers the row.
+    const body = element.closest('.sidebar-body');
+    const tile = element.matches('[data-sidebar-session-row]:hover:not(.active):not(.selected)') &&
+      body?.matches('[data-hover-gliding]') ? body.querySelector(':scope > .sidebar-hover-glide') : null;
+    const covers = (layer) => {
+      const a = layer.getBoundingClientRect();
+      const b = element.getBoundingClientRect();
+      return Math.abs(a.top - b.top) < 1 && Math.abs(a.left - b.left) < 1 &&
+        Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
+    };
+    const surface = tile && covers(tile) ? getComputedStyle(tile) : style;
     return {
-      background: style.backgroundColor, color: style.color,
-      radius: style.borderRadius, transition: style.transition,
+      background: surface.backgroundColor, color: style.color,
+      radius: surface.borderRadius, transition: style.transition,
       duration: parseFloat(style.transitionDuration),
       outline: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth),
       focusVisible: element.matches(':focus-visible'), hovered: element.matches(':hover'),
@@ -87,6 +100,12 @@ export async function checkSidebarRowStates({ cdp, check, waitFor, seed }) {
       const ids = await selectedIds();
       return ids.length === 1 && ids[0] === id;
     }, `only session ${id} is selected`);
+    // D696: the selection travels on a pill and hands back to the row's own
+    // fill when it lands; the resting selection is what these checks compare.
+    await waitFor(
+      () => cdp.evaluate("!document.querySelector('.sidebar-body[data-selection-gliding]')"),
+      `the selection glide to session ${id} has landed`,
+    );
     await move(600, 120);
   };
   const pressTab = async (reverse = false) => {

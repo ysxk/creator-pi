@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -32,6 +32,7 @@ import { loadInstructionChain, type ProjectInstructions } from "./project-instru
 import { classifyAgentError } from "./agent-errors.js";
 import {
   PROVIDER_RATE_LIMIT_MAX_RETRIES,
+  PROVIDER_RESPONSE_STALL_MAX_RETRIES,
   PROVIDER_TRANSIENT_MAX_RETRIES,
 } from "./provider-retry.js";
 import { getGlobalDispatcher } from "undici";
@@ -5233,6 +5234,71 @@ describe("DesktopAgentRuntime assistant thinking events", () => {
     for (let attempt = 1; attempt <= PROVIDER_RATE_LIMIT_MAX_RETRIES + 2; attempt += 1) {
       expect(claim(rateLimited, attempt % 2 === 0 ? "stream" : "request")).toBe(attempt);
     }
+    await runtime.dispose();
+  });
+
+  it("stops re-sending a request the provider never answers after a few silent attempts", async () => {
+    const runtime = createRuntime({ onEvent: vi.fn() });
+    const internal = runtime as any;
+    const claim = internal.claimProviderRetry.bind(runtime);
+    const stall = classifyAgentError(
+      "stream stalled before the provider responded: no provider events for 180000ms",
+    );
+    const silentAttempt = () => {
+      internal.providerStalledBeforeResponse = true;
+      return claim(stall, "stream");
+    };
+    expect(PROVIDER_RESPONSE_STALL_MAX_RETRIES).toBe(2);
+    expect(silentAttempt()).toBe(1);
+    expect(silentAttempt()).toBe(2);
+    // The third silent attempt in a row is final, with eight transient retries left.
+    expect(silentAttempt()).toBeUndefined();
+
+    internal.resetRunRecoveryState();
+    // Any attempt that was not a silent stall breaks the streak.
+    expect(silentAttempt()).toBe(1);
+    expect(silentAttempt()).toBe(2);
+    expect(claim(classifyAgentError("fetch failed"), "request")).toBe(3);
+    expect(silentAttempt()).toBe(4);
+    expect(silentAttempt()).toBe(5);
+    expect(silentAttempt()).toBeUndefined();
+
+    internal.resetRunRecoveryState();
+    // A stall after the response began keeps the ordinary ten-retry budget.
+    const midStream = classifyAgentError("stream stalled: no provider events for 180000ms");
+    for (let attempt = 1; attempt <= PROVIDER_TRANSIENT_MAX_RETRIES; attempt += 1) {
+      expect(claim(midStream, "stream")).toBe(attempt);
+    }
+
+    internal.resetRunRecoveryState();
+    // The opt-in infinite mode keeps retrying silent attempts too.
+    runtime.setInfiniteProviderRetry(true);
+    for (let attempt = 1; attempt <= PROVIDER_RESPONSE_STALL_MAX_RETRIES + 3; attempt += 1) {
+      expect(silentAttempt()).toBe(attempt);
+    }
+    await runtime.dispose();
+  });
+
+  it("reports the media an unanswered attempt carried and that it stalled before any response", async () => {
+    const runtime = createRuntime({ onEvent: vi.fn() });
+    const internal = runtime as any;
+    internal.providerRequestMedia = { count: 2, base64Bytes: 1_234, omitted: 3 };
+    internal.providerStalledBeforeResponse = true;
+    const explained = internal.providerErrorWithDiagnostics(
+      classifyAgentError("stream stalled before the provider responded: no provider events for 180000ms"),
+      "stream",
+    );
+    expect(explained.details).toMatchObject({
+      requestMediaCount: 2,
+      requestMediaBase64Bytes: 1_234,
+      requestMediaOmitted: 3,
+      stalledBeforeResponse: true,
+    });
+    internal.providerRequestMedia = { count: 0, base64Bytes: 0, omitted: 0 };
+    internal.providerStalledBeforeResponse = false;
+    const plain = internal.providerErrorWithDiagnostics(classifyAgentError("fetch failed"), "request");
+    expect(plain.details).not.toHaveProperty("requestMediaCount");
+    expect(plain.details).not.toHaveProperty("stalledBeforeResponse");
     await runtime.dispose();
   });
 
@@ -12005,6 +12071,98 @@ describe("DesktopAgentRuntime media tools (D685)", () => {
       } finally {
         await runtime.dispose();
       }
+    }
+  });
+
+  it("refuses a clip that would push media the model has not seen past the request bound", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-media-budget-"));
+    const large = join(dir, "large.mp4");
+    const small = join(dir, "small.mp4");
+    // Sparse: a refused clip is never read.
+    await writeFile(large, "");
+    await truncate(large, 99_000_000);
+    await writeFile(small, Buffer.from("\u0000\u0000\u0000\u0018ftypmp42 small"));
+    const host = {
+      call: vi.fn().mockImplementation(async (method: string, params: any) => {
+        if (method === "project.instructions.resolve") return { entries: [] };
+        if (method !== "tools.execute") return { ok: true };
+        const path = params.args.path as string;
+        return {
+          ok: true,
+          content: {
+            text: `Video file ${path}.`,
+            video: { path, mimeType: "video/mp4", size: path === large ? 99_000_000 : 21 },
+          },
+        };
+      }),
+    };
+    const runtime = createRuntime({ provider: mediaProvider, host });
+    try {
+      // An earlier clip of this same tool batch: attached, not yet answered.
+      (runtime as any).setAgentMessages([
+        { role: "user", content: "watch them", timestamp: 1 },
+        { ...assistantMessage({ content: [], stopReason: "toolUse" }), timestamp: 2 },
+        {
+          role: "toolResult",
+          toolCallId: "earlier",
+          toolName: "ViewVideo",
+          content: [{ type: "image", data: "A".repeat(2_000_000), mimeType: "video/mp4" }],
+          isError: false,
+          timestamp: 3,
+        },
+      ]);
+      const refused = await runtimeTool(runtime, "ViewVideo").execute("big", { path: large });
+      expect(refused.content).toHaveLength(1);
+      expect((refused.content[0] as { text: string }).text).toContain("The video is not attached");
+      expect(refused.details).toMatchObject({ videoAttached: false });
+
+      const admitted = await runtimeTool(runtime, "ViewVideo").execute("small", { path: small });
+      expect(admitted.content).toContainEqual(expect.objectContaining({ type: "image", mimeType: "video/mp4" }));
+      expect(admitted.details).toMatchObject({ videoAttached: true });
+    } finally {
+      await runtime.dispose();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("holds the request it builds for the model to the media bound", async () => {
+    const runtime = createRuntime({ provider: mediaProvider });
+    try {
+      // One shared string: two 70 MB clips are over the 133 MB bound together.
+      const clip = "A".repeat(70_000_000);
+      const viewed = (id: string, timestamp: number) => ({
+        role: "toolResult",
+        toolCallId: id,
+        toolName: "ViewVideo",
+        content: [
+          { type: "text", text: `Video file /clips/${id}.mp4.` },
+          { type: "image", data: clip, mimeType: "video/mp4" },
+        ],
+        isError: false,
+        timestamp,
+      });
+      const agent = (runtime as any).agent;
+      (runtime as any).setAgentMessages([
+        { role: "user", content: "watch both", timestamp: 1 },
+        { ...assistantMessage({ content: [], stopReason: "toolUse" }), timestamp: 2 },
+        viewed("first", 3),
+        { ...assistantMessage({ content: [], stopReason: "toolUse" }), timestamp: 4 },
+        viewed("second", 5),
+      ]);
+      const request = (await agent.convertToLlm(agent.state.messages)) as Array<{
+        role: string;
+        toolCallId?: string;
+        content: Array<{ type: string; text?: string }>;
+      }>;
+      const result = (id: string) => request.find((message) => message.toolCallId === id)!;
+      expect(result("first").content.map((block) => block.type)).toEqual(["text", "text"]);
+      expect(result("first").content[1]!.text).toContain("call ViewVideo on the same file");
+      expect(result("second").content.map((block) => block.type)).toEqual(["text", "image"]);
+      // The agent's own history keeps the bytes; only the request leaves them out.
+      expect(agent.state.messages[2].content[1].type).toBe("image");
+      expect((runtime as any).requestMediaOmitted).toBe(1);
+    } finally {
+      await runtime.dispose();
     }
   });
 

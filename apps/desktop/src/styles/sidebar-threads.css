@@ -81,6 +81,59 @@
   color: var(--ds-accent-ink);
 }
 
+/*
+  Selection and hover that travel between rows (D696, useSidebarGlide). The two
+  layers live in the sidebar body's own stacking context, under every row and
+  header, and move on the snap spring. While a layer stands in for a row's
+  background, that background is held back, so the two never double up; when it
+  hands back, the layer fades out on the same curve the row's background fades
+  in on, so the paint never dips.
+*/
+.sidebar-body {
+  position: relative;
+  isolation: isolate;
+}
+
+.sidebar-selection-glide,
+.sidebar-hover-glide {
+  position: absolute;
+  z-index: -1;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    top var(--motion-duration-snap) var(--motion-ease-snap),
+    left var(--motion-duration-snap) var(--motion-ease-snap),
+    width var(--motion-duration-snap) var(--motion-ease-snap),
+    height var(--motion-duration-snap) var(--motion-ease-snap),
+    opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.sidebar-selection-glide {
+  background: var(--ds-accent-tint);
+}
+
+.sidebar-hover-glide {
+  background: var(--ds-bg-hover);
+}
+
+.sidebar-body[data-selection-gliding] .thread-item.active,
+.sidebar-body[data-hover-gliding] .thread-item:hover:not(.active):not(.selected) {
+  background: transparent;
+}
+
+/* A blurred window lets go of hover (see above); so does the tile. */
+.sidebar[data-window-blur="true"] .sidebar-hover-glide {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-selection-glide,
+  .sidebar-hover-glide {
+    display: none;
+  }
+}
+
 /* Selection carries weight in the light theme; dark stays on its tile ramp. */
 :root[data-theme="light"] .thread-item.active {
   font-weight: var(--font-weight-semibold);

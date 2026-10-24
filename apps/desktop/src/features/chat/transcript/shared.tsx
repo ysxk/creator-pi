@@ -37,7 +37,7 @@ import type { SourcePositionProps } from "../../../lib/markdown-source";
 import type { ToolAction } from "../../../lib/tool-display";
 import { calculateTokenRate } from "../../../lib/context-usage";
 import { useAppStore } from "../../../stores/app-store";
-import { Markdown, useCopy } from "../../../components/Markdown";
+import { copyFeedbackClass, Markdown, useCopy } from "../../../components/Markdown";
 import {
   IconArchive,
   IconAudio,
@@ -129,13 +129,13 @@ export function CopyButton({
   label: string;
   withLabel?: boolean;
 }) {
-  const { copied, copy } = useCopy();
+  const { copied, returning, copy } = useCopy();
   const { t } = useTranslation();
   const tip = copied ? t("chat.copied") : label;
   if (withLabel) {
     return (
       <button
-        className={`copy-btn ${copied ? "copied" : ""}`}
+        className={`copy-btn ${copyFeedbackClass({ copied, returning })}`}
         title={tip}
         aria-label={label}
         onClick={() => copy(text)}
@@ -147,7 +147,7 @@ export function CopyButton({
   }
   return (
     <TooltipButton
-      className={`copy-btn icon ${copied ? "copied" : ""}`}
+      className={`copy-btn icon ${copyFeedbackClass({ copied, returning })}`}
       tooltip={tip}
       ariaLabel={label}
       onClick={() => copy(text)}
@@ -734,10 +734,10 @@ export function LinkifiedText({
 
 export function ToolCommandCopy({ command }: { command: string }) {
   const { t } = useTranslation();
-  const { copied, copy } = useCopy();
+  const { copied, returning, copy } = useCopy();
   return (
     <TooltipButton
-      className={`tool-row-head-copy${copied ? " copied" : ""}`}
+      className={`tool-row-head-copy ${copyFeedbackClass({ copied, returning })}`}
       ariaLabel={`${t("chat.copy")} ${t("chat.toolBlockCommand")}`}
       tooltip={copied ? t("chat.copied") : t("chat.copy")}
       onClick={() => copy(command)}

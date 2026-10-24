@@ -195,6 +195,8 @@
   box-shadow: var(--ds-viewer-image-shadow);
 }
 .generated-image-viewer-viewport > img[data-sized="true"] { max-width: none; max-height: none; }
+.generated-image-viewer-viewport > img[data-sized="true"] { cursor: grab; touch-action: none; user-select: none; }
+.generated-image-viewer-viewport > img[data-dragging] { cursor: grabbing; }
 .generated-image-viewer-viewport p { color: var(--ds-text-secondary); }
 .generated-image-viewer-footer {
   box-sizing: border-box;

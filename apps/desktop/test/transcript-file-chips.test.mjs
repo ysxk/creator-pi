@@ -75,7 +75,10 @@ test("a file chip is routed by where the reference resolved, never optimisticall
   assert.match(hook, /fileManagerPluginTab\(resolved\.path\)/);
   assert.match(filesTab, /data-line=\{i \+ 1\}/);
   assert.match(filesTab, /viewerBodyRef\.current\?\.querySelector/);
-  assert.match(filesTab, /if \(!file \|\| selectedLine == null\) return/);
+  assert.match(
+    filesTab,
+    /if \(!file \|\| selectedLine == null \|\| !lineJumpPending\.current\) return/,
+  );
   assert.match(filesTab, /data-line="\$\{selectedLine\}"/);
   assert.match(filesTab, /return \(\) => cancelAnimationFrame\(frame\)/);
   assert.match(filesTab, /selectedLine === undefined/);

@@ -15,6 +15,7 @@ import {
   portalToBody,
   visiblePortalContent,
 } from "../lib/portal-visibility";
+import { installOverlayExit } from "../lib/overlay-exit";
 
 import { IconEye, IconEyeOff, IconHelp } from "./icons";
 
@@ -30,6 +31,8 @@ function overlayRoot(): HTMLElement {
   const root = document.createElement("div");
   root.id = OVERLAY_ROOT_ID;
   document.documentElement.appendChild(root);
+  // The host lives as long as the document, and so does its exit watcher.
+  installOverlayExit(root);
   return root;
 }
 

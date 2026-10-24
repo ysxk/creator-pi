@@ -26,20 +26,31 @@ final-answer marker in `UiMessage`, so the renderer does not guess intent from
 wording. User/system messages and compaction dividers retain their existing turn
 boundaries.
 
-The process is segmented rather than one flat container. Non-Bash activity forms
-ordinary activity groups: one contiguous tool/search/thinking segment between
+One turn-level process disclosure folds the whole process (D692), so a single
+click collapses every thought, tool and command of the turn. Inside it, non-Bash
+activity forms ordinary activity groups: one contiguous tool/search/thinking segment between
 progress paragraphs or Bash rows, appearing only when at least two items are
 visible under the current thinking preference. A singleton uses its item
 disclosure directly; hidden thinking does not create a redundant wrapper.
 Existing Task topology remains its segment's container and is not duplicated
 inside an ordinary activity group.
 
-Bash and run aliases are excluded from every process disclosure — neither a
-turn-level process disclosure nor an ordinary activity group — and render as
-standalone rows that stay visible even when every group is collapsed. Adjacent
+Bash and run aliases are never folded into an ordinary activity group. They render
+as standalone rows directly inside the turn-level process disclosure, in
+chronological order, so opening the process shows every command without opening a
+group, and collapsing the process hides them with the rest of the work. Adjacent
 Bash rows each remain standalone, and a Bash row's detail stays closed until the
 user opens it. Other operations between progress paragraphs still form
-chronological collapsible activity groups.
+chronological collapsible activity groups. (UD661 had put Bash rows outside every
+process disclosure, which split a command-heavy turn into one process header per
+gap between commands; D692 restores the single turn-level fold.)
+
+The turn-level process disclosure starts open while its turn runs and stays
+open through assistant text streamed between tool calls, since such text is only
+known to be the answer once the turn ends; untouched, it closes when the turn
+ends (D701). Its header, timer and live thinking state still follow the turn's
+last part, so a streamed text clears a superseded "Thinking" header without
+folding the process.
 
 Group folding defaults are unified and do not depend on the thinking preference.
 The ordinary activity group that owns the active execution segment starts open,
@@ -103,8 +114,9 @@ work or treat a failed child as a failed assistant turn.
 - When `showThinking` is false, the live indicator stays visible while completed
   reasoning rows and excerpts are hidden. The stored reasoning is retained and
   reappears when the preference is turned back on.
-- Bash and run aliases stay standalone rows outside every process disclosure, so
-  shell-heavy turns remain scannable without folding adjacent commands together.
+- Bash and run aliases stay standalone rows directly inside the one turn-level
+  process disclosure, so an open process keeps shell-heavy turns scannable without
+  folding adjacent commands together, and a closed one folds the whole turn.
 - Disclosure memory is pane-owned presentation state with stable turn, group,
   and item identities; it is neither a persisted transcript contract nor a
   central workflow-store concern.

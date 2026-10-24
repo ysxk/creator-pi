@@ -27,6 +27,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { usePresence } from "../hooks/use-presence";
+import { surfaceOrigin } from "../lib/motion";
 import { portalToBody } from "../lib/portal-visibility";
 import {
   placeContextMenu,
@@ -187,15 +189,19 @@ export function ContextMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<ContextMenuPlacement | null>(null);
+  // A closed menu plays its exit with the request it last showed (D694).
+  const presence = usePresence(state !== null);
+  const [shown, setShown] = useState(state);
+  if (state && state !== shown) setShown(state);
 
   const measure = useCallback(
     (request: ContextMenuState) => {
       const menu = menuRef.current;
       if (!menu) return;
-      const rect = menu.getBoundingClientRect();
+      // The layout box, not the client rect: the entrance scale is not a size.
       const next = placeContextMenu(
         request.point,
-        { width: rect.width, height: rect.height },
+        { width: menu.offsetWidth, height: menu.offsetHeight },
         { width: window.innerWidth, height: window.innerHeight },
       );
       setPlacement((previous) =>
@@ -207,11 +213,13 @@ export function ContextMenu({
     [],
   );
 
-  // A menu that is not on screen owns no placement; the closed surface is
+  // A menu that is not on screen owns no placement; the gone surface is
   // unmounted, so the next one starts over from its own measurement.
   useEffect(() => {
-    if (!state) setPlacement(null);
-  }, [state]);
+    if (presence.present) return;
+    setPlacement(null);
+    setShown(null);
+  }, [presence.present]);
 
   /*
     Measured in a layout effect so the reveal and the final position land in the
@@ -322,14 +330,18 @@ export function ContextMenu({
     items[next]?.focus();
   };
 
-  if (!state || typeof document === "undefined") return null;
+  const request = state ?? shown;
+  if (!presence.present || !request || typeof document === "undefined") return null;
 
   return portalToBody(
     <div
       ref={menuRef}
       className={`context-menu${placement ? " is-open" : ""}`}
       role="menu"
-      aria-label={state.label}
+      aria-label={request.label}
+      data-surface-motion=""
+      data-surface-state={presence.closing ? "closing" : "open"}
+      inert={presence.closing}
       onKeyDown={onMenuKeyDown}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -337,11 +349,19 @@ export function ContextMenu({
       }}
       style={
         placement
-          ? { top: `${placement.top}px`, left: `${placement.left}px` }
+          ? {
+              top: `${placement.top}px`,
+              left: `${placement.left}px`,
+              // Grow from the corner nearest the pointer that opened it.
+              ...surfaceOrigin(
+                placement.top < request.point.y,
+                placement.left < request.point.x ? "right" : "left",
+              ),
+            }
           : undefined
       }
     >
-      {state.items.map((item, index) => (
+      {request.items.map((item, index) => (
         <Fragment key={item.id}>
           {item.separatorBefore && index > 0 ? (
             <div className="context-menu-separator" role="separator" />
@@ -356,7 +376,7 @@ export function ContextMenu({
               // Close first: an item that opens a dialog must not leave a menu
               // layered over it.
               onClose();
-              item.onSelect(state.selection);
+              item.onSelect(request.selection);
             }}
           >
             {item.icon ? (

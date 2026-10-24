@@ -130,6 +130,10 @@ export async function transcriptStatusProbe() {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       const userBubble = host.querySelector(".message-row.user .message-bubble");
+      // A just-sent bubble rises into place (D696); measure where it lands.
+      await Promise.all(
+        userBubble?.getAnimations().map((animation) => animation.finished.catch(() => {})) ?? [],
+      );
       const waitingLabel = indicator("working-indicator")?.querySelector(".working-indicator-label");
       const initialGap = userBubble && waitingLabel
         ? waitingLabel.getBoundingClientRect().top - userBubble.getBoundingClientRect().bottom

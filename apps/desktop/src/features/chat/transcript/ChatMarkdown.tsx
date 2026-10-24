@@ -6,6 +6,7 @@ import {
   type MarkdownChatMedia,
 } from "../../../components/MarkdownChatMedia";
 import { mentionedFolders } from "../../../lib/chat-media-refs";
+import type { InkClock } from "../../../lib/ink-bloom";
 import { GeneratedImageViewer } from "./GeneratedImageViewer";
 import type { GeneratedImageRef } from "./GeneratedImageThumbnail";
 
@@ -26,7 +27,12 @@ function leafName(path: string): string {
  * order they appear, read from the page when one is clicked so that a picture
  * still streaming in is part of the set by the time it is reached.
  */
-export function ChatMarkdown({ source, streaming }: { source: string; streaming?: boolean }) {
+export function ChatMarkdown({ source, streaming, inkClock }: {
+  source: string;
+  streaming?: boolean;
+  /** Present while the reply's newest characters bloom in (D695). */
+  inkClock?: InkClock;
+}) {
   const [viewer, setViewer] = useState<{ images: GeneratedImageRef[]; index: number } | null>(null);
   const focusReturnRef = useRef<HTMLElement | null>(null);
   const claims = useRef(new Map<string, string>());
@@ -65,7 +71,7 @@ export function ChatMarkdown({ source, streaming }: { source: string; streaming?
 
   return (
     <MarkdownChatMediaContext.Provider value={media}>
-      <Markdown source={source} streaming={streaming} />
+      <Markdown source={source} streaming={streaming} inkClock={inkClock} />
       {viewer && viewer.images[viewer.index] ? (
         <GeneratedImageViewer
           images={viewer.images}

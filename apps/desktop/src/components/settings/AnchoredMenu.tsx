@@ -10,6 +10,10 @@
  * The menu is measured before it is revealed, so `is-open` gates visibility:
  * a `visibility: hidden` surface cannot take focus, and an unmeasured one
  * would flash at the viewport origin.
+ *
+ * It grows out of its trigger and stays mounted through its exit (D694):
+ * `data-surface-state="closing"` holds the last position, inert, while
+ * surface-motion.css plays the exit.
  */
 import {
   useCallback,
@@ -21,6 +25,9 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { usePresence } from "../../hooks/use-presence";
+import { installHoverGlide } from "../../lib/hover-glide";
+import { surfaceOrigin } from "../../lib/motion";
 
 const MARGIN = 8;
 const GAP = 6;
@@ -83,11 +90,21 @@ export function AnchoredMenu({
     top: number;
     left: number;
     width?: number;
+    /** The surface opened above its anchor, so it grows upward. */
+    above: boolean;
   } | null>(null);
+  const presence = usePresence(open);
+  // Hover travels from item to item inside the menu (D696).
+  if (presence.present) installHoverGlide();
+  // The exit shows what the open menu last showed: a caller may already have
+  // emptied its rows (a filter cleared, a selection applied) as it closed.
+  const shownChildren = useRef(children);
+  if (open) shownChildren.current = children;
 
+  // The exit plays at the last measured position; only a gone surface forgets it.
   useEffect(() => {
-    if (!open) setPosition(null);
-  }, [open]);
+    if (!presence.present) setPosition(null);
+  }, [presence.present]);
 
   /* Closing returns focus to the trigger so Tab order does not jump to <body>. */
   const wasOpen = useRef(false);
@@ -160,13 +177,15 @@ export function AnchoredMenu({
       : fallbackFits
         ? fallbackTop
         : Math.min(Math.max(MARGIN, preferredTop), maxTop);
+    const placedAbove = top < anchorRect.top;
     setPosition((previous) =>
       previous &&
       previous.top === top &&
       previous.left === left &&
-      previous.width === width
+      previous.width === width &&
+      previous.above === placedAbove
         ? previous
-        : { top, left, width },
+        : { top, left, width, above: placedAbove },
     );
   }, [align, anchorRef, matchAnchorWidth, onClose, side]);
 
@@ -231,13 +250,16 @@ export function AnchoredMenu({
   return (
     <div className={className} ref={rootRef}>
       {trigger(triggerRef)}
-      {open && typeof document !== "undefined"
+      {presence.present && typeof document !== "undefined"
         ? createPortal(
             <div
               ref={menuRef}
               className={`${menuClassName}${position ? " is-open" : ""}`}
               role={role}
               aria-label={label}
+              data-surface-motion=""
+              data-surface-state={presence.closing ? "closing" : "open"}
+              inert={presence.closing}
               onKeyDown={onMenuKeyDown}
               style={
                 position
@@ -247,11 +269,15 @@ export function AnchoredMenu({
                       ...(position.width === undefined
                         ? {}
                         : { width: `${position.width}px` }),
+                      ...surfaceOrigin(
+                        position.above,
+                        matchAnchorWidth ? "center" : align === "end" ? "right" : "left",
+                      ),
                     }
                   : undefined
               }
             >
-              {children}
+              {open ? children : shownChildren.current}
             </div>,
             document.body,
           )

@@ -1149,6 +1149,45 @@ describe("stream idle watchdog", () => {
     }
   });
 
+  it("tells a stall before any response from one after the response began", async () => {
+    vi.useFakeTimers();
+    try {
+      // Nothing at all: the adapters emit `start` once a response has begun.
+      const silent = createAssistantMessageEventStream();
+      const onSilentStall = vi.fn();
+      const silentWrapped = withStreamIdleTimeout(silent, model, 1_000, onSilentStall);
+      const silentDone = (async () => {
+        for await (const _event of silentWrapped) void _event;
+      })();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await silentDone;
+      expect(onSilentStall).toHaveBeenCalledWith({ beforeResponse: true });
+      const silentResult = await silentWrapped.result();
+      expect(silentResult.errorMessage).toContain("stream stalled before the provider responded");
+      // Still the transient failure every stall has been.
+      expect(classifyProviderError(silentResult.errorMessage)).toMatchObject({
+        code: "STREAM_FAILED",
+        retriable: true,
+      });
+
+      const started = createAssistantMessageEventStream();
+      started.push({ type: "start", partial: assistantMessage() });
+      const onStartedStall = vi.fn();
+      const startedWrapped = withStreamIdleTimeout(started, model, 1_000, onStartedStall);
+      const startedDone = (async () => {
+        for await (const _event of startedWrapped) void _event;
+      })();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await startedDone;
+      expect(onStartedStall).toHaveBeenCalledWith({ beforeResponse: false });
+      const startedResult = await startedWrapped.result();
+      expect(startedResult.errorMessage).toContain("stream stalled: no provider events");
+      expect(startedResult.errorMessage).not.toContain("before the provider responded");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stops the retry adapter it abandons instead of letting it issue a second request", async () => {
     vi.useFakeTimers();
     try {

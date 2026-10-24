@@ -87,7 +87,8 @@ const shared = load(new URL("../src/features/chat/transcript/shared.tsx", import
   "../../../lib/file-type": { fileTypeOf: () => null },
   "../../../components/Markdown": {
     Markdown: ({ source }) => source,
-    useCopy: () => ({ copied: false, copy: () => {} }),
+    useCopy: () => ({ copied: false, returning: false, copy: () => {} }),
+    copyFeedbackClass: () => "",
   },
   "../../../components/icons": new Proxy({}, { get: () => Icon }),
   "../../../components/ui": {
@@ -112,6 +113,7 @@ const { MessageRow } = load(new URL("../src/features/chat/transcript/MessageRow.
   "@pi-desktop/shared": await import("@pi-desktop/shared"),
   "../../../hooks/use-preview-target": { useOpenChatFileRef: () => () => {} },
   "../../../lib/chat-links": { splitChatText: () => [] },
+  "../../../lib/message-arrival": { claimArrival: () => null },
   "../../../components/Markdown": { Markdown: ({ source }) => source },
   "../../../components/icons": new Proxy({}, { get: () => Icon }),
   "../../../components/ui": {

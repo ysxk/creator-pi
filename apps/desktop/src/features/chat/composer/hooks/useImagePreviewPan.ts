@@ -42,7 +42,9 @@ export function useImagePreviewPan(id: string, src: string | undefined, bounds: 
     offset,
     reset,
     dragging,
-    moveBy: (x: number, y: number) => setPosition(clamp({ x: offset.x + x, y: offset.y + y })),
+    // The caller is changing the zoom too, so the bounds of the next render
+    // clamp this point, not the current ones.
+    moveTo: (point: Point) => setPosition(point),
     onPointerDownCapture: () => { suppressClick.current = false; },
     onClickCapture: (event: MouseEvent<HTMLElement>) => {
       if (!suppressClick.current) return;

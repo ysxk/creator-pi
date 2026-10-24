@@ -172,7 +172,7 @@ All color references in components use **semantic token names**, never raw hex v
 | Token | Hex | Tailwind mapping | Usage |
 |---|---|---|---|
 | `--color-bg-primary` | `#181818` | Codex `gray-900` | Main surface |
-| `--color-bg-sidebar` / under | `#000000` (dark) / `#f3f3f3` (light) | Codex `surface-under` / gray-75 | Sidebar rail |
+| `--color-bg-sidebar` / under | `#111111` (dark; near-black, never `#000`, D696) / `#f8fafc` (light, D697) | Codex `surface-under` / gray-75 | Sidebar rail |
 | `--ds-bg-sidebar-image` | `none` (optional `<image>`) | — | Sidebar `background-image` only (gradients / pictures). `--ds-bg-sidebar` stays a color for glass tint, borders, and `color-mix` |
 | `--color-bg-secondary` | `#212121` | Codex `gray-800` | Elevated surfaces, composer |
 | `--color-bg-tertiary` | `#282828` | Codex `gray-750` | Hover / opaque elevated |
@@ -190,23 +190,30 @@ All color references in components use **semantic token names**, never raw hex v
 | `--color-error` | `#EF4444` | `text-red-500` | Error, denied |
 | `--color-info` | `#6366F1` | `text-indigo-500` | Informational |
 
-### 4.3 Light theme (Codex electron-light)
+### 4.3 Light theme (Bamboo White)
 
-Neutral gray scale only — no blue-slate surfaces. Chrome components must consume semantic `--ds-*` tokens so light ink stays dark on `#f3f3f3` / `#ffffff`.
+A white sheet, slate ink, hairline strokes and a single bamboo-green accent.
+The sidebar and settings rail are the one surface that steps down, to slate-50
+`#f8fafc`, and that 1.5% step is their edge: the built-in theme draws no seam
+beside them (D697). Chrome components must consume semantic `--ds-*` tokens so
+ink stays dark on `#f8fafc` / `#ffffff`; `--ds-text-muted` still clears 4.5:1
+on the rail.
 
 | Token | Hex / value | Usage |
 |---|---|---|
-| `--color-bg-primary` | `#ffffff` | Main surface |
-| `--color-bg-secondary` / sidebar | `#f3f3f3` (gray-75) | Sidebar surface |
-| `--color-bg-tertiary` | `#f3f3f3` | Nested / hover base |
-| `--color-bg-inset` | `#ededed` (gray-100) | Code blocks, inset |
-| `--color-text-primary` | `#1a1c1f` | Body + brand |
-| `--color-text-secondary` | `color-mix(#1a1c1f 70%, transparent)` | Nav items, chips, thread titles |
-| `--color-text-muted` | `#5d5d5d` (gray-500) | Section labels |
-| `--color-text-faint` | `#afafaf` (gray-300) | Placeholder |
-| `--color-border-default` | `color-mix(#1a1c1f 8%, transparent)` | Default borders |
-| `--color-border-subtle` | `color-mix(#1a1c1f 5%, transparent)` | Sidebar edge / dividers |
-| `--color-accent` | `#1a1c1f` | Primary accent, CTA, footer badge (neutral ink) |
+| `--color-bg-primary` | `#ffffff` | Main surface, composer, dock |
+| `--ds-bg-sidebar` / `--ds-settings-rail-bg` / under | `#f8fafc` (slate-50, D697) | Sidebar and settings rail; the macOS tint (`--ds-sidebar-glass-tint`) is the same opaque value |
+| `--color-bg-secondary` | `#ffffff` | Elevated surfaces |
+| `--color-bg-tertiary` | `#f8fafc` | Nested / hover base |
+| `--color-bg-inset` | `#f1f5f9` (slate-100) | Code blocks, inset |
+| `--color-text-primary` | `#0f172a` (slate-900) | Body + brand |
+| `--color-text-secondary` | `#334155` (slate-700) | Nav items, chips, thread titles |
+| `--color-text-muted` | `#64748b` (slate-500) | Section labels |
+| `--color-text-faint` | `#94a3b8` (slate-400) | Placeholder |
+| `--color-border-default` | `color-mix(#0f172a 8%, transparent)` | Default borders |
+| `--color-border-subtle` | `color-mix(#0f172a 5%, transparent)` | Dividers |
+| `--ds-pane-seam` | `color-mix(#0f172a 6%, transparent)` | Where white meets white: the work panel's edge, not the sidebar's (`--ds-sidebar-seam`, D697) |
+| `--color-accent` | `#059669`; text-bearing fills `#047857` | Primary accent, selection, toggles |
 | `--color-success` / warning / error | green-500 / orange-500 / red-500 | Status |
 
 **Invariant:** never paint chrome text with raw `gray-0` (`#fff`) under `data-theme="light"`. Use `--ds-text-primary` / `--ds-text-secondary`.
@@ -250,7 +257,7 @@ token rather than introducing a decorative palette:
 | State | Semantic color | Shape / motion | Meaning |
 |---|---|---|---|
 | Selected | neutral accent | static outlined ring | current conversation |
-| In progress | warning orange | filled dot; two breathing cycles, then steady | agent is producing or executing |
+| In progress | running green | half arc turning on a faint ring (D691) | agent is producing or executing |
 | Completed | success green | check mark | latest unread task turn completed |
 | Failed | error red | circled alert mark | latest unread task turn failed |
 
@@ -265,11 +272,11 @@ session switch; other sessions remain unread. Outcomes already marked read
 never produce a terminal mark. Marking the row read, marking all rows read, or
 clearing the inbox also dismisses any matching task-native banner; a late event
 for that durable id cannot restore the mark, row, or banner. Reduced-motion mode
-disables the breathing animation while retaining its orange fill and localized
-accessible name. Running dots in task rows and related-session hover cards
-animate for two 1.6-second cycles when mounted or entering the running state,
-then remain steady until the status changes. They must not continuously
-submit frames while the rest of the window is idle.
+stops the arc turning while retaining its shape, color and localized
+accessible name. The task-row arc turns once a second and the related-session
+hover-card dot breathes, both only while the window is active: a blurred or
+hidden window pauses them (`--motion-play`), so they never submit frames while
+nobody can see them (D691).
 
 The same bound covers every idle-reachable status indicator, because any
 one of them keeps the transparent macOS window dirty and therefore
@@ -426,6 +433,11 @@ Weights use `--font-weight-*` tokens only (Codex uses variable-font intermediate
 - `--font-weight-strong` 560: destination page titles (Codex electron metric)
 - `--font-weight-semibold` 600: brand, CTA buttons
 - Never use 700+
+- Dark compensation (D696): under `data-theme="dark"` the steps above 400 read
+  460 / 505 / 530 / 560, because light text on a dark ground spreads. Each value
+  stays inside the PingFang face it had (460 resolves to Medium, 505–560 to
+  Semibold), so Chinese keeps its weight and Latin text in the variable system
+  face thins. Body text keeps 400: PingFang has no lighter Regular
 
 ## 6. Spacing, radius, elevation, borders
 
@@ -566,8 +578,12 @@ contract.
 
 Composer elevation (Codex `elevation-prominent`):
 
-- soft: `0 3px 7.5px rgba(0,0,0,0.039)` + `0 0 20px rgba(0,0,0,0.051)` (Codex `#0000000a` / `#0000000d`, both themes)
-- no stroke (D297): the composer lifts by shadow alone; `--ds-elevation-stroke` remains a token for floating layers only
+- rest (D694): a 0.5px `--ds-composer-stroke` ring and the layered
+  `--ds-shadow-composer` lift (two drops and an inset; a faint ring in dark
+  too, amending D297's stroke-less composer)
+- focus: a 1px `--ds-composer-focus-ring`, a 4px `--ds-composer-focus-halo`
+  and the deeper `--ds-shadow-composer-focus`; rest and focus keep the same
+  layer list so the change interpolates on the snap spring
 
 Shadow token values (light theme only):
 
@@ -589,7 +605,7 @@ floating layers where an edge is an elevation cue rather than a partition.
 | Tile | `--ds-tile` (3.5% text mix); hover `--ds-tile-hover` (6%); deep `--ds-tile-deep` (8%) | Panels, list rows, cards, form fields, chips, code blocks, empty states |
 | Raised | `--ds-raised` + `--ds-raised-shadow` | The active pill of a segmented control, a disclosed detail block, a recorder keycap |
 | Dock | `--ds-bg-dock` (the column), `--ds-bg-dock-raised` (its header and viewer strips) | The work-panel column and the bars inside it. Both are tokens, not literals, so a contributed theme can move them (D419) |
-| Sidebar / settings rail | `--ds-bg-sidebar` (opaque fallback: light `#f3f3f3`, dark `#000000`), `--ds-bg-sidebar-image`, shared macOS glass tint/sheen | One `sidebar-surface` material for both navigation columns; content stays opaque |
+| Sidebar / settings rail | `--ds-bg-sidebar` (opaque fallback: light `#f8fafc` (D697), dark `#111111`), `--ds-bg-sidebar-image`, shared macOS glass tint/sheen | One `sidebar-surface` material for both navigation columns; content stays opaque |
 | Settings search | `--ds-settings-field-bg` (light `#ffffff`, dark `#212121`) | Search pill on the settings rail |
 | Active settings item | `--ds-settings-nav-active` (light 12% `#1a1c1f` mixed over white; dark 10% `--gray-0` over transparent) | Selected navigation pill |
 | Inset search | `--ds-field-inset-bg`, `--ds-field-inset-focus-bg` (light `#f3f3f3` / white; dark 5% / 7% primary-text mix over transparent) | Plugin search and Agent capability search, including focus |
@@ -731,7 +747,24 @@ CSS custom properties on `:root` (D146):
 
 - Enter animations: `ease-out`
 - Exit animations: `ease-in`
-- Spring-like for drag/releases: **not in MVP** (use `ease-out`)
+
+**Motion personalities (D694).** Motion is chosen by what moves, not by taste.
+Three personalities are real damped springs (mass 1), sampled into CSS
+`linear()` by `scripts/motion-springs.mjs`; each duration is that spring's
+settle time, and `apps/desktop/test/motion-tokens.test.mjs` fails when
+tokens.css drifts from the script.
+
+| Personality | Variables | Spring | Use |
+|---|---|---|---|
+| Snap | `--motion-ease-snap` / `--motion-duration-snap` (388ms) | stiffness 1200, damping 80; over-damped, no overshoot | Structure: folds, anchored menus, dialogs, a fold's caret |
+| Glide | `--motion-ease-glide` / `--motion-duration-glide` (405ms) | 600 / 49; critically damped | Content easing into place: rows revealed by a fold, a returning glyph |
+| Pop | `--motion-ease-pop` / `--motion-duration-pop` (692ms) | 380 / 18; about 19% overshoot | Small feedback glyphs only: the copy check, a send or stop button arriving, a press releasing |
+| Exit | `--motion-duration-exit` (140ms) on `--motion-ease-in` | — | Any surface leaving; it leaves faster than it came |
+
+Hover and colour changes keep `--motion-duration-fast` / `--motion-ease-out`.
+Renderer code that waits for an exit reads `SURFACE_EXIT_MS` from
+`apps/desktop/src/lib/motion.ts`, which the same test keeps equal to
+`--motion-duration-exit`.
 
 ### 8.3 Startup splash (boot feedback)
 
@@ -756,15 +789,37 @@ plain status text:
 
 This is boot-state feedback, not decorative chrome.
 
-### 8.4 Overlay / floating surface enter
+### 8.4 Overlay / floating surface enter and exit
 
 Dialogs, search spotlight, and modal backdrops use shared enter keyframes:
 
 - Scrim: `overlay-in` (opacity, `--motion-duration-normal` / `--motion-ease-out`)
 - Dark theme scrim stays ~45% black; light theme uses ~28% `#1a1c1f` so white
   dialogs do not sit under a heavy veil (D148)
-- Centered surface: `surface-in` (fade + 8px rise + slight scale)
+- Centered dialog: `ds-dialog-rise` (fade + 12px rise + 94% scale) on the snap
+  spring (D694)
 - Top-anchored surface (search): `surface-in-top`
+
+Surfaces also leave (D694):
+
+- Anchored menus (`AnchoredMenu`, `ContextMenu`) grow from the edge that touches
+  what opened them (`ds-surface-grow` on snap) and, once closed, stay mounted
+  for `--motion-duration-exit` while `ds-surface-leave` plays: inert, at their
+  last position, `data-surface-state="closing"`. The shared rules live in
+  `surface-motion.css`, imported after the feature sheets so they out-rank each
+  surface's own `.is-open` entrance.
+- Dialogs still unmount at once. Their portal host (`#pi-desktop-overlays` or
+  `document.body`) plays a static copy of a departing `.overlay` for the exit — inert, click-through,
+  without ids, fields showing what was typed — and skips the copy when another
+  overlay replaces it in the same task, under reduced motion, or when the
+  dialog holds content that would load again (iframes, media, canvas).
+- The sidebar's floating menus (row, section and sort) portal to the body
+  themselves: they grow from where they were opened and leave through the same
+  host copy (D696).
+- Inside any floating menu one hover tile follows the pointer from item to
+  item on the snap spring instead of each item lighting up on its own; an item
+  showing a selection, or disabled, keeps its own look (D696,
+  `lib/hover-glide.ts`).
 
 Toast enter/exit keep the existing removal contract (`animationend` on
 `toast-out`) while using the motion tokens and a slightly softer scale.
@@ -792,8 +847,12 @@ are also explicitly suppressed or collapsed to a static state.
 - No parallax
 - No continuous background animations (particles, waves), and no looping
   mascot: the empty-home mascot is a still image (D671)
-- No shimmer/skeleton animations longer than 1s loop — use simple fade-in for loading states
-- No bounce effects
+- No shimmer/skeleton animations longer than 1s loop — use simple fade-in for
+  loading states. The one exception is the sheen on a running process label
+  (D694): one 2.2s pass, transform-only, paused with the window, hidden under
+  reduced motion
+- No bounce effects on structure or content. The pop spring (about 19%
+  overshoot) is reserved for small feedback glyphs (D694)
 - No multi-second boot theatrical sequences; splash exits as soon as ready (+ min dwell)
 
 ### 8.7 Responsive interaction feedback
@@ -808,13 +867,27 @@ High-frequency workstation feedback must remain compositor-friendly and bounded:
   controls provide a subtle pressed scale while active. The base transition
   includes `transform`, so press and release never snap; hover styling never
   changes element dimensions or surrounding layout.
-- Composer focus lifts by 1px with a restrained token-based shadow. Its
+- The composer rests on a 0.5px neutral ring and a layered lift, and focus
+  closes a neutral double ring (1px ring, 4px halo) around a deeper lift with a
+  slight inset, on the snap spring; never an accent outline (D694). Its
   near-opaque surface must not use backdrop blur: transcript updates beneath a
   blur layer would force avoidable repaint/compositing work while streaming.
 - Inline chat error notices wrap long provider detail and keep their actions
   reachable without introducing horizontal page overflow.
 - Stream-driven updates never restart route or shell animations. Every enter
   effect is mount/state-transition feedback, not a response to token arrival.
+  The one motion that follows the text itself is the ink bloom of characters
+  a reply has just revealed (D695, see 09-interaction-patterns §2.1).
+- Sidebar selection travels (D696): when the selected session changes, a pill
+  painted like the selection slides from the old row to the new one, across
+  the pinned, temporary and project lists, then hands over to the row's own
+  background; a hover tile follows the pointer over the rows. A glide toward a
+  row its list has scrolled away stays a plain switch.
+- A message the user has just sent rises into the transcript from the composer
+  (D696); a row older than a moment when it mounts never animates, so opening
+  a session shows its history still. One send is one rise: a row that replaces
+  the rising one (the persisted row of a native session, the first message of a
+  new task moving into its session) resumes the rise where it is.
 - Sidebar and work-panel dock transitions animate their allocated `width` and
   `flex-basis` together with the bounded opacity/transform offset. MainChat must
   reflow continuously during the 150–200ms transition, never jump to the final
@@ -1184,7 +1257,7 @@ padding that under the global `border-box` would leave a 12px content box for a
 | Max width | 480px |
 | Padding | p-6 |
 | Radius | radius-lg-plus |
-| Background | bg-secondary (dark); bg-white (light) + shadow-lg |
+| Background | bg-elevated-opaque; no border, `--ds-shadow-modal` (a hairline ring inside a layered lift, D694) |
 | Backdrop | rgba(0,0,0,0.5) with `z-dialog` |
 | Close | Escape key + X button top-right |
 
@@ -1418,8 +1491,8 @@ adjacent form inputs; dense surfaces may override that metric locally.
 ## Dark floating surfaces (Codex parity)
 
 - Main surface: `#181818` (`gray-900`)
-- Sidebar / surface-under: `#000000`
-- Floating composer plate: Codex elevated-primary (`#212121f5` / `color-mix(gray-800 96%, transparent)`) with standard elevation-prominent (`0 0 0 .5px` stroke + `0 3px 7.5px #0000000a` + `0 0 20px #0000000d`); no heavier night-only lift
+- Sidebar / surface-under: `#111111` (D696; was `#000000`)
+- Floating composer plate: Codex elevated-primary (`#212121f5` / `color-mix(gray-800 96%, transparent)`) with a 0.5px light ring, a top inner light and a deep soft drop (D694)
 - Light workspace chips capsule: elevated gray `#f4f4f4` (not pure white-on-white)
 - Combined workspace chips: elevated translucent plate over main, not flat main gray
 - Stage Manager (macOS only): host re-asserts min bounds while collapsed (permanent watchdog). The watchdog does not run on Windows/Linux, so no platform re-layers its own window unprompted (D447)

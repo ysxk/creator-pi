@@ -138,16 +138,23 @@ export async function turnProcessProbe() {
   const mixed = [intro, read, grep, bash1, bash2, edit, answer];
 
   try {
-    // Bash has no process ancestor and stays visible with every disclosure
-    // collapsed, even across adjacent calls.
+    // One disclosure folds the whole turn process (D692). Inside it, Bash
+    // rows stay standalone and in order, never folded into an activity group.
     render(mixed);
     const bash1Row = row("bash1");
     const bash2Row = row("bash2");
     check(Boolean(bash1Row) && Boolean(bash2Row), "both adjacent Bash rows render");
     check(
-      bash1Row?.closest(".turn-process") === null &&
-        bash2Row?.closest(".turn-process") === null,
-      "no Bash row is inside any turn-process disclosure",
+      processHeaders().length === 1,
+      "a turn with Bash calls still has a single process disclosure",
+    );
+    const turnProcess = container.querySelector(".turn-process");
+    check(
+      bash1Row?.closest(".turn-process") === turnProcess &&
+        bash2Row?.closest(".turn-process") === turnProcess &&
+        row("read")?.closest(".turn-process") === turnProcess &&
+        row("edit")?.closest(".turn-process") === turnProcess,
+      "Bash rows and ordinary work share the one process disclosure",
     );
     check(
       bash1Row?.closest(".turn-run-row") !== null &&
@@ -159,14 +166,22 @@ export async function turnProcessProbe() {
         bash1Row?.closest(".tool-activity-group") === null,
       "Bash rows are not folded into an activity group",
     );
+    const order = ["read", "bash1", "bash2", "edit"].map(row);
+    check(
+      order.every((element, index) => index === 0 ||
+        Boolean(order[index - 1] && element &&
+          order[index - 1]!.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      "Bash rows keep their chronological place in the process",
+    );
     check(allCollapsed(), "the completed process starts fully collapsed");
     check(
-      visible(bash1Row) && visible(bash2Row),
-      "Bash rows stay visible with every disclosure collapsed",
+      !visible(bash1Row) && !visible(bash2Row) && !visible(row("read")),
+      "the collapsed process hides Bash rows with the rest of the work",
     );
+    click(processHeaders()[0]);
     check(
-      !visible(row("read")) && !visible(row("grep")),
-      "non-run work stays inside its collapsed process",
+      visible(bash1Row) && visible(bash2Row),
+      "opening the process shows the Bash rows directly",
     );
     check(
       bash1Row?.classList.contains("open") !== true,
@@ -178,15 +193,12 @@ export async function turnProcessProbe() {
       "a Bash row opens its own detail on request",
     );
 
-    // A turn of only Bash calls has no process disclosure at all.
+    // A turn of only Bash calls folds them the same way.
     render([run("only1", "echo 1"), run("only2", "echo 2")], false, null, "only-bash");
     check(
-      container.querySelectorAll(".turn-process").length === 0,
-      "a Bash-only turn renders no process disclosure",
-    );
-    check(
-      visible(row("only1")) && visible(row("only2")),
-      "both Bash-only rows stay visible",
+      container.querySelectorAll(".turn-process").length === 1 &&
+        !visible(row("only1")) && !visible(row("only2")),
+      "a Bash-only turn folds its rows into one process disclosure",
     );
 
     // Active process content opens while the turn runs and closes when it stops.
@@ -199,10 +211,40 @@ export async function turnProcessProbe() {
       "the active process chunk starts open",
     );
     render(activeTurn, false, null, "active");
+    // The close now plays out (D694); the body is hidden at once and leaves
+    // layout when the fold has finished, so the state is what is checked.
     check(
       processHeaders()[0]?.getAttribute("aria-expanded") === "false" &&
-        !visible(firstProcess()),
+        firstProcess()?.hidden === true,
       "an untouched process chunk collapses on completion",
+    );
+
+    // Text streamed between tool calls of a running turn is the live tail but
+    // not yet known to be the answer: the process must stay open through it
+    // instead of folding and unfolding on the next call.
+    const midText = message("mid-text", "assistant", "Found it, checking the caller", {
+      status: "streaming",
+    });
+    const midOpen = () =>
+      processHeaders().length === 1 &&
+      processHeaders()[0]?.getAttribute("aria-expanded") === "true" &&
+      visible(firstProcess());
+    render([intro, read], true, null, "mid-turn-text");
+    check(midOpen(), "a running process is open before the agent speaks");
+    render([intro, read, midText], true, null, "mid-turn-text");
+    check(
+      midOpen() && row("mid-text")?.closest(".turn-process") === null,
+      "text streamed mid-turn keeps the running process open",
+    );
+    render([intro, read, { ...midText, status: "complete" }, grep], true, null, "mid-turn-text");
+    check(
+      midOpen() && row("mid-text")?.closest(".turn-process") !== null,
+      "the next tool call moves the text into the process, which stayed open",
+    );
+    render([intro, read, { ...midText, status: "complete" }, grep], false, null, "mid-turn-text");
+    check(
+      processHeaders()[0]?.getAttribute("aria-expanded") === "false",
+      "the untouched process still closes when the turn ends",
     );
 
     // A streaming thinking chunk superseded by a later Bash row must not keep a
@@ -215,7 +257,7 @@ export async function turnProcessProbe() {
     const thinkingLabel = i18n.t("chat.thinkingFor", { time: "" });
     render([supersededThought, bashLive], true, null, "thinking-to-bash");
     check(
-      row("bash-live")?.closest(".turn-process") === null &&
+      row("bash-live")?.closest(".turn-run-row") !== null &&
         visible(row("bash-live")),
       "a Bash row that supersedes thinking stays standalone and visible",
     );
@@ -230,9 +272,10 @@ export async function turnProcessProbe() {
     setSettings({ showThinking: false });
     render([supersededThought, bashLive], true, null, "thinking-to-bash-hidden");
     check(
-      container.querySelectorAll(".turn-process").length === 0 &&
+      container.querySelectorAll(".turn-process").length === 1 &&
+        !container.querySelector(".thinking") &&
         visible(row("bash-live")),
-      "hidden superseded thinking leaves no empty process and keeps the Bash row",
+      "hidden superseded thinking leaves no thinking row and keeps the Bash row",
     );
     setSettings();
 
@@ -327,6 +370,17 @@ export async function turnProcessProbe() {
       processHeaders()[0]?.getAttribute("aria-expanded") === "true" &&
         visible(firstProcess()),
       "search reveals the process chunk that owns the target",
+    );
+    render(
+      mixed,
+      false,
+      { sessionId: "s", messageId: "bash2", query: "build", requestId: 2 },
+      "search-bash",
+    );
+    check(
+      processHeaders()[0]?.getAttribute("aria-expanded") === "true" &&
+        visible(row("bash2")),
+      "search reveals a Bash row inside the folded process",
     );
 
     // The Settings row is a boolean Show thinking toggle.

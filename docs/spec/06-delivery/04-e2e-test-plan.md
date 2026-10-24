@@ -378,6 +378,17 @@
 - **Coverage:** `session-turn-ended.test.mjs` exercises the event persistence
   fence and rollback with deterministic event delivery; session IPC contract
   tests assert the fence/drain/rewrite ordering. No live provider is required.
+- **Recovery boundary:** Seed a pending append and make the Host unavailable
+  or leave the FIFO head in backoff. Replacement and revision activation must
+  refuse before their rewrite RPC, preserving the queued payload. Recover
+  storage and retry: the old append must reach the Host and disappear from the
+  recovery file before rewriting. Restart Host and outbox immediately after
+  the Host rewrite, without post-rewrite cleanup; deleted/old-branch messages
+  must not reappear. A failed queue-file clear also refuses the rewrite.
+  `transcript-rewrite-outbox-rollback.test.mjs` covers both IPC entrances,
+  retry, failure before commit and loss of the response after commit.
+  `node scripts/e2e-outbox-rewrite-recovery.mjs` exercises the real Host,
+  disk outbox and cold recovery in an isolated HOME/data/workspace.
 
 ### E2E-CONVERSATION-minimap-jump-leaves-follow
 
@@ -1825,20 +1836,23 @@ identify the platform validation still needed.
   `session.persistence.outbox.is.full`. 4) Confirm
   `session-message-outbox.dead-letter.json` holds that key with its payload and
   error, and that `session-message-outbox.json` drops below the cap. 5) Restart
-  the app and confirm the quarantined append is not replayed. 6) Optional:
-  delete the failing session and confirm its dead letter is dropped.
+  the app and confirm the quarantined append is not replayed. 6) Pause the
+  dead-letter file replacement, delete the failing session, release the write,
+  and await deletion. Repeat with a failed cleanup write and retry deletion.
 - **Expected**: The failing append is paused four times with a growing backoff
   and quarantined on the fifth consecutive failure, then skipped. Later
   appends from every session drain, no enqueue is rejected with `outbox is
   full`, and the queued outbox file empties. The dead letter survives a
-  restart without being replayed.
+  restart without being replayed. Deletion removes even an in-flight quarantine
+  copy from memory and disk, while retaining other sessions' records. Cleanup
+  failure is reported and a subsequent retry actually clears the file.
 - **Specs linked**: `03-runtime/04-data-storage.md`,
   `03-runtime/06-host-rpc-protocol.md`, ADR 0041, D318, D444, D597, UD656
 - **Acceptance**: F (persistence)
 - **Milestone**: M2
 - **Status**: Unit-covered (`persistence-outbox.test.mjs` bounded retry,
-  quarantine, dead-letter persistence and cap tests); desktop journey
-  outstanding
+  quarantine, dead-letter persistence/cap, controlled deletion/write races,
+  and failed cleanup retry); desktop journey outstanding
 
 
 #### E2E-011: Switch between project and temporary sessions
@@ -1852,8 +1866,10 @@ identify the platform validation still needed.
   rapidly project → Temporary → project while the first two transcript reads
   are delayed, and observe which row responds and which destination commits. 5)
   Hover/focus Temporary, switch to it again to exercise the warm cache, then
-  repeat with reduced motion enabled. 6) Observe chat content and workspace
-  chrome.
+  repeat with reduced motion enabled. 6) Search an old message in the project
+  session, switch to Temporary, and return through the sidebar without a new
+  search. Repeat while a search-window page is pending. 7) Explicitly
+  navigate to another search hit after switching back.
 - **Expected**: The sidebar contains no Recents aggregate; retained projects
   have scoped groups and path-less sessions remain under Temporary; each
   transcript loads correctly; selecting Temporary clears project context and
@@ -1867,10 +1883,11 @@ identify the platform validation still needed.
   the destination commits, with the composer keeping its settled home/docked
   shape but inert so no prompt can reach the session being left; no transcript is
   dimmed at any point. A warm revisit reveals the retained pane immediately at
-  its own content and scroll position, then revalidates in place without a
-  visible change. Reduced motion keeps the progress track static and preserves
-  the same destination without a skeleton remount or animated traversal through
-  history.
+  its newest message, discarding the prior search window and cancelling its
+  pending reads; ordinary paged history remains retained. An explicit new
+  search still opens its target. Reduced
+  motion keeps the progress track static and preserves the same destination
+  without a skeleton remount or animated traversal through history.
 - **Specs linked**: `03-runtime/10-session-state-machine.md`,
   `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`
@@ -3135,7 +3152,7 @@ identify the platform validation still needed.
 
 - **Preconditions**: App running windowed on macOS with Settings open.
 - **Steps**: 1) Record the window position. 2) Drag the empty 46px band above the settings rail. 3) Drag the same band above the content pane. 4) Use Back, search, Project archive, and navigation controls. 5) In light and dark themes, sample the top row's color above the rail and above the content pane.
-- **Expected**: Either top-band drag moves the native window; Back, search, and navigation remain interactive and never initiate a window drag. The top row above the rail matches the rail surface (`#f4f4f4` light / `#000` dark) and the top row above the content pane matches the primary surface, so the band never renders a mismatched color over the rail.
+- **Expected**: Either top-band drag moves the native window; Back, search, and navigation remain interactive and never initiate a window drag. The top row above the rail matches the rail surface (`#f8fafc` light, D697 / `#111111` dark, D696) and the top row above the content pane matches the primary surface, so the band never renders a mismatched color over the rail.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/01-ui-ia.md`
 - **Acceptance**: Quality (key operations feel polished)
 - **Milestone**: M5
@@ -3158,7 +3175,7 @@ identify the platform validation still needed.
   progress paragraph B, and a multi-item command segment with adjacent Bash rows.
   2) Inspect the open active group; manually close it while more output arrives.
   3) Complete the turn and inspect untouched versus user-owned groups, and confirm
-  the Bash rows stay visible with every group collapsed. 4) Open one completed
+  the Bash rows stay visible in the open process with every group collapsed. 4) Open one completed
   group and one item, copy its output, close and reopen the group, then open a
   sibling group independently. 5) Repeat with a singleton item and with the last
   activity group's literal final item set to a tool/search, thinking, failed tool,
@@ -3167,8 +3184,9 @@ identify the platform validation still needed.
   the retained pane, then reload the renderer and reopen the session.
 - **Expected**: Chronological collapsible process segments keep the trailing answer
   outside them. The active group opens, then closes on completion only if
-  untouched; completed groups otherwise start closed. Bash/run aliases are excluded
-  from every process disclosure and stay visible even when every group is collapsed.
+  untouched; completed groups otherwise start closed. One turn-level process
+  disclosure folds the whole process; Bash/run aliases render standalone directly
+  inside it and stay visible while it is open even when every group is collapsed.
   A singleton has no group wrapper. No item payload opens itself: a tool/search row
   stays a header until the user opens it, while a final thinking item keeps its own
   leaf default and never selects an earlier tool. When `Show thinking` is off, the
@@ -4684,6 +4702,33 @@ window; opening a normal panel afterward must still work.
 - **Acceptance**: D (workspace), Security
 - **Milestone**: M5
 - **Status**: Unit-covered (`fs-panel-guard.test.mjs`); full UI scenario Draft
+
+---
+
+#### E2E-FILES-agent-tool-call-refreshes-open-file
+
+- **Preconditions**: Isolated Electron/Chromium, an active workspace, and
+  deterministic filesystem IPC fixtures; no real project files or provider.
+- **Steps**: 1) Open a long file at a line, as a transcript `path:line` chip
+  does, then scroll the viewer back to the top. 2) Send a non-tool agent
+  event. 3) Change the file and add one to the root folder, then end three
+  tool calls at once. 4) Hold the next re-read of that file, end another tool
+  call, go back, open a different file, and release the held read. 5) Hold a
+  refresh, edit the same file again, and end another tool call before releasing
+  the read. Repeat with delayed directory listings and initial file opens.
+- **Expected**: The non-tool event reads nothing. The burst re-reads the open
+  file once and re-lists the loaded root once; the edit shows without
+  reopening, the scroll stays at the top, and the line jump does not repeat.
+  Back shows the added file in the tree. The released stale read never
+  replaces the second file. Overlapping refresh requests cannot apply older
+  file contents or directory listings after newer ones; a tool call ending
+  during a refresh causes a follow-up read of the latest state. Initial opens,
+  file/workspace switches and unmounts invalidate stale results. The final
+  displayed contents and tree reflect the latest edit without a repeated line
+  jump or a changed scroll position.
+- **Specs linked**: `04-ux/08-component-spec.md` §5.4, D698
+- **Status**: `pnpm test:e2e:files-auto-refresh` mounts production `FilesTab`;
+  `apps/desktop/test/agent-tool-settle.test.mjs` covers the scheduling.
 
 ---
 
@@ -6502,7 +6547,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 #### E2E-CHAT-initial-wait-spacing
 
 - Send a user message before any assistant output: retain the original user
-  action row and spacing (52px bubble-to-status in the default text fixture).
+  action row and spacing (52px bubble-to-status in the default text fixture),
+  measured where the just-sent bubble lands once its rise (D696) has finished.
 - At wide and narrow transcript widths, Copy remains focusable and pointer
   reachable; edit/delete/revision controls retain their disabled running state.
   Status and action hit targets never overlap, including revision pagers.
@@ -6510,6 +6556,41 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   for its own menu. Change runtime phase, receive first output, or stop before
   output: exactly one status follows the active turn and terminal actions return.
 - Coverage: `scripts/e2e/transcript-status.tsx`, `pnpm test:e2e:transcript`.
+
+#### E2E-CHAT-streaming-text-blooms-into-ink
+
+- With smooth streaming on, stream a reply mixing Chinese, English, bold, a
+  list and inline code. Only the newest characters are wrapped in `span.ink`,
+  each with a delay from its own age, so their opacity and blur step down
+  toward the writing point; nothing inside code, math or media is wrapped, and
+  no caret is drawn (D695).
+- Once the last character has bloomed the reply holds no `span.ink`, so opening
+  a folded turn process replays nothing; the text reads exactly as streamed.
+- Smooth streaming off or reduced motion: plain text, no spans.
+- Coverage: `apps/desktop/test/ink-bloom.test.mjs`; frame sampling in a
+  throwaway instance (2026-10-23). No real-provider claim.
+
+#### E2E-UI-selection-hover-and-arrival-travel
+
+- Select another visible session: one pill slides from the old row to the new
+  one on the snap spring, then hands back to the row's own paint without a
+  visible dip; a selection whose row its list has scrolled away switches
+  plainly. A hover tile follows the pointer over rows and steps away when a
+  click selects the row under it (D696).
+- In an anchored menu, the context menu and the sidebar's row, section and sort
+  menus, a tile follows the pointer between items and leaves a checked or
+  disabled item to its own look. The sidebar menus grow from their button and
+  leave through an inert host copy with no ids, roles or labels.
+- A just-sent user message rises in once per send: the persisted row a native
+  session swaps in, or the row moving into history, resumes the rise; a message
+  sent after an output-less stop rises again; history never animates.
+- Reduced motion: no layers, no rise. Dark: the under layer is `#111111`.
+  Bamboo White: the sidebar and settings rail are `#f8fafc` with no seam beside
+  them, while the work panel keeps its hairline (D697).
+- Coverage: `apps/desktop/test/travel-motion.test.mjs`,
+  `apps/desktop/test/sidebar-settings-return.test.mjs`, `pnpm test:e2e:transcript`
+  (initial wait), `pnpm test:e2e:theme-surfaces` (both rails); frame sampling in a
+  throwaway instance (2026-10-23).
 
 #### E2E-CHAT-runtime-status-keeps-row-position
 
@@ -8376,8 +8457,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      stay at natural size, wide images fit without distortion, zoom/reset and
      download target the selected original, and multiple images support button
      and arrow-key navigation with zoom reset. Drag at fit size and after zoom,
-     including releasing outside the image; check cancellation and ordinary wheel
-     panning. Fit and image navigation must reset position; dragging must not
+     including releasing outside the image; check cancellation, and that the
+     mouse wheel zooms around the cursor instead of panning (D693). Fit and image navigation must reset position; dragging must not
      dismiss the preview or leave capture active after close/session changes. Close with Escape, the close
      button, and blank space; verify focus/caret restoration and modal focus
      containment. Native plugin surfaces must hide while the preview is open.
@@ -9874,8 +9955,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   snapshot. Invalid or unauthorized writes do not mutate or emit. TodoDock
   renders plain text, does not take focus, reopens on session changes,
   lists every ordered row with the dock's own list as the scrollport,
-  keeps a collapsed dock to one row, shows a finished checklist
-  only while the turn that finished it runs (D672),
+  keeps a collapsed dock to one row, shows a checklist, finished or with work
+  still open, only while the turn that wrote it runs (D672, D699),
   rejects stale events, and skips local recovery for `remote:` sessions because
   RACP v1 has no Todo snapshot operation.
 - **Specs**: `03-runtime/03-tools-and-permissions.md`,
@@ -10859,12 +10940,12 @@ This test plan spec is accepted when:
 - In light and dark themes, keep session B selected while session A progresses
   through in-progress, completed, a new in-progress turn, failed, and aborted
   states. Repeat with reduced motion enabled and inspect keyboard focus.
-- Expect A to show an orange dot that breathes twice over 3.2 seconds and then
-  stays steady while in progress, a green check on completion, and a red circled
+- Expect A to show a green half arc turning on a faint ring while in progress
+  (still under reduced motion and while the window is inactive; D691), a green check on completion, and a red circled
   alert on failure. Starting a new turn clears A's earlier terminal mark; abort
   leaves no completed or failed mark.
 - Expect selected idle B to show a static accent-blue outlined ring and active
-  row background. If selected B starts work, its orange in-progress dot takes
+  row background. If selected B starts work, its turning in-progress arc takes
   precedence until the turn settles; its latest terminal result remains hidden
   behind the selected ring while selected.
 - Every indicator exposes localized In progress / Selected / Completed / Failed
@@ -15810,9 +15891,12 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   group. Select pinned and standalone conversations. Open Settings and return.
   Enable reduced motion and inspect both row transition durations.
 - **Expected**: Project and conversation hover backgrounds, radii and transitions
-  match. The title button stays transparent. Only a conversation uses selected
-  fill, which wins over hover; workspace identity remains a separate dot with
-  no persistent header fill. Folding never promotes the project to selected.
+  match; over the conversation rows the hover fill is the travelling tile that
+  covers the hovered row (D696), so the probe reads that surface. The title
+  button stays transparent. Only a conversation uses selected fill, which wins
+  over hover and is read once the selection glide has landed; workspace
+  identity remains a separate dot with no persistent header fill. Folding
+  never promotes the project to selected.
   Pinned and standalone rows use the same selected surface. Keyboard focus
   retains an outline, action buttons retain local feedback, drop-target paint
   wins over hover, and blur releases hover without clearing selection. Settings
@@ -16615,22 +16699,28 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   answer; the `Show thinking` preference on and off; legacy message-level
   transcript search targets.
 - **Steps:** Confirm a live active group starts open, let that same turn finish
-  without interacting, and confirm the group collapses. On a second turn, explicitly
+  without interacting, and confirm the group collapses. In a running turn, stream
+  assistant text after a tool call and then start another tool call, and confirm
+  the process stays open throughout (D701). On a second turn, explicitly
   open a completed group and confirm the choice survives subsequent updates. Turn
   `Show thinking` off and confirm the live thinking indicator remains while
   completed reasoning rows and excerpts disappear and no empty thinking-only
   container is left; turn it back on and confirm the completed rows return. Collapse
-  every group and confirm the Bash/run rows stay visible. Review the nested path,
+  every group inside the open process and confirm the Bash/run rows stay visible;
+  collapse the process and confirm the whole turn, Bash rows included, folds into
+  one header. Review the nested path,
   including independent group/item toggles, parent close/reopen, a singleton
   segment, literal-final-item leaf selection, failure/denial/recovery, retained-pane
   remounts, Bash rows staying standalone (including adjacent Bash rows) with their
   details closed until opened, and a legacy search reveal.
-- **Expected:** Chronological collapsible process segments leave the final answer,
-  assistant errors, stopped trailing text and pending actions outside them. The
+- **Expected:** One turn-level process disclosure (D692) holds the chronological
+  process segments and leaves the final answer, assistant errors, stopped trailing
+  text and pending actions outside it. The
   active group starts open; untouched groups collapse at completion, while explicit
   user choices persist. These group defaults do not depend on the `Show thinking`
-  preference. Bash/run aliases are excluded from every process disclosure and stay
-  standalone rows visible even when every group is collapsed; adjacent Bash rows
+  preference. Bash/run aliases are never folded into a group; they stay standalone
+  rows directly inside the process, visible while it is open even when every group
+  is collapsed, and fold away with it; adjacent Bash rows
   each remain standalone and a Bash row's detail stays closed until the user opens
   it. When `Show thinking` is off, the live thinking indicator stays visible,
   completed reasoning rows and excerpts are hidden, and empty thinking-only
@@ -16644,6 +16734,11 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   hidden by the preference stays hidden until the user turns `Show thinking` on.
   Saved `showThinking` survives restart; an absent value falls back to the legacy
   `thinkingDisplayMode` (`compact` hides, `detailed`/unknown/absent shows).
+  Motion (D694): a click on a closed process or group grows it from its header
+  with the revealed rows easing in; a close plays out and the body is `hidden`
+  at once and out of layout when it ends; a body that renders open (a restored or
+  new turn, a search reveal) appears at full height. A running header's seconds
+  are tabular, so the counts after them do not shift as the timer ticks.
 - **Validation scope for the 2026-09-20 change:** Nested disclosure and activity
   group presentation only; precise item-level transcript search targeting is out
   of scope and keeps the existing message-level search behavior.

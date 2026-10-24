@@ -2,8 +2,8 @@
   Motion for work in flight.
 
   One rhythm for every "this is running" indicator: breathe in, breathe out,
-  rest. Only opacity and transform move, on a halo or marker that sits beside
-  a static shape, so the state is readable from any single frame. The loop
+  rest. Only opacity and transform move, so the state is readable from any
+  single frame. The loop
   runs only while the window is active (`use-window-activity.ts`): a blurred or
   hidden window pauses it through `--motion-play`, because on macOS every
   animated frame re-composites the transparent window (#1064).
@@ -12,22 +12,7 @@
   --motion-play: paused;
 }
 
-/* A halo behind a status dot. The rest at the end is deliberate: it is a
-   third of the cycle with no frame to draw. */
-@keyframes ds-breathe-halo {
-  0%,
-  70%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.64);
-  }
-  35% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* The mark itself, where there is no room for a halo. */
+/* A status mark that fades and returns. */
 @keyframes ds-breathe {
   0%,
   70%,
@@ -36,5 +21,127 @@
   }
   35% {
     opacity: 0.4;
+  }
+}
+
+/* A turning arc, where a busy row needs to stand out more than a breath. */
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+  A running label's sheen (D694): a soft band of full-strength ink crossing
+  muted text. The band is a masked window that travels with `transform`, and
+  the copy of the text inside it travels back by the same distance, so the
+  letters stay put while the light moves. Both run on the compositor; nothing
+  repaints per frame.
+*/
+@keyframes ds-sheen-window {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ds-sheen-text {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/*
+  Motion personalities in use (D694). Only `from` or `to` is given, so each
+  keyframe ends on (or starts from) whatever the surface already is.
+*/
+
+/* A streaming character blooms from a blur into ink (D695). The two names are
+   the same bloom; alternating them restarts it (see messages.css `.ink`). */
+@keyframes ds-ink-bloom-0 {
+  from {
+    opacity: 0;
+    filter: blur(var(--motion-ink-blur));
+  }
+}
+
+@keyframes ds-ink-bloom-1 {
+  from {
+    opacity: 0;
+    filter: blur(var(--motion-ink-blur));
+  }
+}
+
+/* A row revealed by an opening fold settles in from just above. */
+@keyframes ds-fold-item {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* A message just sent rises from the composer into the transcript. */
+@keyframes ds-message-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+/* A floating surface grows out of the control that opened it. */
+@keyframes ds-surface-grow {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ds-surface-shift, -4px)) scale(0.96);
+  }
+}
+
+/* And leaves faster than it came, toward the same control. */
+@keyframes ds-surface-leave {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--ds-surface-shift, -4px) / 2)) scale(0.97);
+  }
+}
+
+/* A centred dialog settles into place from slightly below and smaller. */
+@keyframes ds-dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+}
+
+@keyframes ds-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A feedback glyph (a copy check, a ready send arrow) pops in on the pop spring. */
+@keyframes ds-glyph-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-12deg);
+  }
+}
+
+/* The glyph a feedback state replaced comes back without a jump. */
+@keyframes ds-glyph-return {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+/* A control that just became actionable grows to size once. */
+@keyframes ds-ready-pop {
+  from {
+    transform: scale(0.8);
   }
 }

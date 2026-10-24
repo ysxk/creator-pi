@@ -1422,6 +1422,24 @@ An append failure after the file write leaves the transcript authoritative while
 its derived index is repaired by the next rewrite or by replaying an unindexed
 outbox message with a stale turn reference; repeated ids are deduped keep-last.
 
+Electron transcript replacement and revision activation first drain queued
+appends for the session and atomically persist the resulting recovery queue.
+If that session still has a pending append (including one behind a backed-off
+head), or the recovery file cannot be updated, the rewrite is refused without
+discarding the queued payload. Retrying after storage recovers is safe. Old
+appends are never held in the recovery file across a Host rewrite, so a crash
+after the Host commits, or loss of its response, cannot replay the discarded
+branch on startup. Other sessions' queued records remain recoverable.
+
+Quarantine and removal of a session's dead letters serialize both their state
+changes and durable file replacement. Deleting a session waits for removal of
+any quarantine copy already being written; an append removed before quarantine
+starts is not copied. Empty recovery files use the same atomic replacement as
+nonempty ones, and failures are reported rather than acknowledged as successful
+cleanup. A deletion retry retries the queue-file write even if memory was
+already cleared. Background flush failures remain observable in persistence
+logs. The queue and dead-letter formats are unchanged.
+
 The renderer never needs the whole JSONL file to open a session. Its
 `session.get` request may specify a zero-based exclusive `messageBefore`, a
 positive `messageLimit`, and a positive `contentLimit`. Host-core returns only

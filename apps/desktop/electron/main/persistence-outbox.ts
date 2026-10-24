@@ -20,17 +20,6 @@ type QuarantinedAppend = MessageAppend & {
   reason: string;
 };
 
-/**
- * The appends a transcript rewrite set aside. Exactly one of the two settles
- * it; a second call is ignored.
- */
-export type SessionReplacementLease = {
-  /** The rewrite landed: the held appends belonged to the replaced history. */
-  commit(): Promise<void>;
-  /** The rewrite failed: the held appends go back to the front of the queue. */
-  rollback(): Promise<void>;
-};
-
 type OutboxLogger = (level: "warn" | "error", message: string, data?: unknown) => void;
 
 type OutboxOptions = {
@@ -76,15 +65,10 @@ export class PersistenceOutbox {
   /** Cancels the one pending backoff retry, if any. */
   private cancelRetry: (() => void) | null = null;
   private entries: MessageAppend[] = [];
-  /**
-   * Appends taken out of the queue while their session's transcript is being
-   * rewritten. They are not flushed, but they stay in the file until the
-   * rewrite settles, so neither a failed rewrite nor a crash loses them.
-   */
-  private held = new Map<string, MessageAppend[]>();
   private deadLetters: QuarantinedAppend[] = [];
   private flushing: Promise<void> | null = null;
   private persistChain = Promise.resolve();
+  private deadLetterMutation = Promise.resolve();
   private headRetry: {
     entry: MessageAppend;
     attempts: number;
@@ -131,7 +115,7 @@ export class PersistenceOutbox {
       this.entries.push(entry);
     }
     await this.persist();
-    void this.flush(getHost);
+    this.flushInBackground(getHost);
   }
 
   async flush(getHost: () => HostProcess | null): Promise<void> {
@@ -143,6 +127,12 @@ export class PersistenceOutbox {
     return this.flushing;
   }
 
+  private flushInBackground(getHost: () => HostProcess | null): void {
+    void this.flush(getHost).catch((error: unknown) => {
+      this.logger("error", "session persistence background flush failed", { data: String(error) });
+    });
+  }
+
   /**
    * Drop queued appends for a session that the user deleted so a later
    * host-side stub recreate cannot resurrect it (D318). Its quarantined
@@ -151,69 +141,32 @@ export class PersistenceOutbox {
   async dropSession(sessionId: string): Promise<void> {
     await this.loaded;
     const next = this.entries.filter((entry) => entry.sessionId !== sessionId);
-    const nextDeadLetters = this.deadLetters.filter((entry) => entry.sessionId !== sessionId);
-    // A deleted session's held appends go too; a pending rewrite of it then
-    // has nothing to give back.
-    const heldChanged = this.held.delete(sessionId);
-    const entriesChanged = next.length !== this.entries.length || heldChanged;
-    const deadLettersChanged = nextDeadLetters.length !== this.deadLetters.length;
-    if (!entriesChanged && !deadLettersChanged) return;
     this.entries = next;
-    this.deadLetters = nextDeadLetters;
-    if (entriesChanged) await this.persist();
-    if (deadLettersChanged) await this.persistDeadLetters();
+    await Promise.all([
+      this.persist(),
+      this.discardQuarantinedSession(sessionId),
+    ]);
   }
 
-  /**
-   * A transcript replacement must not be followed by an append that was
-   * already in flight when its queued entries were set aside. Drain the
-   * current flush first, then hold back whatever could not be written.
-   *
-   * A drain can end without writing everything (the host is down, or the
-   * head is backing off), so the held appends may be the only copy. They are
-   * discarded only when the caller commits the rewrite; a rollback puts them
-   * back ahead of anything queued meanwhile.
-   */
+  /** Old appends must be acknowledged and absent from recovery before a rewrite can start. */
   async prepareSessionReplacement(
     sessionId: string,
     getHost: () => HostProcess | null,
-  ): Promise<SessionReplacementLease> {
+  ): Promise<void> {
     await this.flush(getHost);
-    if (this.held.has(sessionId)) {
-      throw new Error("a transcript replacement is already pending for this session");
+    if (this.entries.some((entry) => entry.sessionId === sessionId)) {
+      throw new Error("Cannot rewrite a transcript with pending message persistence; retry after storage recovers");
     }
-    this.held.set(
-      sessionId,
-      this.entries.filter((entry) => entry.sessionId === sessionId),
-    );
-    this.entries = this.entries.filter((entry) => entry.sessionId !== sessionId);
-    let settled = false;
-    return {
-      commit: async () => {
-        if (settled) return;
-        settled = true;
-        this.held.delete(sessionId);
-        // Quarantined appends belong to the history that was just replaced.
-        const nextDeadLetters = this.deadLetters.filter((entry) => entry.sessionId !== sessionId);
-        const deadLettersChanged = nextDeadLetters.length !== this.deadLetters.length;
-        this.deadLetters = nextDeadLetters;
-        await this.persist();
-        if (deadLettersChanged) await this.persistDeadLetters();
-      },
-      rollback: async () => {
-        if (settled) return;
-        settled = true;
-        const held = this.held.get(sessionId) ?? [];
-        this.held.delete(sessionId);
-        // An append queued during the rewrite under the same key is newer.
-        const restored = held.filter(
-          (entry) => !this.entries.some((queued) => queued.key === entry.key),
-        );
-        this.entries = [...restored, ...this.entries];
-        await this.persist();
-        if (restored.length > 0) void this.flush(getHost);
-      },
-    };
+    // A previous flush may have reached the host but failed to clear its disk copy.
+    await this.persist();
+  }
+
+  async discardQuarantinedSession(sessionId: string): Promise<void> {
+    await this.loaded;
+    await this.updateDeadLetters((current) => {
+      const next = current.filter((entry) => entry.sessionId !== sessionId);
+      return next.length === current.length ? current : next;
+    });
   }
 
   size(): number {
@@ -238,7 +191,7 @@ export class PersistenceOutbox {
     const delay = Math.max(0, this.headRetry.nextAttemptAt - this.now());
     this.cancelRetry = this.schedule(() => {
       this.cancelRetry = null;
-      void this.flush(getHost);
+      this.flushInBackground(getHost);
     }, delay);
   }
 
@@ -360,15 +313,19 @@ export class PersistenceOutbox {
    * place. Returns false, with the head still queued, when the copy failed.
    */
   private async quarantine(entry: MessageAppend, attempts: number, error: unknown): Promise<boolean> {
-    const next: QuarantinedAppend[] = [
-      ...this.deadLetters,
-      { ...entry, quarantinedAt: new Date(this.now()).toISOString(), reason: String(error) },
-    ];
-    const discarded = next.length > this.maxDeadLetters
-      ? next.splice(0, next.length - this.maxDeadLetters)
-      : [];
+    let quarantined = false;
+    let discarded: QuarantinedAppend[] = [];
     try {
-      await this.persistDeadLetters(next);
+      await this.updateDeadLetters((current) => {
+        if (!this.entries.includes(entry)) return current;
+        const next = [
+          ...current,
+          { ...entry, quarantinedAt: new Date(this.now()).toISOString(), reason: String(error) },
+        ];
+        discarded = next.splice(0, Math.max(0, next.length - this.maxDeadLetters));
+        quarantined = true;
+        return next;
+      });
     } catch (writeError) {
       this.logger("error", "session persistence flush could not save the dead-letter copy; the entry stays queued", {
         key: entry.key,
@@ -379,7 +336,7 @@ export class PersistenceOutbox {
       });
       return false;
     }
-    this.deadLetters = next;
+    if (!quarantined) return true;
     for (const dropped of discarded) {
       this.logger("warn", "session persistence outbox dead letter discarded", {
         key: dropped.key,
@@ -452,33 +409,29 @@ export class PersistenceOutbox {
   private async persist(): Promise<void> {
     const write = this.persistChain.then(async () => {
       await mkdir(dirname(this.path), { recursive: true });
-      const onDisk = [...[...this.held.values()].flat(), ...this.entries];
-      if (onDisk.length === 0) {
-        try {
-          await writeFile(this.path, "[]\n", "utf8");
-        } catch (error) {
-          this.logger("warn", "session persistence outbox clear failed", String(error));
-        }
-        return;
-      }
-      await writeFile(this.tempPath, `${JSON.stringify(onDisk)}\n`, "utf8");
+      await writeFile(this.tempPath, `${JSON.stringify(this.entries)}\n`, "utf8");
       await rename(this.tempPath, this.path);
     });
     this.persistChain = write.catch(() => undefined);
     await write;
   }
 
-  private async persistDeadLetters(deadLetters = this.deadLetters): Promise<void> {
+  private async updateDeadLetters(
+    update: (current: QuarantinedAppend[]) => QuarantinedAppend[],
+  ): Promise<void> {
+    const mutation = this.deadLetterMutation.then(async () => {
+      const next = update(this.deadLetters);
+      if (next === this.deadLetters) return;
+      await this.persistDeadLetters(next);
+      this.deadLetters = next;
+    });
+    this.deadLetterMutation = mutation.catch(() => undefined);
+    await mutation;
+  }
+
+  private async persistDeadLetters(deadLetters: QuarantinedAppend[]): Promise<void> {
     const write = this.persistChain.then(async () => {
       await mkdir(dirname(this.deadLetterPath), { recursive: true });
-      if (deadLetters.length === 0) {
-        try {
-          await writeFile(this.deadLetterPath, "[]\n", "utf8");
-        } catch (error) {
-          this.logger("warn", "session persistence outbox dead letter clear failed", String(error));
-        }
-        return;
-      }
       await writeFile(this.tempDeadLetterPath, `${JSON.stringify(deadLetters)}\n`, "utf8");
       await rename(this.tempDeadLetterPath, this.deadLetterPath);
     });

@@ -78,8 +78,24 @@ test("home and settings use the same material without animating the settings pla
   assert.match(styles, /\.route-surface,\s*\.settings-content-enter\s*\{[^}]*animation:\s*route-surface-in/);
   assert.doesNotMatch(styles, /\.route-surface,\s*\.settings-shell-full\s*\{/);
   assert.match(styles, /--ds-bg-sidebar:\s*var\(--ds-settings-rail-bg, var\(--ds-bg-under\)\)/);
-  assert.match(styles, /--ds-bg-sidebar:\s*var\(--ds-settings-rail-bg, #ffffff\)/);
+  assert.match(styles, /--ds-bg-sidebar:\s*var\(--ds-settings-rail-bg, #f8fafc\)/);
   assert.match(styles, /--ds-settings-rail-bg:\s*var\(--ds-bg-under\)/);
-  assert.match(styles, /--ds-settings-rail-bg:\s*#ffffff/);
+  assert.match(styles, /--ds-settings-rail-bg:\s*#f8fafc/);
   assert.doesNotMatch(styles, /--ds-settings-rail-bg:\s*var\(--ds-bg-sidebar/);
+});
+
+test("Bamboo White's rail steps down instead of drawing a seam (D697)", async () => {
+  const styles = await loadStyles();
+  // The sidebar reads its own edge token, which follows the pane seam...
+  assert.match(styles, /\.sidebar\s*\{[^}]*box-shadow:\s*inset -1px 0 0 var\(--ds-sidebar-seam\);/);
+  assert.match(styles, /--ds-sidebar-seam:\s*var\(--ds-pane-seam\);/);
+  // ...except in the built-in light theme, where the 1.5% step is the edge. A
+  // contributed theme keeps the seam its own colours may need.
+  assert.match(
+    styles,
+    /:root\[data-theme="light"\]:not\(\[data-plugin-theme\]\)\s*\{\s*--ds-sidebar-seam:\s*transparent;\s*\}/,
+  );
+  // White meets white at the work panel, so its hairline stays.
+  assert.match(styles, /--ds-pane-seam:\s*color-mix\(in oklab, #0f172a 6%, transparent\);/);
+  assert.match(styles, /box-shadow:\s*inset 1px 0 0 var\(--ds-pane-seam\);/);
 });
