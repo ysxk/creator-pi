@@ -187,8 +187,12 @@ renderer-facing status):
   persistence callbacks for that session and drains appends already queued for
   the old transcript. If the rewrite succeeds, events from turns that existed
   before the fence are discarded, including callbacks delivered while the
-  rewrite was running. If the rewrite fails, callbacks buffered by the fence
-  are replayed against the unchanged transcript.
+  rewrite was running. If the Host answers the rewrite with an error, callbacks
+  buffered by the fence are replayed against the unchanged transcript. If the
+  outcome is unknown (an RPC timeout or a lost connection), the rewrite is
+  treated as committed and those callbacks are dropped: the Host writes the
+  transcript before it replies, so a replay could append the discarded branch
+  to the new history.
 - The drain can end before every queued append is written (the host is down,
   or the head is backing off). Those appends are held back from the flush
   while the rewrite runs and stay in the outbox file. A successful rewrite

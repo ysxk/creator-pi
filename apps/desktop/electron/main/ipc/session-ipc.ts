@@ -63,6 +63,15 @@ function importSelectionKey(value: unknown): string | null {
   return `${source}:${externalId}`;
 }
 
+/**
+ * Whether the host replied to a call with an error. A JSON-RPC error reply
+ * carries a numeric `code`; a timeout or a lost connection has none and
+ * leaves open whether the host applied the call.
+ */
+function hostAnswered(error: unknown): boolean {
+  return typeof (error as { code?: unknown } | null)?.code === "number";
+}
+
 function rejectNativeMutation(sessionId: unknown, action: string): void {
   if (typeof sessionId === "string" && sessionId.startsWith("native-pi:")) {
     throw Object.assign(new Error(`Native Pi session ${action} is not supported`), {
@@ -143,6 +152,9 @@ export function registerSessionIpc({
    * transcript rather than replaying into the new one. The persistence fence
    * also holds callbacks delivered after that drain: successful rewrites
    * invalidate pre-rewrite turns, while failed rewrites replay their events.
+   * A rewrite whose outcome is unknown (timeout, lost connection) is treated
+   * as committed: the host writes the transcript before it answers, so
+   * replaying could append the discarded branch to the new history.
    * The sidecar runtime is dropped after the drain so the next prompt reseeds
    * from the rewritten transcript instead of replaying the discarded branch
    * in memory.
@@ -156,6 +168,7 @@ export function registerSessionIpc({
     rejectNativeMutation(sessionId, purpose);
     const releaseSessionOperation = await acquireSessionOperation(sessionId);
     let rewriteFence: ReturnType<typeof beginTranscriptRewrite> | undefined;
+    let rewriteSent = false;
     try {
       if (activeTurns.has(sessionId)) {
         throw Object.assign(
@@ -172,6 +185,7 @@ export function registerSessionIpc({
           .call("agent.disposeSession", { sessionId })
           .catch(() => undefined);
       }
+      rewriteSent = true;
       const result = await run();
       // The host already committed; failed recovery-file cleanup must not replay fenced events.
       await persistenceOutbox.discardQuarantinedSession(sessionId).catch((commitError) => {
@@ -183,7 +197,15 @@ export function registerSessionIpc({
       rewriteFence.commit();
       return result;
     } catch (error) {
-      rewriteFence?.rollback();
+      if (rewriteSent && !hostAnswered(error)) {
+        logger.app("session", "warn", "transcript rewrite outcome unknown; late pre-rewrite events dropped", {
+          sessionId,
+          data: { purpose, error: String(error) },
+        });
+        rewriteFence?.commit();
+      } else {
+        rewriteFence?.rollback();
+      }
       throw error;
     } finally {
       releaseSessionOperation();

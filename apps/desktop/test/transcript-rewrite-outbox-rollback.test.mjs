@@ -37,7 +37,7 @@ const { registerSessionIpc } = load("../electron/main/ipc/session-ipc.ts", {
   "../services/session-search": {},
 });
 
-function sessionIpc(dir, outbox, host) {
+function sessionIpc(dir, outbox, host, wrapRewrite = (begin) => begin) {
   const activeTurns = new Map();
   const coordination = createSessionCoordination({
     activeTurns, getMainWindow: () => null, getViewingSessionId: () => null,
@@ -56,7 +56,7 @@ function sessionIpc(dir, outbox, host) {
     sessionCapabilityContext: async () => ({ providers: [], defaults: {} }),
     enrichSession: (session) => session,
     acquireSessionOperation: coordination.acquireSessionOperation,
-    beginTranscriptRewrite: coordination.beginTranscriptRewrite,
+    beginTranscriptRewrite: wrapRewrite(coordination.beginTranscriptRewrite),
     forgetTranscriptRewriteHistory: coordination.forgetTranscriptRewriteHistory,
     stripWinLongPrefix: (value) => value,
   });
@@ -145,5 +145,52 @@ for (const outcome of ["success", "failed-before-commit", "response-lost"]) {
     const recovery = new PersistenceOutbox(dir, () => undefined);
     await recovery.flush(() => host);
     assert.deepEqual([...messages.values()], outcome === "failed-before-commit" ? [queued.message] : []);
+  });
+}
+
+// A late event from a finished turn arrives while the rewrite is in flight.
+// It may only be replayed when the host has said the rewrite did not happen;
+// a timeout or a lost reply leaves the rewrite possibly committed, and a
+// replay would append the discarded branch to the new transcript.
+const lateEvent = {
+  sessionId: "s1", turnId: "turn-old",
+  event: { type: "message_end", message: { id: "deleted-reply", role: "assistant" } },
+};
+const rewriteFailures = {
+  "host error reply": () => Object.assign(new Error("revision not found"), { code: -32000 }),
+  "lost connection": () => Object.assign(new Error("host-core exited"), { errorCode: ErrorCodes.HOST_UNAVAILABLE }),
+  timeout: () => new Error("host RPC timeout: session.replaceMessages"),
+};
+for (const [outcome, failure] of Object.entries(rewriteFailures)) {
+  test(`fenced late events after a rewrite ${outcome} are ${outcome === "host error reply" ? "replayed" : "dropped"}`, async (t) => {
+    const dir = await mkdtemp(path.join(tmpdir(), "pi-rewrite-fence-"));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const outbox = new PersistenceOutbox(dir, () => undefined, { schedule: () => () => undefined });
+    const replayed = [];
+    let coordinationRef;
+    const host = {
+      isAvailable: () => true,
+      async call(method) {
+        if (method === "session.replaceMessages") {
+          assert.equal(coordinationRef.deferTranscriptEvent(lateEvent), true, "the fence holds the late event");
+          throw failure();
+        }
+        return {};
+      },
+    };
+    const { handlers, coordination } = sessionIpc(dir, outbox, host, (begin) => (sessionId) => {
+      const lease = begin(sessionId);
+      return { commit: lease.commit, rollback: () => replayed.push(...lease.rollback()) };
+    });
+    coordinationRef = coordination;
+    coordination.recordTurnStart("s1", "turn-old");
+    await assert.rejects(handlers.get(IPC.invoke.sessionReplaceMessages)({ sessionId: "s1", messages: [] }));
+    if (outcome === "host error reply") {
+      assert.deepEqual(replayed, [lateEvent], "a rewrite the host refused keeps the old transcript's events");
+      assert.equal(coordination.isStaleTranscriptEvent(lateEvent), false);
+    } else {
+      assert.deepEqual(replayed, [], "a possibly committed rewrite must not get the deleted branch back");
+      assert.equal(coordination.isStaleTranscriptEvent(lateEvent), true, "later events of the old turn are fenced too");
+    }
   });
 }

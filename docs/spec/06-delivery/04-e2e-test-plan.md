@@ -372,9 +372,11 @@
   the Host rewrite completes. Complete the rewrite, then start a new turn and
   persist one event. Repeat with the Host rewrite returning an error.
 - **Expected:** A successful rewrite does not append the old-turn event to the
-  rewritten transcript, while the new turn persists normally. A failed rewrite
-  replays the buffered event into the unchanged transcript. Both rewrite
-  entrances use the same fence and outbox drain.
+  rewritten transcript, while the new turn persists normally. A rewrite the
+  Host refuses with an error replays the buffered event into the unchanged
+  transcript; a rewrite that times out or loses its reply drops it, since the
+  Host may already have committed. Both rewrite entrances use the same fence
+  and outbox drain.
 - **Coverage:** `session-turn-ended.test.mjs` exercises the event persistence
   fence and rollback with deterministic event delivery; session IPC contract
   tests assert the fence/drain/rewrite ordering. No live provider is required.
@@ -386,7 +388,8 @@
   the Host rewrite, without post-rewrite cleanup; deleted/old-branch messages
   must not reappear. A failed queue-file clear also refuses the rewrite.
   `transcript-rewrite-outbox-rollback.test.mjs` covers both IPC entrances,
-  retry, failure before commit and loss of the response after commit.
+  retry, failure before commit and loss of the response after commit, and
+  which fenced events an error reply, a timeout and a lost connection replay.
   `node scripts/e2e-outbox-rewrite-recovery.mjs` exercises the real Host,
   disk outbox and cold recovery in an isolated HOME/data/workspace.
 
