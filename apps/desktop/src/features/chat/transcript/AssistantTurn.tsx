@@ -342,10 +342,11 @@ export const AssistantTurn = memo(function AssistantTurn({
   timingsRef.current = turnDelegationTimings;
   const { process, responses } = summary;
   const segments = useMemo(() => segmentTurnProcess(process), [process]);
-  // The live tail is the turn's actual last part. The process opens and
-  // reports live state only while it owns that part, so a superseded thinking
-  // row cannot keep a false "Thinking" header once a separate streamed answer
-  // takes over the turn.
+  // The live tail is the turn's actual last part. The process reports live
+  // state only while it owns that part, so a superseded thinking row cannot
+  // keep a false "Thinking" header once a separate streamed answer takes over
+  // the turn. It stays open for the whole running turn, though: a streamed
+  // text is only known to be the answer once the turn ends.
   const activePart = isActive ? entry.parts.at(-1) : undefined;
   const processActive = activePart !== undefined && process.includes(activePart);
   const partContext = { isActive, activePart, runtimeActivity, turnDelegationStatuses, turnDelegationTimings };
@@ -369,6 +370,7 @@ export const AssistantTurn = memo(function AssistantTurn({
           processParts={process}
           turnParts={entry.parts}
           isActive={processActive}
+          turnRunning={isActive}
           delegationStatuses={turnDelegationStatuses}
         >
           {segments.map((segment) => segment.kind === "run"

@@ -16675,7 +16675,9 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   answer; the `Show thinking` preference on and off; legacy message-level
   transcript search targets.
 - **Steps:** Confirm a live active group starts open, let that same turn finish
-  without interacting, and confirm the group collapses. On a second turn, explicitly
+  without interacting, and confirm the group collapses. In a running turn, stream
+  assistant text after a tool call and then start another tool call, and confirm
+  the process stays open throughout (D701). On a second turn, explicitly
   open a completed group and confirm the choice survives subsequent updates. Turn
   `Show thinking` off and confirm the live thinking indicator remains while
   completed reasoning rows and excerpts disappear and no empty thinking-only

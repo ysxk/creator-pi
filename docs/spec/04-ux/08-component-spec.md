@@ -858,6 +858,11 @@ stay visible whenever the process is open even with every group collapsed, and f
 away with the process. Adjacent Bash rows each remain standalone, and a Bash row's
 detail stays closed until the user opens it.
 
+The turn-level process disclosure starts open while its turn runs and stays open
+through assistant text streamed between tool calls; untouched, it closes when the
+turn ends (D701). Its header still reports live state only while the process owns
+the turn's last part.
+
 The ordinary group owning the active execution segment starts open while a turn is
 active, then closes on completion only if untouched; other completed groups start
 closed. An untouched active group remains open when any failed or denied tool has

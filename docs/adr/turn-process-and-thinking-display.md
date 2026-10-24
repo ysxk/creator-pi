@@ -45,6 +45,13 @@ chronological collapsible activity groups. (UD661 had put Bash rows outside ever
 process disclosure, which split a command-heavy turn into one process header per
 gap between commands; D692 restores the single turn-level fold.)
 
+The turn-level process disclosure starts open while its turn runs and stays
+open through assistant text streamed between tool calls, since such text is only
+known to be the answer once the turn ends; untouched, it closes when the turn
+ends (D701). Its header, timer and live thinking state still follow the turn's
+last part, so a streamed text clears a superseded "Thinking" header without
+folding the process.
+
 Group folding defaults are unified and do not depend on the thinking preference.
 The ordinary activity group that owns the active execution segment starts open,
 then closes on completion only while untouched. Other completed groups start

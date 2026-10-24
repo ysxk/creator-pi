@@ -28,12 +28,16 @@ export function TurnProcess({
   turnParts,
   delegationStatuses,
   isActive,
+  turnRunning,
   children,
 }: {
   turnId: string;
   processParts: readonly AssistantTurnPart[];
   turnParts: readonly AssistantTurnPart[];
+  /** The process owns the turn's live tail: drives the header, timer and live thinking. */
   isActive: boolean;
+  /** The turn is still running: drives the automatic open state. */
+  turnRunning: boolean;
   delegationStatuses?: ReadonlyMap<string, SubagentOutcome>;
   children: ReactNode;
 }) {
@@ -47,12 +51,14 @@ export function TurnProcess({
   ), [processParts, delegationStatuses]);
   const thinkingNow = useMemo(() => isTurnThinking(turnParts, isActive), [turnParts, isActive]);
   const visibleSteps = useMemo(() => cachedVisibleProcessSteps(processParts, !showThinking, isActive), [processParts, showThinking, isActive]);
-  // Active processes start open and untouched completed ones close by default;
-  // an explicit user choice stays authoritative. This does not depend on the
-  // thinking preference, and a recorded failure keeps an untouched active
-  // process open through recovery because it stays active until the turn ends.
+  // The process of a running turn stays open and an untouched one closes when
+  // the turn ends; an explicit user choice stays authoritative. Openness
+  // follows the turn rather than its tail, so text streamed between tool
+  // calls does not fold the process and unfold it on the next call. This does
+  // not depend on the thinking preference, and a recorded failure keeps an
+  // untouched process open through recovery until the turn ends.
   const disclosure = useAutomaticDisclosure(
-    isActive,
+    turnRunning,
     revealRequest,
     disclosureKey("turn", turnId),
   );

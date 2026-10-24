@@ -219,6 +219,34 @@ export async function turnProcessProbe() {
       "an untouched process chunk collapses on completion",
     );
 
+    // Text streamed between tool calls of a running turn is the live tail but
+    // not yet known to be the answer: the process must stay open through it
+    // instead of folding and unfolding on the next call.
+    const midText = message("mid-text", "assistant", "Found it, checking the caller", {
+      status: "streaming",
+    });
+    const midOpen = () =>
+      processHeaders().length === 1 &&
+      processHeaders()[0]?.getAttribute("aria-expanded") === "true" &&
+      visible(firstProcess());
+    render([intro, read], true, null, "mid-turn-text");
+    check(midOpen(), "a running process is open before the agent speaks");
+    render([intro, read, midText], true, null, "mid-turn-text");
+    check(
+      midOpen() && row("mid-text")?.closest(".turn-process") === null,
+      "text streamed mid-turn keeps the running process open",
+    );
+    render([intro, read, { ...midText, status: "complete" }, grep], true, null, "mid-turn-text");
+    check(
+      midOpen() && row("mid-text")?.closest(".turn-process") !== null,
+      "the next tool call moves the text into the process, which stayed open",
+    );
+    render([intro, read, { ...midText, status: "complete" }, grep], false, null, "mid-turn-text");
+    check(
+      processHeaders()[0]?.getAttribute("aria-expanded") === "false",
+      "the untouched process still closes when the turn ends",
+    );
+
     // A streaming thinking chunk superseded by a later Bash row must not keep a
     // false Thinking header: the real tail is the Bash row.
     const supersededThought = message("thought-before-bash", "assistant", "", {
