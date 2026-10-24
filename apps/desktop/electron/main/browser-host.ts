@@ -144,6 +144,8 @@ export class BrowserHost {
   private chrome: ChromeSurface | null = null;
   private hole: BrowserRect | null = null;
   private holePluginId: string | null = null;
+  /** Last guest size on screen; a page created off screen starts at it. */
+  private lastGuestBounds: BrowserRect | null = null;
 
   constructor(deps: BrowserHostDeps) { this.deps = deps; }
 
@@ -248,6 +250,8 @@ export class BrowserHost {
       ),
     };
     page.pane.setWindow(this.window);
+    const seed = this.guestBounds() ?? this.lastGuestBounds;
+    if (seed) page.pane.setBounds(seed);
     this.pages.set(key, page);
     return page;
   }
@@ -559,6 +563,7 @@ export class BrowserHost {
     if (!this.active) return;
     const bounds = this.guestBounds();
     if (!bounds || !this.active.started) { this.active.pane.setVisible(false); return; }
+    this.lastGuestBounds = bounds;
     this.active.pane.setBounds(bounds);
     this.active.pane.setVisible(true);
   }

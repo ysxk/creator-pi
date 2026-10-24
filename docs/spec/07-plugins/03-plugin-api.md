@@ -838,7 +838,8 @@ click, fill, evaluate, console, and CDP calls) acts on that session's own
 selected Browser tab, whether or not it is on screen, and never on another
 session's page (D703). A session without a tab gets one from `navigate` or
 `BrowserPreview`: the host creates the tab, loads it, and lists it in that
-session's work panel. Until then, and while its page is still loading, page
+session's work panel. A tab created off screen lays out at the last Browser
+panel size, or 1280×800 before any is known. Until then, and while its page is still loading, page
 calls fail with `UNAVAILABLE`. A call with no tool session (`action`,
 `openExternal`, `getState`, and page calls a plugin makes outside a tool call)
 acts on the page on screen and is available only while the Browser view is

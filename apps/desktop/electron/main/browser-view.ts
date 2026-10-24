@@ -90,6 +90,12 @@ export function resolveLocalFile(raw: string, root: string | null): string | nul
   }
 }
 
+/**
+ * Viewport for a page created in the background before any panel size is
+ * known. A zero-sized view lays out at 0×0 and never answers a capture.
+ */
+const BACKGROUND_VIEWPORT = { width: 1280, height: 800 };
+
 export class BrowserPane {
   private view: WebContentsView | null = null;
   private window: BrowserWindow | null = null;
@@ -432,6 +438,10 @@ export class BrowserPane {
         partition: PARTITION,
       },
     });
+    // A page an agent opens for a session that is not on screen has never
+    // been given bounds; showing it later applies the panel's (D703).
+    const sized = this.bounds.width > 0 && this.bounds.height > 0;
+    view.setBounds(sized ? this.bounds : { x: 0, y: 0, ...BACKGROUND_VIEWPORT });
     const wc = view.webContents;
     wc.setWindowOpenHandler(({ url }) => {
       const allowed = parseAllowedExternalUrl(url);

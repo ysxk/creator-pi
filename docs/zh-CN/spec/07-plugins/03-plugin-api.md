@@ -661,7 +661,7 @@ pi.browser.cdp(input: { method: string; params?: unknown }): Promise<unknown>
 工具调用期间发起的页面操作（`navigate`、snapshot、screenshot、click、fill、evaluate、console 和 CDP 调用）
 作用于该会话自己选中的 Browser 标签，无论它是否显示在屏幕上，且从不作用于其他会话的页面（D703）。
 没有标签的会话由 `navigate` 或 `BrowserPreview` 获得一个：宿主创建并加载该标签，并把它列入该会话的
-工作面板。在此之前以及页面仍在加载时，页面操作以 `UNAVAILABLE` 失败。没有工具会话的调用（`action`、
+工作面板。在屏幕外创建的标签按最近一次 Browser 面板尺寸布局，尚无尺寸时为 1280×800。在此之前以及页面仍在加载时，页面操作以 `UNAVAILABLE` 失败。没有工具会话的调用（`action`、
 `openExternal`、`getState`，以及插件在工具调用之外发起的页面操作）作用于屏幕上的页面，且仅在 Browser
 视图可见时可用；视图隐藏时这类调用以 `UNAVAILABLE` 失败。
 

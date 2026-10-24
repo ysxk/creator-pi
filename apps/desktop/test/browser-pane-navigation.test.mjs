@@ -34,6 +34,7 @@ const electron = `data:text/javascript,${encodeURIComponent(`
       });
       WebContentsView.instances.push(this);
     }
+    setBounds(bounds) { this.bounds = { ...bounds }; }
   }
 `)}`;
 registerHooks({ resolve(specifier, context, next) {

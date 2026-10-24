@@ -105,6 +105,29 @@ test("a capture lifts the guest off a minimized window and puts it back", async 
   assert.equal(children.at(-1), view, "the guest returns on top of the plugin chrome");
 });
 
+test("a page opened off screen gets a real viewport before its first capture", async (t) => {
+  const { host } = await harness(t);
+  // The panel showed a guest at 800×500, so a background session's first
+  // page lays out at that size instead of 0×0, which never answers a capture.
+  await host.navigateForSession({ url: "https://fixture.invalid/background" }, "other-session");
+  const background = WebContentsView.instances.at(-1).webContents;
+  assert.deepEqual(background.viewport, { width: 800, height: 500 });
+  const started = once(background, "capture-start");
+  const capture = host.screenshot({}, "other-session");
+  await started;
+  background.captures.at(-1).resolve();
+  await capture;
+
+  const cold = new BrowserHost({
+    createPane: (onState, onOpenUrl) => new BrowserPane(onState, onOpenUrl),
+    isPluginLoaded: () => true, getFileRoot: async () => null, onState: () => {},
+  });
+  t.after(() => cold.dispose());
+  await cold.navigateForSession({ url: "https://fixture.invalid/cold" }, "cold-session");
+  assert.deepEqual(WebContentsView.instances.at(-1).webContents.viewport, { width: 1280, height: 800 },
+    "with no panel size known yet, a background page uses the default viewport");
+});
+
 test("full-page screenshot scales both dimensions to provider-safe limits", async (t) => {
   const { host, wc } = await harness(t);
   for (const [layoutSize, expectedScale] of [
