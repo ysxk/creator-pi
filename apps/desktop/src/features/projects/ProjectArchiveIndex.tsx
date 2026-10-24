@@ -100,7 +100,7 @@ export function ProjectArchiveIndex({
                   >
                     <span className="projects-glyph" style={{ background: color }}>
                       {project.pinned ? (
-                        <IconStar size={15} fill="currentColor" aria-hidden />
+                        <IconStar size={15} filled aria-hidden />
                       ) : (
                         <IconFolder size={15} aria-hidden />
                       )}

@@ -48,7 +48,7 @@ test("the renderer applies a global type scale without a reload", () => {
   assert.doesNotMatch(tokensSource, /\.thread-wrap,\s*\n\.composer-dock \{/);
 });
 
-test("shared Lucide icons follow --font-scale", async () => {
+test("shared chrome icons follow --font-scale", async () => {
   const iconsSource = await readFile(
     new URL("../src/components/icons.tsx", import.meta.url),
     "utf8",

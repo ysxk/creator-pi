@@ -1991,12 +1991,12 @@ export function Sidebar({
             {entry.meta.pinned ? (
               <IconStar
                 size={13}
-                fill="currentColor"
+                filled
                 className="sidebar-project-pin"
                 aria-hidden
               />
             ) : (
-              <IconFolder size={13} aria-hidden />
+              <IconFolder size={13} filled={entry.active} aria-hidden />
             )}
             <span>{entry.name}</span>
             {showRunBadge ? <ProjectRunBadge summary={runSummary} /> : null}

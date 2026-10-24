@@ -55,12 +55,12 @@ import "katex/dist/katex.min.css";
 import {
   IconCheck,
   IconCircleAlert,
-  IconCode,
+  IconCodeBlock,
   IconCopy,
+  IconDiagram,
   IconExternal,
   IconGlobe,
   IconImage,
-  IconWorkflow,
 } from "./icons";
 import { TooltipButton } from "./ui";
 import { ContextMenu, useContextMenu } from "./ContextMenu";
@@ -384,7 +384,7 @@ function MermaidBlock({ code, ...position }: { code: string } & SourcePositionPr
     >
       <div className="mermaid-block-head">
         <span className="mermaid-block-title">
-          <IconWorkflow size={13} aria-hidden />
+          <IconDiagram size={13} aria-hidden />
           <span>mermaid</span>
         </span>
         <div className="mermaid-block-actions">
@@ -402,9 +402,9 @@ function MermaidBlock({ code, ...position }: { code: string } & SourcePositionPr
               onClick={() => setShowSource((value) => !value)}
             >
               {showSource ? (
-                <IconWorkflow size={13} />
+                <IconDiagram size={13} />
               ) : (
-                <IconCode size={13} />
+                <IconCodeBlock size={13} />
               )}
             </TooltipButton>
           ) : null}

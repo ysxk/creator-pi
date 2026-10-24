@@ -38,6 +38,7 @@
   "devDependencies": {
     "@earendil-works/pi-ai": "1.3.0",
     "@earendil-works/pi-mcp": "1.3.0",
+    "@iconify-json/mingcute": "1.2.8",
     "@pi-desktop/agent-host": "workspace:*",
     "@pi-desktop/agent-runtime": "workspace:*",
     "@pi-desktop/host-runtime": "workspace:*",

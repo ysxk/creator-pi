@@ -114,9 +114,9 @@ export function AudioPlayer({
         onClick={toggle}
       >
         {playing ? (
-          <IconPause size={compact ? 12 : 14} fill="currentColor" />
+          <IconPause size={compact ? 12 : 14} filled />
         ) : (
-          <IconPlay size={compact ? 12 : 14} fill="currentColor" />
+          <IconPlay size={compact ? 12 : 14} filled />
         )}
       </button>
       <input

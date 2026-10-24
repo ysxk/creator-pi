@@ -1,115 +1,25 @@
-import type { CSSProperties, SVGProps } from "react";
+import { createElement, type CSSProperties, type ReactNode, type SVGProps } from "react";
+import { Code2, Workflow, type LucideIcon, type LucideProps } from "lucide-react";
 import {
-  Activity,
-  AppWindow,
-  Archive,
-  ArchiveRestore,
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ArrowUpRight,
-  AtSign,
-  AudioLines,
-  Bell,
-  BookOpen,
-  Bot,
-  Camera,
-  Check,
-  CheckCheck,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  CircleAlert,
-  CircleCheck,
-  CircleHelp,
-  ClipboardPaste,
-  Clock,
-  CloudDownload,
-  Code2,
-  Database,
-  Download,
-  Copy,
-  Dot,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  FileDiff,
-  FileSpreadsheet,
-  FileText,
-  Folder,
-  FolderOpen,
-  FolderPlus,
-  GripVertical,
-  Globe2,
-  GitFork,
-  GitPullRequestArrow,
-  Image,
-  Info,
-  Keyboard,
-  KeyRound,
-  Link,
-  ListChecks,
-  LogOut,
-  Mic,
-  MicOff,
-  Minus,
-  MessageSquare,
-  MessageSquarePlus,
-  Monitor,
-  Moon,
-  MoreHorizontal,
-  Music,
-  Palette,
-  PanelLeft,
-  PanelRight,
-  PanelRightOpen,
-  Maximize2,
-  Minimize2,
-  PawPrint,
-  PhoneOff,
-  PencilLine,
-  Pin,
-  Pause,
-  Play,
-  Plug,
-  Plus,
-  Power,
-  RefreshCcw,
-  RefreshCw,
-  RotateCw,
-  Search,
-  Server,
-  Settings,
-  Shield,
-  SlidersHorizontal,
-  Slash,
-  Smile,
-  Sparkles,
-  Square,
-  Star,
-  Sun,
-  Target,
-  Terminal,
-  TextSelect,
-  Trash2,
-  TriangleAlert,
-  UserRound,
-  Undo2,
-  Video,
-  Volume2,
-  Webhook,
-  Workflow,
-  Wrench,
-  X,
-  type LucideIcon,
-  type LucideProps,
-} from "lucide-react";
+  MINGCUTE_GLYPHS,
+  type MingcuteGlyph,
+  type MingcuteNode,
+} from "./mingcute-icons.generated";
 
-export type IconProps = LucideProps & SVGProps<SVGSVGElement>;
+/*
+ * App chrome draws MingCute glyphs (D702). The SVG data is generated from the
+ * pinned @iconify-json/mingcute package by scripts/generate-mingcute-icons.mjs,
+ * which reads the `mingcute("…")` names below: add a glyph here, then rerun it.
+ */
+
+export type IconProps = SVGProps<SVGSVGElement> & {
+  size?: number | string;
+  /** Selected/active state: draw the solid variant of the same glyph. */
+  filled?: boolean;
+};
 
 /**
- * Lucide sizes are fixed px attributes. Multiply them by `--font-scale` so
+ * Icon sizes are fixed px attributes. Multiply them by `--font-scale` so
  * chrome glyphs stay in proportion with the Appearance type scale (D343).
  */
 function scaledIconBox(size: IconProps["size"] = 16): string {
@@ -133,9 +43,60 @@ function withScaledIconStyle(
   return { width: box, height: box, ...style };
 }
 
-/* Defaults (16px, 1.75 stroke) match the app's previous hand-drawn icon set. */
-function icon(Lucide: LucideIcon) {
-  return function Icon({ size = 16, style, ...props }: IconProps) {
+function glyphFor(base: string, variant: "line" | "fill"): MingcuteGlyph {
+  const glyph = MINGCUTE_GLYPHS[`${base}-${variant}`];
+  if (!glyph) {
+    throw new Error(`MingCute glyph "${base}-${variant}" is not generated; run scripts/generate-mingcute-icons.mjs`);
+  }
+  return glyph;
+}
+
+function renderNodes(nodes: readonly MingcuteNode[]): ReactNode[] {
+  return nodes.map(([tag, attrs, children], index) =>
+    createElement(tag, { key: index, ...attrs }, children ? renderNodes(children) : undefined),
+  );
+}
+
+/*
+ * A uniform stroke width lives on the <svg> (as Lucide's did), so a caller's
+ * `strokeWidth` and CSS such as `.thread-item-status svg` still reach it.
+ */
+function mingcute(base: string, defaults: { filled?: boolean } = {}) {
+  const line = glyphFor(base, "line");
+  const fill = glyphFor(base, "fill");
+  return function Icon({
+    size = 16,
+    filled = defaults.filled ?? false,
+    style,
+    strokeWidth,
+    ...props
+  }: IconProps) {
+    const glyph = filled ? fill : line;
+    const labelled = props["aria-label"] !== undefined || props["aria-labelledby"] !== undefined;
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox={glyph.viewBox}
+        fill="none"
+        aria-hidden={labelled ? undefined : true}
+        {...(glyph.strokeWidth !== undefined ? { strokeWidth: strokeWidth ?? glyph.strokeWidth } : {})}
+        {...props}
+        style={withScaledIconStyle(size, style)}
+      >
+        {renderNodes(glyph.nodes)}
+      </svg>
+    );
+  };
+}
+
+/*
+ * Conversation content keeps Lucide for now: code-block and mermaid headers
+ * render inside the transcript, which D702 leaves out of the MingCute switch.
+ */
+function lucide(Lucide: LucideIcon) {
+  return function Icon({ size = 16, style, ...props }: LucideProps) {
     return (
       <Lucide
         size={size}
@@ -147,145 +108,128 @@ function icon(Lucide: LucideIcon) {
   };
 }
 
-export const IconPlus = icon(Plus);
-export const IconPower = icon(Power);
-export const IconPause = icon(Pause);
-export const IconPlay = icon(Play);
-export const IconBookOpen = icon(BookOpen);
+export const IconCodeBlock = lucide(Code2);
+export const IconDiagram = lucide(Workflow);
+
+export const IconPlus = mingcute("add");
+export const IconPower = mingcute("power");
+export const IconPause = mingcute("pause");
+export const IconPlay = mingcute("play");
+export const IconBookOpen = mingcute("book-2");
 /** Paste-from-clipboard actions (MCP config import). */
-export const IconClipboard = icon(ClipboardPaste);
-export const IconArchive = icon(Archive);
-export const IconArchiveRestore = icon(ArchiveRestore);
-export const IconActivity = icon(Activity);
-export const IconArrowUpDown = icon(ArrowUpDown);
-export const IconSearch = icon(Search);
-export const IconRefresh = icon(RefreshCcw);
-export const IconChat = icon(MessageSquare);
+export const IconClipboard = mingcute("paste");
+export const IconArchive = mingcute("archive");
+export const IconArchiveRestore = mingcute("inbox");
+export const IconActivity = mingcute("heartbeat");
+export const IconArrowUpDown = mingcute("transfer-vertical");
+export const IconSearch = mingcute("search");
+export const IconRefresh = mingcute("refresh-2");
+export const IconChat = mingcute("chat-3");
 /** Session creation affordance. Keep it distinct from generic add actions. */
-export const IconNewSession = icon(MessageSquarePlus);
-export const IconFolder = icon(Folder);
-export const IconFolderOpen = icon(FolderOpen);
-export const IconNewProject = icon(FolderPlus);
-export const IconGripVertical = icon(GripVertical);
-export const IconFileText = icon(FileText);
-export const IconGlobe = icon(Globe2);
-export const IconBranch = icon(GitFork);
-export const IconTerminal = icon(Terminal);
-export const IconPencil = icon(PencilLine);
-export const IconWrench = icon(Wrench);
-export const IconPullRequest = icon(GitPullRequestArrow);
-export const IconClock = icon(Clock);
-export const IconAt = icon(AtSign);
-export const IconSettings = icon(Settings);
-export const IconHelp = icon(CircleHelp);
-export const IconPanel = icon(PanelRight);
-export const IconPanelOpen = icon(PanelRightOpen);
-export const IconPanelMaximize = icon(Maximize2);
-export const IconPanelRestore = icon(Minimize2);
-export const IconDiff = icon(FileDiff);
-export const IconSidebar = icon(PanelLeft);
-export const IconArrowUp = icon(ArrowUp);
-export const IconArrowDown = icon(ArrowDown);
-export const IconCopy = icon(Copy);
+export const IconNewSession = mingcute("edit-3");
+export const IconFolder = mingcute("folder");
+export const IconFolderOpen = mingcute("folder-open");
+export const IconNewProject = mingcute("new-folder");
+export const IconGripVertical = mingcute("dots-vertical");
+export const IconFileText = mingcute("document");
+export const IconGlobe = mingcute("world-2");
+export const IconBranch = mingcute("git-branch");
+export const IconTerminal = mingcute("terminal-box");
+export const IconPencil = mingcute("pencil");
+export const IconWrench = mingcute("tool");
+export const IconPullRequest = mingcute("git-pull-request");
+export const IconClock = mingcute("time");
+export const IconAt = mingcute("at");
+export const IconSettings = mingcute("settings-3");
+export const IconHelp = mingcute("question");
+export const IconPanel = mingcute("layout-right");
+export const IconPanelOpen = mingcute("layout-rightbar-open");
+export const IconPanelMaximize = mingcute("fullscreen");
+export const IconPanelRestore = mingcute("fullscreen-exit");
+export const IconDiff = mingcute("document-2");
+export const IconSidebar = mingcute("layout-left");
+export const IconArrowUp = mingcute("arrow-up");
+export const IconArrowDown = mingcute("arrow-down");
+export const IconCopy = mingcute("copy-2");
 /* Chat context menus: hand a message's rendered text to the platform selection. */
-export const IconTextSelect = icon(TextSelect);
-export const IconCode = icon(Code2);
-export const IconDatabase = icon(Database);
-export const IconCheck = icon(Check);
-export const IconBell = icon(Bell);
-export const IconBot = icon(Bot);
-export const IconCheckCheck = icon(CheckCheck);
-export const IconShield = icon(Shield);
-export const IconChevronDown = icon(ChevronDown);
-export const IconClose = icon(X);
+export const IconTextSelect = mingcute("cursor-text");
+export const IconCode = mingcute("code");
+export const IconDatabase = mingcute("storage");
+export const IconCheck = mingcute("check");
+export const IconBell = mingcute("notification");
+export const IconBot = mingcute("robot");
+export const IconCheckCheck = mingcute("checks");
+export const IconShield = mingcute("shield");
+export const IconChevronDown = mingcute("down");
+export const IconClose = mingcute("close");
 /* Frameless window chrome (WindowControls): minimize / maximize / restore. */
-export const IconMinus = icon(Minus);
-export const IconSquare = icon(Square);
-export const IconSliders = icon(SlidersHorizontal);
-export const IconConfig = icon(RefreshCcw);
-export const IconChevronLeft = icon(ChevronLeft);
-export const IconExternal = icon(ExternalLink);
-export const IconArrowUpRight = icon(ArrowUpRight);
-export const IconChevronRight = icon(ChevronRight);
-export const IconChevronUp = icon(ChevronUp);
-export const IconUndo2 = icon(Undo2);
-export const IconCloudDown = icon(CloudDownload);
-export const IconDownload = icon(Download);
-export const IconImage = icon(Image);
-export const IconCamera = icon(Camera);
+export const IconMinus = mingcute("minimize");
+export const IconSquare = mingcute("square");
+export const IconSliders = mingcute("settings-6");
+export const IconConfig = mingcute("refresh-2");
+export const IconChevronLeft = mingcute("left");
+export const IconExternal = mingcute("external-link");
+export const IconArrowUpRight = mingcute("arrow-right-up");
+export const IconChevronRight = mingcute("right");
+export const IconChevronUp = mingcute("up");
+export const IconUndo2 = mingcute("back-2");
+export const IconCloudDown = mingcute("download-3");
+export const IconDownload = mingcute("download-2");
+export const IconImage = mingcute("pic");
+export const IconCamera = mingcute("camera-2");
 /* Composer attachment chips: one glyph per file family. */
-export const IconSheet = icon(FileSpreadsheet);
-export const IconAudio = icon(Music);
-export const IconVideo = icon(Video);
-export const IconReview = icon(RefreshCw);
-export const IconKeyboard = icon(Keyboard);
-export const IconMic = icon(Mic);
-export const IconMicOff = icon(MicOff);
-export const IconWaveform = icon(AudioLines);
-export const IconPhoneOff = icon(PhoneOff);
-export const IconVolume = icon(Volume2);
-export const IconPlug = icon(Plug);
-export const IconSlash = icon(Slash);
-export const IconUser = icon(UserRound);
+export const IconSheet = mingcute("table-2");
+export const IconAudio = mingcute("music-2");
+export const IconVideo = mingcute("video");
+export const IconReview = mingcute("refresh-3");
+export const IconKeyboard = mingcute("keyboard");
+export const IconMic = mingcute("mic");
+export const IconMicOff = mingcute("mic-off");
+export const IconWaveform = mingcute("voice");
+export const IconPhoneOff = mingcute("phone-off");
+export const IconVolume = mingcute("volume");
+export const IconPlug = mingcute("plugin-2");
+export const IconSlash = mingcute("command");
+export const IconUser = mingcute("user-3");
 /** A signed-in vendor account, as opposed to a pasted key. */
-export const IconKey = icon(KeyRound);
-export const IconLogOut = icon(LogOut);
-export const IconSparkles = icon(Sparkles);
-export const IconListChecks = icon(ListChecks);
+export const IconKey = mingcute("key-2");
+export const IconLogOut = mingcute("exit");
+export const IconSparkles = mingcute("sparkles");
+export const IconListChecks = mingcute("list-check");
 /** Goal mode: an outcome to reach, as opposed to Plan's list of steps. */
-export const IconTarget = icon(Target);
-export const IconBrowser = icon(AppWindow);
-export const IconHook = icon(Webhook);
-export const IconWorkflow = icon(Workflow);
-export const IconLink = icon(Link);
-export const IconPalette = icon(Palette);
-export const IconPerson = icon(Smile);
-export const IconInfo = icon(Info);
-export const IconServer = icon(Server);
-export const IconSun = icon(Sun);
-export const IconMoon = icon(Moon);
-export const IconMonitor = icon(Monitor);
-export const IconPet = icon(PawPrint);
-export const IconSnapshot = icon(RotateCw);
-export const IconGear = icon(Settings);
-export const IconPin = icon(Pin);
-export const IconMore = icon(MoreHorizontal);
-export const IconX = icon(X);
-export const IconTrash = icon(Trash2);
-export const IconStar = icon(Star);
+export const IconTarget = mingcute("target");
+export const IconBrowser = mingcute("web");
+export const IconHook = mingcute("webhook");
+export const IconWorkflow = mingcute("route");
+export const IconLink = mingcute("link");
+export const IconPalette = mingcute("palette");
+export const IconPerson = mingcute("emoji");
+export const IconInfo = mingcute("information");
+export const IconServer = mingcute("server");
+export const IconSun = mingcute("sun");
+export const IconMoon = mingcute("moon");
+export const IconMonitor = mingcute("computer");
+export const IconPet = mingcute("paw");
+export const IconSnapshot = mingcute("refresh-1");
+export const IconGear = mingcute("settings-3");
+export const IconPin = mingcute("pin-2");
+export const IconMore = mingcute("more-1");
+export const IconX = mingcute("close");
+export const IconTrash = mingcute("delete-2");
+export const IconStar = mingcute("star");
 /* Toast status glyphs (see ToastHost) */
-export const IconCircleCheck = icon(CircleCheck);
-export const IconCircleAlert = icon(CircleAlert);
-export const IconTriangleAlert = icon(TriangleAlert);
+export const IconCircleCheck = mingcute("check-circle");
+export const IconCircleAlert = mingcute("warning");
+export const IconTriangleAlert = mingcute("alert");
 /* Password field reveal toggle (see PasswordInput). */
-export const IconEye = icon(Eye);
-export const IconEyeOff = icon(EyeOff);
+export const IconEye = mingcute("eye-2");
+export const IconEyeOff = mingcute("eye-close");
 
-export function IconStop({ size = 16, style, ...props }: IconProps) {
-  return (
-    <Square
-      size={size}
-      strokeWidth={0}
-      fill="currentColor"
-      {...props}
-      style={withScaledIconStyle(size, style)}
-    />
-  );
-}
+export const IconStop = mingcute("stop", { filled: true });
+/* Solid small round dot (status markers). */
+export const IconDot = mingcute("round", { filled: true });
 
-/* Heavy round-capped stroke renders Lucide's Dot at the old filled-dot size. */
-export function IconDot({ size = 16, style, ...props }: IconProps) {
-  return (
-    <Dot
-      size={size}
-      strokeWidth={6.5}
-      {...props}
-      style={withScaledIconStyle(size, style)}
-    />
-  );
-}
-
-/** VS Code brand mark (settings open-target pill) — logos stay custom, no Lucide equivalent. */
+/** VS Code brand mark (settings open-target pill) — logos stay custom, no MingCute equivalent. */
 export function IconVSCode(props: SVGProps<SVGSVGElement> & { size?: number }) {
   const { size = 14, style, ...rest } = props;
   return (

@@ -238,6 +238,9 @@ importers:
       '@earendil-works/pi-mcp':
         specifier: 1.3.0
         version: 1.3.0
+      '@iconify-json/mingcute':
+        specifier: 1.2.8
+        version: 1.2.8
       '@pi-desktop/agent-host':
         specifier: workspace:*
         version: link:../../packages/agent-host
@@ -1357,6 +1360,9 @@ packages:
 
   '@huggingface/xetchunk-wasm@0.1.0':
     resolution: {integrity: sha512-wWpp2qwPgf9kv1KLJjcDUk/OrpDOsFoQ3Qpz0U5LGn20csoymBf8eneOv6wm/GzPBzlWac1OYiR0aa1vT6aM2Q==}
+
+  '@iconify-json/mingcute@1.2.8':
+    resolution: {integrity: sha512-J8VXpRwTpx5yzOzyhx3T4IXnfXIKTWFl3rZ9okcW4c+NMMuwkLvdmM4rkjB83tnYIhg5+kkeMpmw8tvSnxd4rQ==}
 
   '@iconify-json/simple-icons@1.2.93':
     resolution: {integrity: sha512-/XhANjfGYOuqvSR3TmUnkQkINvQ4GVjVuukvymRbxtVFBvIq/yiXJqCDycKcQPT401OYT9H2vIY6ihAlz1QIAw==}
@@ -5468,6 +5474,10 @@ snapshots:
       '@huggingface/blake3-jit': 0.0.2
       gearhash-jit: 1.0.2
     optional: true
+
+  '@iconify-json/mingcute@1.2.8':
+    dependencies:
+      '@iconify/types': 2.0.0
 
   '@iconify-json/simple-icons@1.2.93':
     dependencies:

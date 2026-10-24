@@ -380,7 +380,7 @@ stack (`--font-mono`) is not user-configurable.
 The Font size row (D343 / ADR 0180) persists an optional multiplier in
 `AppSettings.fontScale` (default 1, range 0.8–1.5). The renderer sets
 `--font-scale` on the root so every `--text-*` token (and `--leading-row`)
-scales in proportion. Shared Lucide icons use the same multiplier. Window
+scales in proportion. Shared chrome icons use the same multiplier. Window
 zoom remains independent. The UI never asks for a px value.
 
 ### 5.2 Type scale
@@ -699,9 +699,10 @@ and give plain tool blocks a fill in light only.
 
 ### 7.1 Icon set
 
-- **Primary:** Lucide (SVG, MIT license, 24×24 default grid)
-- **Alternative:** Heroicons v2 (outline variant)
-- Never mix both in the same surface — pick one per implementation file
+- **Primary:** MingCute (SVG via `@iconify-json/mingcute`, Apache-2.0, 24×24 grid), D702. Glyphs are generated into `components/mingcute-icons.generated.ts`; the renderer never fetches icons at runtime
+- Each icon has a line and a solid variant; `filled` draws the solid one for the selected or active state (current settings destination, active project, play/pause, pinned star)
+- **Exception:** conversation content (code-block and mermaid headers, code-file chips in messages) keeps Lucide until it is migrated
+- Never mix sets within one surface
 - **Never use emoji as icons** — emoji are text content, not UI affordances
 
 ### 7.2 Sizing
@@ -1301,7 +1302,7 @@ Full component contract and usage rules: [08-component-spec.md §17](08-componen
 | Surface | `bg-elevated-opaque` + 1px `border-subtle` + `shadow-dialog` (same family as floating menus) |
 | Radius | radius-md-plus |
 | Font | text-md, leading-compact-plus |
-| Variants | `info` / `success` / `warning` / `error` — 16px Lucide status icon tinted with the semantic token; surface stays neutral (restraint principle) |
+| Variants | `info` / `success` / `warning` / `error` — 16px status icon tinted with the semantic token; surface stays neutral (restraint principle) |
 | Duration | 4s auto-dismiss; error 8s; `duration: 0` = sticky; hover pauses the timer |
 | Stack | vertical, max 4 (oldest dropped), newest nearest the top-center anchor pushing older down; identical message+variant re-raises restart instead of stacking |
 | Dismiss | X button on every toast (`toast.dismiss` i18n label) |
@@ -1447,7 +1448,7 @@ adjacent form inputs; dense surfaces may override that metric locally.
 - Test contrast ratios: **4.5:1 minimum** for normal text, 3:1 for large text
 - Keep motion under 300ms and respect `prefers-reduced-motion`
 - Collapse long content by default (tool results, long messages) — see [09-interaction-patterns.md](09-interaction-patterns.md) §4
-- Use Lucide/Heroicons SVG icons — never emoji as UI affordances
+- Use the shared SVG icons from `components/icons.tsx` — never emoji as UI affordances
 - Use compact padding and tight spacing — developer density, not consumer spacing
 - First launch follows the system theme (see §Theme switching); dark is the primary design target
 - Use shared primitives from `components/ui.tsx` (`Button`, `Badge`, `SettingsToggle`, `SegmentedControl`, `Checkbox`, `Input`, `Textarea`, `Select`, `Field`, `Panel`, `HelpIcon`, `TooltipButton`) — never reimplement them inline
@@ -1481,7 +1482,7 @@ adjacent form inputs; dense surfaces may override that metric locally.
 8. No raw hex color values in React component source (only token references)
 9. Z-index usage confined to defined layers (no arbitrary values)
 10. Layout shell metrics (topbar, sidebar, composer) match spec values in CSS
-11. Icon components use Lucide/Heroicons SVG — no emoji icon affordances
+11. Icon components come from `components/icons.tsx` (MingCute) — no emoji icon affordances
 12. Spacing values use the defined scale (no arbitrary pixel values in component code)
 13. Stream updates do not retrigger destination/shell enter motion or a
     backdrop-filter repaint behind the composer

@@ -40,7 +40,7 @@ const archiveUiSource = `${projectsPageSource}\n${projectsIndexSource}\n${projec
 test("settings owns the project archive destination", () => {
   assert.match(settingsSearchSource, /id: "projects"/);
   assert.match(settingsSearchSource, /titleKey: "settings\.projectArchive"/);
-  assert.match(settingsPageSource, /projects: <IconArchive/);
+  assert.match(settingsPageSource, /projects: IconArchive,/);
   assert.match(settingsPageSource, /tab === "projects" && <ProjectsPage/);
   const navOrder = ["general", "agent", "projects", "about"].map(
     (id) => settingsSearchSource.indexOf(`id: "${id}"`),
@@ -203,7 +203,7 @@ test("pinned projects use a distinct star glyph", () => {
   assert.match(projectsIndexSource, /IconStar/);
   assert.match(
     projectsIndexSource,
-    /projects-glyph[^]*project\.pinned \? \([\s\S]*<IconStar size=\{15\} fill="currentColor" aria-hidden \/>[\s\S]*<IconFolder size=\{15\} aria-hidden \/>/,
+    /projects-glyph[^]*project\.pinned \? \([\s\S]*<IconStar size=\{15\} filled aria-hidden \/>[\s\S]*<IconFolder size=\{15\} aria-hidden \/>/,
   );
 });
 

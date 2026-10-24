@@ -369,7 +369,7 @@ function ProjectCreateDialogContent() {
                         </span>
                         {index === 0 ? (
                           <span className="project-create-primary-tag">
-                            <IconStar size={11} fill="currentColor" aria-hidden />
+                            <IconStar size={11} filled aria-hidden />
                             {t("project.createPrimary")}
                           </span>
                         ) : null}

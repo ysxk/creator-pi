@@ -35,7 +35,7 @@ test("every recording plays in the app's own player, not the browser control", a
   // Play/pause, a seek bar that follows the pointer while held, and the time.
   assert.match(player, /className="audio-player-toggle"/);
   // Solid glyphs on a solid button.
-  assert.match(player, /playing \? \(\s*<IconPause[^>]*fill="currentColor" \/>\s*\) : \(\s*<IconPlay[^>]*fill="currentColor" \/>\s*\)/);
+  assert.match(player, /playing \? \(\s*<IconPause[^>]*filled \/>\s*\) : \(\s*<IconPlay[^>]*filled \/>\s*\)/);
   assert.match(player, /type="range"/);
   assert.match(player, /onPointerDown=\{\(\) => setScrubbing\(position\)\}/);
   assert.match(player, /aria-valuetext=\{`\$\{formatAudioTime\(shown\)\} \/ \$\{formatAudioTime\(duration\)\}`\}/);
@@ -45,7 +45,7 @@ test("every recording plays in the app's own player, not the browser control", a
   // The recording's tint is the file type's, through the design tokens.
   assert.match(styles, /--audio-tint: var\(--ds-filetype-audio, var\(--ds-accent\)\);/);
   assert.match(styles, /--audio-progress/);
-  assert.match(icons, /export const IconPause = icon\(Pause\);/);
+  assert.match(icons, /export const IconPause = mingcute\("pause"\);/);
   // No surface keeps the browser's control.
   for (const [name, source] of [["hover card", hoverCard], ["file tab", filesTab], ["mention", mention], ["markdown", markdown]]) {
     assert.doesNotMatch(source, /<audio\s[^>]*\scontrols/, `${name} still renders a native audio control`);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   AppSettings,
@@ -31,6 +31,7 @@ import {
   IconSparkles,
   IconCloudDown,
   IconMic,
+  type IconProps,
 } from "../../components/icons";
 import { Badge, Button, cx, SegmentedControl, SettingsToggle } from "../../components/ui";
 import { ModelConfigPage } from "../../components/settings/ModelConfigPage";
@@ -68,7 +69,7 @@ type NavItem = {
   id: SettingsTab;
   labelKey: string;
   titleKey: string;
-  icon: ReactNode;
+  icon: ComponentType<IconProps>;
   group: SettingsNavGroupId;
   experimentalBadgeKey?: string;
   /** i18n keys of the rows inside the tab; search matches their translations. */
@@ -228,21 +229,22 @@ export function SettingsPage() {
   // so the global search dialog and this page stay in sync; only the icons
   // are view-level.
   const navItems: NavItem[] = useMemo(() => {
-    const iconFor: Record<SettingsTab, ReactNode> = {
-      // Semantic Lucide glyphs for the settings destinations.
-      general: <IconSliders size={14} />,
-      ai: <IconSparkles size={14} />,
-      shortcuts: <IconKeyboard size={14} />,
-      instructions: <IconFileText size={14} />,
-      agent: <IconBot size={14} />,
-      skills: <IconBookOpen size={14} />,
-      mcp: <IconServer size={14} />,
-      subagents: <IconBot size={14} />,
-      projects: <IconArchive size={14} />,
-      sync: <IconCloudDown size={14} />,
-      remoteHosts: <IconGlobe size={14} />,
-      voice: <IconMic size={14} />,
-      about: <IconInfo size={14} />,
+    // Components, not elements: the open destination draws its solid glyph.
+    const iconFor: Record<SettingsTab, ComponentType<IconProps>> = {
+      // Semantic MingCute glyphs for the settings destinations (D702).
+      general: IconSliders,
+      ai: IconSparkles,
+      shortcuts: IconKeyboard,
+      instructions: IconFileText,
+      agent: IconBot,
+      skills: IconBookOpen,
+      mcp: IconServer,
+      subagents: IconBot,
+      projects: IconArchive,
+      sync: IconCloudDown,
+      remoteHosts: IconGlobe,
+      voice: IconMic,
+      about: IconInfo,
     };
     return navEntries.map((entry) => ({
       id: entry.id,
@@ -323,7 +325,7 @@ export function SettingsPage() {
                       setSettingsTab(item.id);
                     }}
                   >
-                    <span className="settings-nav-icon">{item.icon}</span>
+                    <span className="settings-nav-icon"><item.icon size={14} filled={tab === item.id} /></span>
                     <span className="settings-nav-label">{t(item.labelKey)}</span>
                     {item.experimentalBadgeKey ? (
                       <Badge tone="warning" className="settings-nav-experimental">
@@ -349,7 +351,7 @@ export function SettingsPage() {
                     className={cx("settings-nav-item", activeExtension?.ref === entry.ref && "active")}
                     onClick={() => setActiveExtension(entry)}
                   >
-                    <span className="settings-nav-icon"><ExtensionIcon size={14} /></span>
+                    <span className="settings-nav-icon"><ExtensionIcon size={14} filled={activeExtension?.ref === entry.ref} /></span>
                     <span className="settings-nav-label">{entry.label}</span>
                   </button>
                 );

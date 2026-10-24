@@ -333,7 +333,7 @@ UI 字体栈可从设置 → 基础 → 外观中由用户覆盖（ADR 0083）�
 将 CSS 字体栈持久化为 `AppSettings.fontFamily`；缺失值保持上述令牌栈。
 字体大小行（D343 / ADR 0180）将可选倍率持久化为 `AppSettings.fontScale`
 （默认 1，范围 0.8–1.5）。渲染器在根元素设置 `--font-scale`，全部
-`--text-*` 令牌（以及 `--leading-row`）按比例缩放。共享 Lucide 图标使用同一倍率。
+`--text-*` 令牌（以及 `--leading-row`）按比例缩放。共享界面图标使用同一倍率。
 窗口缩放仍独立。界面不出现 px 输入。
 应用不再随包发布任何字体文件（ADR 0298）：选择器提供「跟随系统」与
 由 Electron 主进程枚举的系统已安装字体，此前保存的指向已移除字体的字体栈
@@ -610,9 +610,10 @@ D419。主题专属取值应写在 `styles/tokens.css` 的标记块里，两套�
 
 ### 7. 1 图标集
 
-- **主要：** Lucide（SVG，MIT 许可证，24×24 默认网格）
-- **替代方案：** Heroicons v2（大纲变体）
-- 切勿将两者混合在同一表面 - 每个实施文件选择一个
+- **主要：** MingCute（通过 `@iconify-json/mingcute` 的 SVG，Apache-2.0，24×24 网格），D702。图形生成到 `components/mingcute-icons.generated.ts`；渲染层从不在运行时联网获取图标
+- 每个图标有线性和实心两种变体；`filled` 用于选中或激活状态（当前设置分类、当前项目、播放/暂停、置顶星标）
+- **例外：** 会话内容（代码块与 mermaid 标题、消息里的代码文件标签）在迁移前保留 Lucide
+- 同一表面内切勿混用图标集
 - **切勿使用表情符号作为图标** - 表情符号是文本内容，而不是 UI 可供性
 
 ### 7. 2 尺寸调整
@@ -1118,7 +1119,7 @@ Linux 保留淡入淡出和滑动退出。
 | 表面 | `bg-elevated-opaque` + 1px `border-subtle` + `shadow-dialog`（与浮动菜单同族） |
 | 半径 | 半径 md 加 |
 | 字体 | 文本 md、前导紧凑加 |
-| 变体 | `info` / `success` / `warning` / `error` — 16px Lucide 状态图标，带有语义标记；表面保持中立（约束原理） |
+| 变体 | `info` / `success` / `warning` / `error` — 16px 状态图标，带有语义标记；表面保持中立（约束原理） |
 | 持续时间 | 4秒自动关闭；错误8s； `duration: 0` = 粘性；悬停暂停计时器 |
 | 堆栈 | 垂直，最大 4（最旧的掉落），最新的最接近顶部中心锚点，将旧的向下推；相同的消息+变体重新引发重新启动而不是堆叠 |
 | 解雇 | 每个 Toast 上的 X 按钮（`toast.dismiss` i18n 标签） |
@@ -1250,7 +1251,7 @@ Linux 保留淡入淡出和滑动退出。
 - 测试对比度：**正常文本最小为 4.5:1**，大文本最小为 3:1
 - 保持运动低于 300 毫秒并尊重 `prefers-reduced-motion`
 - 默认折叠长内容（工具结果、长消息）— 请参阅 [09-interaction-patterns.md](/zh-CN/spec/04-ux/09-interaction-patterns) §4
-- 使用 Lucide/Heroicons SVG 图标 — 切勿使用表情符号作为 UI 可供性
+- 使用 `components/icons.tsx` 中的共享 SVG 图标 — 切勿使用表情符号作为 UI 可供性
 - 使用紧凑的填充和紧密的间距——开发人员密度，而不是消费者间距
 - 首次启动遵循系统主题（参见§主题切换）；深色是首要设计目标
 
@@ -1280,7 +1281,7 @@ Linux 保留淡入淡出和滑动退出。
 8. React 组件源中没有原始十六进制颜色值（仅标记引用）
 9. Z-index 的使用仅限于定义的层（无任意值）
 10. 布局 shell 指标（顶栏、侧栏、输入框）与 CSS 中的规范值匹配
-11. 图标组件使用 Lucide/Heroicons SVG — 没有表情符号图标可供性
+11. 图标组件来自 `components/icons.tsx`（MingCute）— 没有表情符号图标可供性
 12.间距值使用定义的比例（组件代码中没有任意像素值）
 13. 流更新不会重新触发 destination/shell 输入动作或
     背景过滤器在输入框后面重画

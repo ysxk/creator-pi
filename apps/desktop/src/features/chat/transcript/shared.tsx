@@ -47,7 +47,7 @@ import {
   IconCheck,
   IconChevronRight,
   IconCircleAlert,
-  IconCode,
+  IconCodeBlock,
   IconCopy,
   IconFileText,
   IconFolder,
@@ -423,7 +423,8 @@ export function fileChipIcon(name: string, kind?: "image" | "video" | "audio" | 
       name,
     )
   ) {
-    return IconCode;
+    // Code files keep the transcript's Lucide code glyph (D702).
+    return IconCodeBlock;
   }
   if (/\.(7z|bz2|gz|jar|rar|tar|zip)$/i.test(name)) return IconArchive;
   if (/\.(csv|ods|xls|xlsx)$/i.test(name)) return IconSheet;

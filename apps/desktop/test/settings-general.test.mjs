@@ -391,19 +391,19 @@ test("OAuth account identity is provider-scoped across IPC and pi-ai", () => {
 });
 
 
-test("settings nav icons map each destination to a semantic lucide glyph", () => {
-  assert.match(settingsPageSource, /general: <IconSliders/);
-  assert.match(settingsPageSource, /ai: <IconSparkles/);
-  assert.doesNotMatch(settingsPageSource, /usage: <IconActivity/);
-  assert.match(settingsPageSource, /shortcuts: <IconKeyboard/);
-  assert.match(settingsPageSource, /instructions: <IconFileText/);
-  assert.match(settingsPageSource, /agent: <IconBot/);
-  assert.doesNotMatch(settingsPageSource, /import: <IconDownload/);
-  assert.match(settingsPageSource, /projects: <IconArchive/);
-  assert.match(settingsPageSource, /about: <IconInfo/);
-  assert.doesNotMatch(settingsPageSource, /general: <IconSettings/);
-  assert.doesNotMatch(settingsPageSource, /agent: <IconConfig/);
-  assert.doesNotMatch(settingsPageSource, /import: <IconSnapshot/);
+test("settings nav icons map each destination to a semantic MingCute glyph", () => {
+  assert.match(settingsPageSource, /general: IconSliders,/);
+  assert.match(settingsPageSource, /ai: IconSparkles,/);
+  assert.doesNotMatch(settingsPageSource, /usage: IconActivity,/);
+  assert.match(settingsPageSource, /shortcuts: IconKeyboard,/);
+  assert.match(settingsPageSource, /instructions: IconFileText,/);
+  assert.match(settingsPageSource, /agent: IconBot,/);
+  assert.doesNotMatch(settingsPageSource, /import: IconDownload,/);
+  assert.match(settingsPageSource, /projects: IconArchive,/);
+  assert.match(settingsPageSource, /about: IconInfo,/);
+  assert.doesNotMatch(settingsPageSource, /general: IconSettings,/);
+  assert.doesNotMatch(settingsPageSource, /agent: IconConfig,/);
+  assert.doesNotMatch(settingsPageSource, /import: IconSnapshot,/);
 });
 
 test("settings nav keeps a flat searchable index with titled visual groups", () => {
