@@ -18,7 +18,7 @@ const ACTIONS = [
 
 // Read-only actions that stay available in Plan and Goal modes (ADR 0211).
 // navigate visits a URL/path; snapshot reads the accessibility tree;
-// screenshot captures the visible page; console returns existing console
+// screenshot captures the session's page; console returns existing console
 // messages. The mutating actions (click/fill/evaluate/cdp) remain
 // Agent-only.
 const PLAN_SAFE_ACTIONS = ["navigate", "snapshot", "screenshot", "console"];
@@ -29,11 +29,10 @@ export async function onLoad() {
     description: [
       "Drive PI-Desktop's work-panel browser via CDP.",
       'Call ToolSearch for "browser" or "cdp" to load this tool.',
-      "Before any browser operation, ensure the Browser view is open and visible in the work panel.",
-      "Keep the panel visible while working.",
-      "For a workspace HTML file, call BrowserPreview first; it opens and reveals a Browser tab.",
-      "For other URLs, open or activate Browser from the work-panel launcher before navigating.",
-      "If you cannot make the view visible, ask the user to open it and wait before continuing.",
+      "Every action works on this session's own Browser tab, whether or not the user is viewing it;",
+      "do not ask the user to open the Browser panel.",
+      "For a workspace HTML file, call BrowserPreview first; it opens and loads a Browser tab for this session.",
+      "For other URLs, use action=navigate; it loads in this session's Browser tab, or opens one.",
       "Then snapshot the accessibility tree, click/fill by uid, take screenshots, evaluate JavaScript,",
       "read console output, or send an allowlisted raw CDP method.",
     ].join(" "),
@@ -45,7 +44,7 @@ export async function onLoad() {
         action: {
           type: "string",
           enum: ACTIONS,
-          description: "Run only after confirming the Browser view is open and visible in the work panel.",
+          description: "Acts on this session's Browser tab; open one with BrowserPreview or navigate first.",
         },
         url: { type: "string", description: "http(s) URL for action=navigate." },
         path: {

@@ -578,18 +578,23 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
   文件（`BrowserPreview`），再通过 ToolSearch `cdp` / `Browser` 做 snapshot。
   4) 切到 Plan 并调用插件 Browser 工具。5) 禁用 `pi.browser`。
   6) 调用 `BrowserPreview` 并点击 http(s) 对话链接。7) 从第三方或测试调用方
-  通过 `pi.browser.cdp` 发送 `Network.getAllCookies`。
+  通过 `pi.browser.cdp` 发送 `Network.getAllCookies`。8) 在会话 A 中请求预览和
+  截图，随后切到另开了 Browser 标签的会话 B，并在 A 工作时最小化窗口。
 - **预期**：启动项没有宿主 Browser 行。预览打开插件视图并实时重载文件。
+  代理的浏览器操作作用于调用会话自己的标签，无论它是否显示在屏幕上（D703）：
+  第 8 步中 A 的截图是 A 的页面，B 的页面从不被读取或修改，用户回到 A 时 A 的
+  标签已在工作面板中等候。
   插件工具 `plugin_pi_browser_Browser` 在 ToolSearch 后可以 snapshot。Plan 拒绝
   插件工具（`PLUGIN_DISABLED_IN_PLAN`），而 `BrowserPreview` 仍可调用。禁用后
   隐藏视图和工具；`BrowserPreview` 报错；http(s) 芯片走 `openExternal`。Cookie
   CDP 被拒绝。访客页边界留在插件视图内。
-- **链接规格**：ADR 0170、D333、`07-plugins/03-plugin-api.md`、
+- **链接规格**：ADR 0170、D333、D703、`07-plugins/03-plugin-api.md`、
   `03-runtime/03-tools-and-permissions.md`
 - **验收**：E（插件视图 + 工具）+ 安全白名单
 - **里程碑**：M5
 - **状态**：单位覆盖（`bundled-plugins`、`browser-cdp`、
-  `browser-preview-tool`）；完整 Electron 旅程待处理
+  `browser-preview-tool`、`browser-host-agent-session`、`browser-capture-resize`）；
+  完整 Electron 旅程待处理
 
 #### E2E-009：UI 中可见的流式令牌
 

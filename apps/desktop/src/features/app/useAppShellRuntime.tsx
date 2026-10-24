@@ -606,12 +606,15 @@ export function useAppShellRuntime() {
     });
     // Agent-driven HTML preview: surface the browser tab when the agent
     // opens a workspace file in the embedded browser (BrowserPreview tool).
+    // A host-created tab arrives with its id, so the tab and the page main
+    // already loaded for it stay the same page (D703).
     const offBrowserState = api.onBrowserState((event) => useAppStore.getState().updateBrowserWorkPanelTab(event));
     const offBrowserPreview = api.onBrowserPreview((event) => {
       useAppStore
         .getState()
         .openWorkPanelTabForSession(event.sessionId, {
           ...browserPluginTab(event.path ?? event.url),
+          ...(event.tabId ? { id: event.tabId } : {}),
         });
     });
     const offHostStatus = api.onHostStatus((status) => {

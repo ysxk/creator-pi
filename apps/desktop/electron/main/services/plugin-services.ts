@@ -620,6 +620,8 @@ export function createPluginServices({
       return join(dataDir, "scratch", sessionId);
     },
     onState: emitBrowserState,
+    openTab: (sessionId, tabId, location) =>
+      sendToRenderer(IPC.event.browserPreview, { sessionId, tabId, ...location }),
   });
   pluginViews.onSurface = (surface) => {
     browserHost.setChromeSurface(surface);
@@ -642,18 +644,19 @@ export function createPluginServices({
       sendToRenderer(IPC.event.pluginChanged, { reason: "agentExtensions" }),
     browser: {
       navigate: (input, sessionId, tabId) => browserHost.navigate(input, sessionId, tabId),
+      navigateForSession: (input, sessionId) => browserHost.navigateForSession(input, sessionId),
       action: (action, sessionId, tabId) => browserHost.action(action, sessionId, tabId),
       setBounds: (pluginId, hole) => browserHost.setGuestHole(pluginId, hole),
       setVisible: (pluginId, visible) => browserHost.setGuestVisible(pluginId, visible),
       getState: () => browserHost.getStateForPlugin(),
       openExternal: (sessionId, tabId) => browserHost.openExternal(sessionId, tabId),
-      snapshot: () => browserHost.snapshot(),
+      snapshot: (sessionId) => browserHost.snapshot(sessionId),
       screenshot: (input, sessionId) => browserHost.screenshot(input, sessionId),
-      click: (uid) => browserHost.click(uid),
-      fill: (uid, text) => browserHost.fill(uid, text),
-      evaluate: (expression) => browserHost.evaluate(expression),
-      console: (limit) => browserHost.console(limit),
-      cdp: (method, params) => browserHost.cdpCommand(method, params),
+      click: (uid, sessionId) => browserHost.click(uid, sessionId),
+      fill: (uid, text, sessionId) => browserHost.fill(uid, text, sessionId),
+      evaluate: (expression, sessionId) => browserHost.evaluate(expression, sessionId),
+      console: (limit, sessionId) => browserHost.console(limit, sessionId),
+      cdp: (method, params, sessionId) => browserHost.cdpCommand(method, params, sessionId),
     },
     onPluginUnload: (pluginId) => {
       if (pluginId === BROWSER_PLUGIN_ID) browserHost.disposeGuest();

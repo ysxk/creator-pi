@@ -456,18 +456,25 @@ export type PluginHostServices = {
     action: (action: "back" | "forward" | "reload" | "stop", sessionId?: string, tabId?: string) => void;
     setBounds: (pluginId: string, hole: unknown) => unknown;
     setVisible: (pluginId: string, visible: boolean) => void;
+    /** Agent-tool navigation in that session's own tab, visible or not (D703). */
+    navigateForSession: (
+      input: { url?: string; path?: string },
+      sessionId: string,
+    ) => Promise<unknown>;
     getState: () => unknown;
     openExternal: (sessionId?: string, tabId?: string) => void;
-    snapshot: () => Promise<unknown>;
+    // Page calls carry the calling tool's session, which selects that
+    // session's page; without one they act on the visible page.
+    snapshot: (sessionId?: string) => Promise<unknown>;
     screenshot: (
       input?: { fullPage?: boolean },
       sessionId?: string,
     ) => Promise<unknown>;
-    click: (uid: string) => Promise<void>;
-    fill: (uid: string, text: string) => Promise<void>;
-    evaluate: (expression: string) => Promise<unknown>;
-    console: (limit?: number) => unknown;
-    cdp: (method: string, params?: unknown) => Promise<unknown>;
+    click: (uid: string, sessionId?: string) => Promise<void>;
+    fill: (uid: string, text: string, sessionId?: string) => Promise<void>;
+    evaluate: (expression: string, sessionId?: string) => Promise<unknown>;
+    console: (limit?: number, sessionId?: string) => unknown;
+    cdp: (method: string, params?: unknown, sessionId?: string) => Promise<unknown>;
   };
   onPluginUnload?: (pluginId: string) => void;
   listModels?: () => Promise<PluginModelInfo[]>;
@@ -5983,11 +5990,14 @@ export class PluginRuntime {
           if (!this.services.browser) {
             throw apiError("UNAVAILABLE", "browser host missing");
           }
-          const result = await this.services.browser.navigate(
-            input,
-            browserContext?.sessionId ?? this.browserSessionId(pluginId),
-            browserContext?.tabId,
-          );
+          const toolSessionId = browserContext ? undefined : this.browserSessionId(pluginId);
+          const result = toolSessionId
+            ? await this.services.browser.navigateForSession(input, toolSessionId)
+            : await this.services.browser.navigate(
+              input,
+              browserContext?.sessionId,
+              browserContext?.tabId,
+            );
           this.services.audit?.({
             pluginId,
             api: "browser.navigate",
@@ -6051,7 +6061,7 @@ export class PluginRuntime {
           if (!this.services.browser) {
             throw apiError("UNAVAILABLE", "browser host missing");
           }
-          return this.services.browser.snapshot();
+          return this.services.browser.snapshot(this.browserSessionId(pluginId));
         },
         screenshot: async (input?: { fullPage?: boolean }) => {
           this.assertPermission(loaded, "browser.cdp");
@@ -6069,7 +6079,7 @@ export class PluginRuntime {
             throw apiError("UNAVAILABLE", "browser host missing");
           }
           const uid = typeof input === "string" ? input : String(input?.uid ?? "");
-          await this.services.browser.click(uid);
+          await this.services.browser.click(uid, this.browserSessionId(pluginId));
         },
         fill: async (
           input: string | { uid?: string; text?: string },
@@ -6081,7 +6091,7 @@ export class PluginRuntime {
           }
           const uid = typeof input === "string" ? input : String(input?.uid ?? "");
           const text = typeof input === "string" ? String(textArg ?? "") : String(input?.text ?? "");
-          await this.services.browser.fill(uid, text);
+          await this.services.browser.fill(uid, text, this.browserSessionId(pluginId));
         },
         evaluate: async (input: string | { expression?: string }) => {
           this.assertPermission(loaded, "browser.cdp");
@@ -6095,7 +6105,7 @@ export class PluginRuntime {
             ok: true,
             ts: Date.now(),
           });
-          return this.services.browser.evaluate(expression);
+          return this.services.browser.evaluate(expression, this.browserSessionId(pluginId));
         },
         console: (input?: number | { limit?: number }) => {
           this.assertPermission(loaded, "browser.cdp");
@@ -6103,7 +6113,7 @@ export class PluginRuntime {
             throw apiError("UNAVAILABLE", "browser host missing");
           }
           const limit = typeof input === "number" ? input : input?.limit;
-          return this.services.browser.console(limit);
+          return this.services.browser.console(limit, this.browserSessionId(pluginId));
         },
         cdp: async (
           input: string | { method?: string; params?: unknown },
@@ -6122,7 +6132,7 @@ export class PluginRuntime {
             ts: Date.now(),
             method,
           });
-          return this.services.browser.cdp(method, params);
+          return this.services.browser.cdp(method, params, this.browserSessionId(pluginId));
         },
       },
     };

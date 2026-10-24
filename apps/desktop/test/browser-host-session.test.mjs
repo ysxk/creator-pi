@@ -54,19 +54,6 @@ async function open(h, sessionId, tabId, url) {
   await settled(); h.loads.at(-1).finish(); await settled();
 }
 
-test("BrowserPreview prepares a new resource tab without navigating or rewriting the current tab", async () => {
-  const h = harness(); await open(h, "A", "one", "A.html");
-  const preview = h.host.previewWorkspaceFile("A", "preview.html", "/projects/A");
-  await settled();
-  assert.equal(h.loads.length, 1, "preview must wait for the resource-tab owner");
-  assert.equal(h.host.getState().url, "A.html");
-  await preview;
-  await open(h, "A", "preview", "preview.html");
-  h.host.setChromeSession("A", "one", "A.html");
-  assert.equal(h.host.getState().url, "A.html");
-  assert.equal(h.loads.length, 2, "switching back must reuse the page");
-});
-
 test("background navigation targets that session's last selected tab", async () => {
   const h = harness(); await open(h, "A", "a", "A.html");
   await open(h, "B", "b", "B.html");
@@ -147,7 +134,7 @@ test("closing the panel keeps a pending page hidden until the panel returns", as
   h.surface(); assert.equal(h.panes[0].visible, true);
 });
 
-test("plugin browser operations are unavailable while the Browser view is hidden", async () => {
+test("browser operations without a calling session are unavailable while the Browser view is hidden", async () => {
   const h = harness(); await open(h, "A", "a", "A.html");
   assert.equal(h.host.getStateForPlugin().url, "A.html");
   const pendingNavigation = h.host.navigate({ url: "https://fixture.invalid/hidden" });

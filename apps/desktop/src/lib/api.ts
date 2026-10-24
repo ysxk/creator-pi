@@ -1659,11 +1659,11 @@ export const api = {
     );
   },
   onBrowserPreview: (
-    listener: (event: { sessionId: string; path?: string; url?: string }) => void,
+    listener: (event: { sessionId: string; path?: string; url?: string; tabId?: string }) => void,
   ) => {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.browserPreview, (payload) =>
-      listener(payload as { sessionId: string; path?: string; url?: string }),
+      listener(payload as { sessionId: string; path?: string; url?: string; tabId?: string }),
     );
   },
   onAgentEvent: (listener: (event: AgentEventEnvelope) => void) => {

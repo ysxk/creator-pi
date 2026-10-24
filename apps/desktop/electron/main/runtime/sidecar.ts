@@ -582,7 +582,9 @@ export function createSidecarRuntime({
         content: `BrowserPreview: "${raw}" does not resolve to an existing file inside the workspace.`,
       };
     }
-    const preview = await browserHost.previewWorkspaceFile(sessionId, raw, root);
+    // The host creates and loads the session's tab itself and lists it in
+    // the renderer, so it works while the user views another session (D703).
+    const preview = await browserHost.previewWorkspaceFile(sessionId, raw);
     if (!preview.ok) {
       return {
         ok: false,
@@ -590,13 +592,16 @@ export function createSidecarRuntime({
         content: preview.content,
       };
     }
-    sendToRenderer(IPC.event.browserPreview, {
-      sessionId,
-      path: raw,
-    });
+    if (preview.loadError) {
+      return {
+        ok: false,
+        isError: true,
+        content: `BrowserPreview: opened a Browser tab for ${raw}, but it failed to load (${preview.loadError}).`,
+      };
+    }
     return {
       ok: true,
-      content: `Requested a new Browser tab for ${raw}. Once loaded, live reload updates the page when the file or sibling assets change.`,
+      content: `Opened ${raw} in a new Browser tab of this session. Browser actions work on it even while the user views another session. Live reload updates the page when the file or sibling assets change.`,
     };
   });
   // Plugin skills (D174): the model loads a declared skill document by id.

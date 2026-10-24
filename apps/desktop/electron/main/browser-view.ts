@@ -161,10 +161,15 @@ export class BrowserPane {
         throw Object.assign(new Error("browser guest is not available"), { code: "UNAVAILABLE" });
       }
       this.capturing = true;
+      // A view attached to a minimized window produces no frame, so the
+      // capture would never finish; a detached view still renders (D703).
+      const lifted = this.visible && this.window?.isMinimized() === true;
+      if (lifted) this.detach();
       try {
         return await capture(wc);
       } finally {
         this.capturing = false;
+        if (lifted && this.visible) this.attach();
         this.applyBounds();
       }
     });

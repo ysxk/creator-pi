@@ -658,9 +658,12 @@ pi.browser.cdp(input: { method: string; params?: unknown }): Promise<unknown>
 `setBounds` 相对调用插件视图的内容区，并被夹紧，因此访客页不能盖住聊天/输入框。
 `cdp` 默认拒绝；cookie、storage、target 和网络拦截方法以 `PERMISSION_DENIED` 失败。
 代理调用的会话身份来自进行中的 `plugins.execute` `sessionId`，而不是插件参数（D333 / ADR 0170）。
-页面操作（`navigate`、`action`、`openExternal`、`getState`、snapshot、screenshot 和 CDP 调用）
-仅在 Browser 视图可见时可用。视图隐藏时调用会以 `UNAVAILABLE` 失败；应通过 `BrowserPreview`
-请求宿主显示 Browser 视图后再继续。
+工具调用期间发起的页面操作（`navigate`、snapshot、screenshot、click、fill、evaluate、console 和 CDP 调用）
+作用于该会话自己选中的 Browser 标签，无论它是否显示在屏幕上，且从不作用于其他会话的页面（D703）。
+没有标签的会话由 `navigate` 或 `BrowserPreview` 获得一个：宿主创建并加载该标签，并把它列入该会话的
+工作面板。在此之前以及页面仍在加载时，页面操作以 `UNAVAILABLE` 失败。没有工具会话的调用（`action`、
+`openExternal`、`getState`，以及插件在工具调用之外发起的页面操作）作用于屏幕上的页面，且仅在 Browser
+视图可见时可用；视图隐藏时这类调用以 `UNAVAILABLE` 失败。
 
 截图（包括原始 `Page.captureScreenshot` CDP 调用）有 30 秒的宿主端期限。超时会以 `TIMEOUT` 失败，
 宿主会分离卡住的 CDP 会话并释放该页面的截图队列，使后续截图可以重新连接并继续。其他 CDP 方法

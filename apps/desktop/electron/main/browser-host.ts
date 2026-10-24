@@ -2,11 +2,14 @@ import type { BrowserWindow, WebContents } from "electron";
 import type { BrowserState } from "@pi-desktop/shared";
 import type { BrowserPane } from "./browser-view";
 import { BrowserCdp } from "./browser-cdp";
+import { randomUUID } from "node:crypto";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 export const BROWSER_PLUGIN_ID = "pi.browser";
 export const BROWSER_VIEW_ID = "browser";
+/** Work-panel tab id prefix the renderer uses for Browser plugin tabs. */
+const BROWSER_TAB_ID_PREFIX = `plugin:${BROWSER_PLUGIN_ID}/${BROWSER_VIEW_ID}`;
 const BROWSER_CDP_TIMEOUT_MS = 30_000;
 
 export type BrowserRect = {
@@ -62,6 +65,8 @@ export type BrowserHostDeps = {
   getFileRoot: (sessionId?: string) => Promise<string | null>;
   getScratchDir?: (sessionId?: string) => string | null;
   onState: (state: BrowserState) => void;
+  /** List a host-created tab in that session's work panel (D703). */
+  openTab?: (sessionId: string, tabId: string, location: BrowserNavigateInput) => void;
 };
 
 type ChromeSurface = {
@@ -181,6 +186,48 @@ export class BrowserHost {
     return JSON.stringify([sessionId, tabId]);
   }
 
+  /**
+   * A session's selected Browser page, on screen or not. Agent calls resolve
+   * through this, so they never reach the page of whichever session the user
+   * happens to be viewing (D703).
+   */
+  private sessionPage(sessionId: string): BrowserPage | null {
+    const tab = this.selectedTabs.get(sessionId);
+    if (tab === undefined) return null;
+    return this.pages.get(this.key(sessionId, tab)) ?? null;
+  }
+
+  /** Create a Browser tab for a session and have the renderer list it. */
+  private openSessionTab(sessionId: string, location: BrowserNavigateInput): BrowserPage {
+    const tabId = `${BROWSER_TAB_ID_PREFIX}:agent-${randomUUID().slice(0, 8)}`;
+    const page = this.pageFor(sessionId, tabId);
+    this.selectedTabs.set(sessionId, tabId);
+    this.deps.openTab?.(sessionId, tabId, location);
+    return page;
+  }
+
+  /**
+   * The page a page-level call acts on. A call made for an agent session
+   * uses that session's own page whether or not it is visible; a call with no
+   * session keeps the visible-view rule and acts on the page on screen.
+   */
+  private callerPage(sessionId?: string): BrowserPage {
+    const id = sessionId?.trim();
+    if (!id) {
+      this.assertBrowserViewVisible();
+      if (!this.active?.started) throw Object.assign(new Error("browser guest is not available"), { code: "UNAVAILABLE" });
+      return this.active;
+    }
+    const page = this.sessionPage(id);
+    if (page?.started) return page;
+    throw Object.assign(
+      new Error(page?.navigating
+        ? "This session's Browser page is still loading; retry once navigate returns"
+        : "This session has no open Browser page; call BrowserPreview or Browser navigate first"),
+      { code: "UNAVAILABLE" },
+    );
+  }
+
   private pageFor(sessionId: string, tabId: string | null): BrowserPage {
     const key = this.key(sessionId, tabId);
     const existing = this.pages.get(key);
@@ -294,6 +341,18 @@ export class BrowserHost {
     return this.navigatePage(this.active, target, true);
   }
 
+  /**
+   * Navigate for an agent tool call made in `sessionId` (D703). The session's
+   * selected tab loads now, visible or not; a session without one gets a new
+   * tab, listed in its work panel.
+   */
+  async navigateForSession(input: BrowserNavigateInput, sessionId: string): Promise<BrowserState | null> {
+    const target = String(input.path ?? input.url ?? "").trim();
+    const page = this.sessionPage(sessionId);
+    if (!target) return page?.state ? { ...page.state, ...this.contextFor(page) } : null;
+    return this.navigatePage(page ?? this.openSessionTab(sessionId, input), target);
+  }
+
   private async navigatePage(page: BrowserPage, target: string, requireVisible = false): Promise<BrowserState | null> {
     const version = ++page.navigationVersion;
     const previousLocation = this.locations.get(page.key);
@@ -374,26 +433,20 @@ export class BrowserHost {
     if (page?.started) page.pane.openExternal();
   }
 
-  private currentPage(): BrowserPage {
-    this.assertBrowserViewVisible();
-    if (!this.active?.started) throw Object.assign(new Error("browser guest is not available"), { code: "UNAVAILABLE" });
-    return this.active;
-  }
-
-  private requireWebContents() {
-    const wc = this.currentPage().pane.getWebContents();
+  private requireWebContents(page: BrowserPage) {
+    const wc = page.pane.getWebContents();
     if (!wc || wc.isDestroyed()) throw Object.assign(new Error("browser guest is not available"), { code: "UNAVAILABLE" });
     return wc;
   }
 
-  async snapshot(): Promise<{ tree: string; url: string; title: string }> {
-    const page = this.currentPage();
-    const wc = this.requireWebContents();
+  async snapshot(sessionId?: string): Promise<{ tree: string; url: string; title: string }> {
+    const page = this.callerPage(sessionId);
+    const wc = this.requireWebContents(page);
     return withCdpDeadline(page, wc, () => page.cdp.snapshot(wc), "snapshot");
   }
 
   async screenshot(input: { fullPage?: boolean } = {}, sessionId?: string): Promise<{ mimeType: string; data: string; path?: string }> {
-    const page = this.currentPage();
+    const page = this.callerPage(sessionId);
     const shot = await captureScreenshotWithDeadline(page, (wc) => page.cdp.screenshot(wc, input));
     const scratch = this.deps.getScratchDir?.(sessionId ?? page.sessionId);
     if (!scratch) return shot;
@@ -405,43 +458,55 @@ export class BrowserHost {
     } catch { return shot; }
   }
 
-  async click(uid: string): Promise<void> {
-    const page = this.currentPage();
-    const wc = this.requireWebContents();
+  async click(uid: string, sessionId?: string): Promise<void> {
+    const page = this.callerPage(sessionId);
+    const wc = this.requireWebContents(page);
     return withCdpDeadline(page, wc, () => page.cdp.click(wc, uid), "click");
   }
-  async fill(uid: string, text: string): Promise<void> {
-    const page = this.currentPage();
-    const wc = this.requireWebContents();
+  async fill(uid: string, text: string, sessionId?: string): Promise<void> {
+    const page = this.callerPage(sessionId);
+    const wc = this.requireWebContents(page);
     return withCdpDeadline(page, wc, () => page.cdp.fill(wc, uid, text), "fill");
   }
-  async evaluate(expression: string): Promise<unknown> {
-    const page = this.currentPage();
-    const wc = this.requireWebContents();
+  async evaluate(expression: string, sessionId?: string): Promise<unknown> {
+    const page = this.callerPage(sessionId);
+    const wc = this.requireWebContents(page);
     return withCdpDeadline(page, wc, () => page.cdp.evaluate(wc, expression), "evaluate");
   }
-  console(limit?: number): { messages: ReturnType<BrowserCdp["console"]> } {
-    this.assertBrowserViewVisible();
-    if (!this.active?.started) return { messages: [] };
-    const wc = this.requireWebContents();
-    void this.active.cdp.attach(wc);
-    return { messages: this.active.cdp.console(limit) };
+  console(limit?: number, sessionId?: string): { messages: ReturnType<BrowserCdp["console"]> } {
+    const id = sessionId?.trim();
+    if (!id) this.assertBrowserViewVisible();
+    const page = id ? this.sessionPage(id) : this.active;
+    if (!page?.started) return { messages: [] };
+    const wc = this.requireWebContents(page);
+    void page.cdp.attach(wc);
+    return { messages: page.cdp.console(limit) };
   }
-  async cdpCommand(method: string, params?: unknown): Promise<unknown> {
-    const page = this.currentPage();
-    const wc = this.requireWebContents();
+  async cdpCommand(method: string, params?: unknown, sessionId?: string): Promise<unknown> {
+    const page = this.callerPage(sessionId);
+    const wc = this.requireWebContents(page);
     if (method === "Page.captureScreenshot") {
       return captureScreenshotWithDeadline(page, (view) => page.cdp.send(view, method, params));
     }
     return withCdpDeadline(page, wc, () => page.cdp.send(wc, method, params), `cdp ${method}`);
   }
 
-  /** The renderer-created resource tab is the preview's only navigation owner. */
-  async previewWorkspaceFile(_sessionId: string, _path: string, _root: string): Promise<{ ok: true } | { ok: false; content: string }> {
+  /**
+   * Open a workspace file in a new Browser tab of `sessionId` and load it
+   * there, whether or not that session is on screen (D703). The renderer lists
+   * the tab through `openTab`; it does not navigate it again.
+   */
+  async previewWorkspaceFile(
+    sessionId: string,
+    path: string,
+  ): Promise<{ ok: true; loadError?: string } | { ok: false; content: string }> {
     if (!this.deps.isPluginLoaded(BROWSER_PLUGIN_ID)) return {
       ok: false, content: "BrowserPreview: the Browser plugin is disabled. Enable pi.browser in Plugins to preview HTML.",
     };
-    return { ok: true };
+    const page = this.openSessionTab(sessionId, { path });
+    const state = await this.navigatePage(page, path);
+    const loadError = state ? undefined : page.state?.loadError;
+    return loadError ? { ok: true, loadError } : { ok: true };
   }
 
   closeTab(sessionId: string, tabId: string | null): void {

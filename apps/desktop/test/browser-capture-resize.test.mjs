@@ -75,7 +75,8 @@ async function harness(t) {
     isPluginLoaded: () => true, getFileRoot: async () => null, onState: () => {},
   });
   const children = [];
-  host.setWindow({ isDestroyed: () => false, contentView: {
+  const window = { minimized: false };
+  host.setWindow({ isDestroyed: () => false, isMinimized: () => window.minimized, contentView: {
     children,
     addChildView(view) { children.push(view); },
     removeChildView(view) { children.splice(children.indexOf(view), 1); },
@@ -87,8 +88,22 @@ async function harness(t) {
   host.setChromeSession("session", "first");
   await host.navigate({ url: "https://fixture.invalid/first" }, "session");
   t.after(() => host.dispose());
-  return { host, resize, wc: WebContentsView.instances.at(-1).webContents };
+  return { host, resize, window, children, view: WebContentsView.instances.at(-1),
+    wc: WebContentsView.instances.at(-1).webContents };
 }
+
+test("a capture lifts the guest off a minimized window and puts it back", async (t) => {
+  const { host, window, children, view, wc } = await harness(t);
+  assert.ok(children.includes(view));
+  window.minimized = true;
+  const started = once(wc, "capture-start");
+  const capture = host.screenshot();
+  await started;
+  assert.equal(children.includes(view), false, "a minimized window gives an attached view no frame");
+  wc.captures.at(-1).resolve();
+  await capture;
+  assert.equal(children.at(-1), view, "the guest returns on top of the plugin chrome");
+});
 
 test("full-page screenshot scales both dimensions to provider-safe limits", async (t) => {
   const { host, wc } = await harness(t);

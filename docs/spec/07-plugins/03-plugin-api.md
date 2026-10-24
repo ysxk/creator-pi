@@ -833,10 +833,16 @@ the guest cannot cover chat/composer. `cdp` is deny-by-default; cookie,
 storage, target, and network-interception methods fail with
 `PERMISSION_DENIED`. Session identity for agent calls comes from the in-flight
 `plugins.execute` `sessionId`, not from plugin arguments (D333 / ADR 0170).
-Page operations (`navigate`, `action`, `openExternal`, `getState`, snapshot,
-screenshot, and CDP calls) are available only while the Browser view is
-visible. Calls made while it is hidden fail with `UNAVAILABLE`; use
-`BrowserPreview` to ask the host to reveal the Browser view before continuing.
+A page call made during a tool call (`navigate`, snapshot, screenshot,
+click, fill, evaluate, console, and CDP calls) acts on that session's own
+selected Browser tab, whether or not it is on screen, and never on another
+session's page (D703). A session without a tab gets one from `navigate` or
+`BrowserPreview`: the host creates the tab, loads it, and lists it in that
+session's work panel. Until then, and while its page is still loading, page
+calls fail with `UNAVAILABLE`. A call with no tool session (`action`,
+`openExternal`, `getState`, and page calls a plugin makes outside a tool call)
+acts on the page on screen and is available only while the Browser view is
+visible; while it is hidden such a call fails with `UNAVAILABLE`.
 
 Full-page `screenshot` captures are proportionally scaled to no more than
 1280×2048 output pixels. Viewport screenshots and raw `Page.captureScreenshot`

@@ -56,23 +56,24 @@ test("main serves BrowserPreview from its originating session workspace", () => 
   assert.match(handler, /host\?\.call\("session\.get", \{ id: sessionId \}\)/);
   assert.match(handler, /res\?\.session\?\.projectPath/);
   assert.doesNotMatch(handler, /workspace\.get/);
-  assert.match(handler, /browserHost\.previewWorkspaceFile\(sessionId, raw, root\)/);
+  // The host creates and loads the session's own tab (D703) and lists it in
+  // the renderer itself; the handler no longer asks the renderer to navigate.
+  assert.match(handler, /await browserHost\.previewWorkspaceFile\(sessionId, raw\)/);
   assert.ok(
     handler.indexOf("resolveLocalFile(raw, root)") <
-      handler.indexOf("sendToRenderer(IPC.event.browserPreview"),
+      handler.indexOf("browserHost.previewWorkspaceFile"),
   );
   assert.doesNotMatch(handler, /browserPane\.navigate/);
-  assert.match(
-    handler,
-    /sendToRenderer\(IPC\.event\.browserPreview, \{\s*sessionId,\s*path: raw,\s*\}\)/,
-  );
+  assert.doesNotMatch(handler, /IPC\.event\.browserPreview/);
+  assert.match(handler, /preview\.loadError/);
+  assert.match(mainSource, /openTab: \(sessionId, tabId, location\) =>\s*sendToRenderer\(IPC\.event\.browserPreview, \{ sessionId, tabId, \.\.\.location \}\)/);
   assert.match(protocolSource, /browserPreview: "pi-desktop\/browser\/event\/preview"/);
 });
 
 test("renderer routes browser preview events to the originating session", () => {
   assert.match(
     apiSource,
-    /onBrowserPreview:[\s\S]*event: \{ sessionId: string; path\?: string; url\?: string \}/,
+    /onBrowserPreview:[\s\S]*event: \{ sessionId: string; path\?: string; url\?: string; tabId\?: string \}/,
   );
   const previewHandler =
     appSource.match(/api\.onBrowserPreview\([\s\S]*?\n\s*\}\);/)?.[0] ?? "";
@@ -81,6 +82,9 @@ test("renderer routes browser preview events to the originating session", () => 
     previewHandler,
     /openWorkPanelTabForSession\((?:event\.)?sessionId,[\s\S]*browserPluginTab/,
   );
+  // A host-created tab keeps the id main gave it, so it maps to the page main
+  // already loaded (D703).
+  assert.match(previewHandler, /event\.tabId \? \{ id: event\.tabId \} : \{\}/);
   assert.doesNotMatch(
     appSource,
     /api\.onBrowserPreview\(\(\) => \{\s*useAppStore\.getState\(\)\.openWorkPanelTab/,
@@ -108,25 +112,20 @@ test("agent runtime exposes BrowserPreview in every mode and prompts for it", ()
   assert.match(runtimeSource, /live-reloads/);
 });
 
-test("Browser tool prompt requires the work-panel view to stay visible", () => {
+test("Browser tool prompt works on the session's own tab without asking for the panel", () => {
   assert.match(
     browserPluginSource,
-    /Before any browser operation, ensure the Browser view is open and visible in the work panel/,
+    /Every action works on this session's own Browser tab, whether or not the user is viewing it/,
+  );
+  assert.match(browserPluginSource, /do not ask the user to open the Browser panel/);
+  assert.match(
+    browserPluginSource,
+    /For a workspace HTML file, call BrowserPreview first; it opens and loads a Browser tab for this session/,
   );
   assert.match(
     browserPluginSource,
-    /For a workspace HTML file, call BrowserPreview first; it opens and reveals a Browser tab/,
+    /For other URLs, use action=navigate; it loads in this session's Browser tab, or opens one/,
   );
-  assert.match(
-    browserPluginSource,
-    /For other URLs, open or activate Browser from the work-panel launcher before navigating/,
-  );
-  assert.match(
-    browserPluginSource,
-    /If you cannot make the view visible, ask the user to open it and wait before continuing/,
-  );
-  assert.match(
-    browserPluginSource,
-    /Run only after confirming the Browser view is open and visible in the work panel/,
-  );
+  assert.doesNotMatch(browserPluginSource, /ensure the Browser view is open and visible/);
+  assert.doesNotMatch(browserPluginSource, /ask the user to open it and wait/);
 });

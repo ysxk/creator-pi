@@ -1658,28 +1658,33 @@ identify the platform validation still needed.
 - **Steps**: 1) Confirm Plugins lists `pi.browser`, enabled, not uninstallable.
   2) With the work panel closed, ask the agent to preview a workspace HTML
   file (`BrowserPreview`) and verify the Browser tab opens in the visible work
-  panel. 3) Use ToolSearch `cdp` / `Browser` to snapshot and interact while the
-  panel remains visible. 4) For an HTTP(S) URL, verify the agent opens or
-  activates Browser before navigating; if it cannot reveal the view, it asks
-  the user to open it before continuing. 5) Switch to Plan and call the plugin
-  Browser tool. 6) Disable `pi.browser`. 7) Call `BrowserPreview` and click an
-  http(s) transcript link. 8) From a third-party or test caller, send
-  `Network.getAllCookies` through `pi.browser.cdp`.
+  panel. 3) Use ToolSearch `cdp` / `Browser` to snapshot and interact.
+  4) For an HTTP(S) URL, verify `navigate` loads it in the session's Browser
+  tab, opening one if the session has none. 5) In session A, ask for a
+  preview and screenshots, then switch to session B (which has its own
+  Browser tab open) and minimize the window while A works. 6) Switch to Plan
+  and call the plugin Browser tool. 7) Disable `pi.browser`. 8) Call
+  `BrowserPreview` and click an http(s) transcript link. 9) From a
+  third-party or test caller, send `Network.getAllCookies` through
+  `pi.browser.cdp`.
 - **Expected**: The launcher has no host Browser row. Preview opens the plugin
-  view, reveals the work panel, and live-reloads the file. Browser operations
-  are made only while the view is visible; the agent waits for the user to
-  reveal it if necessary. Plugin tool `plugin_pi_browser_Browser` can snapshot
+  view, reveals the work panel, and live-reloads the file. Agent browser
+  operations act on the calling session's own tab whether or not it is on
+  screen (D703): in step 5 A's screenshots show A's page, B's page is never
+  read or changed, and A's tab is waiting in A's work panel when the user
+  returns. Plugin tool `plugin_pi_browser_Browser` can snapshot
   after ToolSearch. Plan denies the plugin tool
   (`PLUGIN_DISABLED_IN_PLAN`) while `BrowserPreview` remains callable. Disable
   hides the view and tools; `BrowserPreview` errors; http(s) chips use
   `openExternal`. Cookie CDP is denied. Guest bounds stay inside the plugin
   view.
-- **Specs linked**: ADR 0170, D333, `07-plugins/03-plugin-api.md`,
+- **Specs linked**: ADR 0170, D333, D703, `07-plugins/03-plugin-api.md`,
   `03-runtime/03-tools-and-permissions.md`
 - **Acceptance**: E (plugin view + tool) + security allowlist
 - **Milestone**: M5
 - **Status**: Unit-covered (`bundled-plugins`, `browser-cdp`,
-  `browser-preview-tool`); full Electron journey pending
+  `browser-preview-tool`, `browser-host-agent-session`,
+  `browser-capture-resize`); full Electron journey pending
 
 #### E2E-008c: Quiet intervals explain active work
 
