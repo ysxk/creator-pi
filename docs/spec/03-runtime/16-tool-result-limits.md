@@ -189,6 +189,34 @@ counts are the stable signals. The UI truncated chip follows `truncated`.
 7. Timeout and abort close both output streams only after the complete process
    tree has been shut down; no orphan process may continue writing output
 
+### 6.1 Media across one request (D700)
+
+A clip, a recording or a picture stays in the agent's context after the
+response that received it, so the per-file bounds (`MAX_INLINE_*_BYTES`) do
+not bound a request. Every provider request therefore holds its inline media —
+prompt attachments and tool-result media alike — to
+`MAX_REQUEST_MEDIA_BASE64_BYTES`, the base64 of one clip at
+`MAX_INLINE_VIDEO_BYTES` (133 MB). It is a conservative figure, not a measured
+provider limit; text and tool declarations ride on top of it uncounted.
+
+1. Media the model has received in an answered response (a later assistant
+   message that neither failed nor was aborted) may be left out, oldest first,
+   until the request fits. A left-out block is replaced in the request by a
+   note naming its type, saying it was left out and how to get it back:
+   `ViewVideo` / `ViewAudio` on the same file for a tool result, or asking the
+   user to attach it again for a prompt attachment.
+2. Media no answered response has seen is never left out. `ViewVideo` and
+   `ViewAudio` refuse a file that would push it past the bound, and tell the
+   model to look at what is attached first and call again in a later step.
+   Several large attachments in one user message are not checked: that
+   request is sent and logged as over budget.
+3. A left-out block stays out for the life of the runtime, so retries and
+   later turns send the same shape. Only the request copy changes; the agent's
+   history keeps the bytes, and the persisted transcript never had them (D660).
+4. Each newly left-out block is logged by count and size. Provider error
+   details carry `requestMediaCount`, `requestMediaBase64Bytes` and
+   `requestMediaOmitted` for the failed attempt.
+
 ## 7. Acceptance criteria
 
 - [x] oversize Bash output truncates with marker and spills the fuller copy
@@ -204,6 +232,9 @@ counts are the stable signals. The UI truncated chip follows `truncated`.
 - [x] truncated results still valid UTF-8 text
 - [x] the capture ceiling sits above the result budget, so a spilled copy can be
   fuller than the excerpt it backs, and reports the bytes and lines it omitted
+- [x] six large clips viewed one after another never put a request over the
+  media bound, the newest clip is always carried, and a left-out clip does not
+  come back (D700)
 - [ ] stdout and stderr stream separately with stable per-tool sequence values
 - [ ] Bash uses the 60s default and rejects an override outside 1–21,600s
 - [ ] timeout/abort stops the complete process tree and emits no later chunks

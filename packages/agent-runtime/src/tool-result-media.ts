@@ -352,7 +352,11 @@ export async function loadToolResultMedia(
   reference: HostMediaReference,
   description: string,
   provider: Pick<RuntimeProviderConfig, "apiStyle" | "modelConfig"> | undefined,
-  options: { delegate?: boolean } = {},
+  options: {
+    delegate?: boolean;
+    /** Why a file of this size cannot ride the next request, or null when it can. */
+    admit?: (size: number) => string | null;
+  } = {},
 ): Promise<{ text: string; block?: ToolResultMediaBlock }> {
   const { noun, plural, verb, instead, bound } = MEDIA[reference.kind];
   // A delegate runs on its own model, which this call cannot see; media sent
@@ -390,6 +394,8 @@ export async function loadToolResultMedia(
       text: `${description} ${plural} above ${bound} bytes cannot be attached, so the ${noun} is not attached.`,
     };
   }
+  const refusal = options.admit?.(size);
+  if (refusal) return { text: `${description} ${refusal}` };
   try {
     const data = (await readFile(reference.path)).toString("base64");
     return {
