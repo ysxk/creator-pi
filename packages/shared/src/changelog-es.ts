@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.7",
+    "date": "2026-10-25",
+    "highlights": [
+      "Los iconos de la app usan ahora el conjunto MingCute, con variantes rellenas para la página de ajustes abierta, el proyecto activo, la reproducción y los elementos fijados.",
+      "Un agente en una conversación en segundo plano puede previsualizar, capturar y manejar su propia pestaña del navegador mientras ves otra conversación; las acciones del navegador nunca llegan a la página de otra conversación.",
+      "La barra de tareas en segundo plano sobre el compositor muestra solo las tareas de la conversación actual, así que Detener ya no puede terminar el proceso de otra conversación.",
+      "Eliminar mensajes o cambiar de versión de respuesta ya no recupera contenido eliminado cuando el resultado del guardado es incierto, y un comando en segundo plano rechazado por el límite de tareas ya no se ejecuta antes.",
+    ],
+  },
+  {
     "version": "0.18.6",
     "date": "2026-10-24",
     "highlights": [

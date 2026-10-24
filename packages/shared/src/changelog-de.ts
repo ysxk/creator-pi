@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.7",
+    "date": "2026-10-25",
+    "highlights": [
+      "App-Symbole verwenden jetzt das MingCute-Set; gefüllte Varianten kennzeichnen die geöffnete Einstellungsseite, das aktive Projekt, die Wiedergabe und angeheftete Elemente.",
+      "Ein Agent in einem Gespräch im Hintergrund kann seinen eigenen Browser-Tab anzeigen, Screenshots aufnehmen und bedienen, während du ein anderes Gespräch ansiehst; Browser-Aktionen erreichen nie die Seite eines anderen Gesprächs.",
+      "Die Leiste für Hintergrundaufgaben über dem Eingabefeld zeigt nur die Aufgaben des aktuellen Gesprächs, sodass „Stoppen“ keinen Prozess eines anderen Gesprächs mehr beendet.",
+      "Beim Löschen von Nachrichten oder beim Wechsel einer Antwortversion kehren gelöschte Inhalte nicht mehr zurück, wenn das Speicherergebnis unklar ist; ein am Aufgabenlimit abgelehnter Hintergrundbefehl wird nicht mehr zuerst ausgeführt.",
+    ],
+  },
+  {
     "version": "0.18.6",
     "date": "2026-10-24",
     "highlights": [

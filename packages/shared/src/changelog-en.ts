@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const enEntries: ChangelogEntry[] = [
   {
+    version: "0.18.7",
+    date: "2026-10-25",
+    highlights: [
+      "App icons now use the MingCute set, with filled variants marking the open settings page, the active project, playback and pinned items.",
+      "An agent in a background conversation can preview, screenshot and operate its own Browser tab while you view another conversation; browser actions never reach another conversation's page.",
+      "The background tasks bar above the composer lists only the current conversation's tasks, so Stop can no longer end another conversation's process.",
+      "Deleting messages or switching reply versions no longer brings deleted content back when the save result is uncertain, and a background command refused at the task limit no longer runs first.",
+    ],
+  },
+  {
     version: "0.18.6",
     date: "2026-10-24",
     highlights: [

@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.7",
+    "date": "2026-10-25",
+    "highlights": [
+      "Les icônes de l'application utilisent désormais le jeu MingCute, avec des variantes pleines pour la page de réglages ouverte, le projet actif, la lecture et les éléments épinglés.",
+      "Un agent dans une conversation en arrière-plan peut prévisualiser, capturer et piloter son propre onglet de navigateur pendant que vous consultez une autre conversation ; les actions du navigateur n'atteignent jamais la page d'une autre conversation.",
+      "La barre des tâches en arrière-plan au-dessus du compositeur n'affiche que les tâches de la conversation actuelle : Arrêter ne peut plus mettre fin au processus d'une autre conversation.",
+      "Supprimer des messages ou changer de version de réponse ne fait plus revenir le contenu supprimé lorsque le résultat de l'enregistrement est incertain, et une commande en arrière-plan refusée à la limite de tâches ne s'exécute plus au préalable.",
+    ],
+  },
+  {
     "version": "0.18.6",
     "date": "2026-10-24",
     "highlights": [

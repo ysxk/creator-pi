@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.18.7",
+    "date": "2026-10-25",
+    "highlights": [
+      "Os ícones do app agora usam o conjunto MingCute, com variantes preenchidas para a página de configurações aberta, o projeto ativo, a reprodução e os itens fixados.",
+      "Um agente em uma conversa em segundo plano pode visualizar, capturar e operar a própria aba do navegador enquanto você vê outra conversa; as ações do navegador nunca alcançam a página de outra conversa.",
+      "A barra de tarefas em segundo plano acima do compositor mostra apenas as tarefas da conversa atual, então Parar não encerra mais o processo de outra conversa.",
+      "Excluir mensagens ou trocar a versão da resposta não traz mais de volta conteúdo excluído quando o resultado do salvamento é incerto, e um comando em segundo plano recusado no limite de tarefas não é mais executado antes.",
+    ],
+  },
+  {
     "version": "0.18.6",
     "date": "2026-10-24",
     "highlights": [
