@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const enEntries: ChangelogEntry[] = [
   {
+    version: "0.18.8",
+    date: "2026-10-26",
+    highlights: [
+      "Add a \"Copy project path\" action to the sidebar project menu to quickly copy the directory location to the clipboard.",
+      "Limit floating sidebar menus within the viewport height with scrolling, preventing them from extending off-screen near the window bottom.",
+    ],
+  },
+  {
     version: "0.18.7",
     date: "2026-10-25",
     highlights: [

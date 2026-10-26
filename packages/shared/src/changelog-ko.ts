@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.8",
+    "date": "2026-10-26",
+    "highlights": [
+      "사이드바 프로젝트 메뉴에 '프로젝트 경로 복사' 동작을 추가하여 디렉터리 경로를 클립보드로 빠르게 복사할 수 있습니다.",
+      "사이드바 플로팅 메뉴 높이를 화면 표시 영역 내로 제한하고 스크롤을 지원하여 창 하단에서 화면 밖으로 넘치지 않도록 방지합니다.",
+    ],
+  },
+  {
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [

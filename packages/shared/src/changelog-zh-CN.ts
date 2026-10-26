@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.18.8",
+    date: "2026-10-26",
+    highlights: [
+      "侧栏项目菜单新增“复制项目路径”操作，方便快速复制文件夹完整路径。",
+      "侧栏浮动菜单的高度限制在窗口可视区域内并支持滚动，避免靠近底部时溢出屏幕。",
+    ],
+  },
+  {
     version: "0.18.7",
     date: "2026-10-25",
     highlights: [

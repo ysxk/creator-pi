@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.8",
+    "date": "2026-10-26",
+    "highlights": [
+      "Aktion „Projektpfad kopieren“ im Projektmenü der Seitenleiste hinzugefügt, um den Verzeichnispfad schnell in die Zwischenablage zu kopieren.",
+      "Schwebende Menüs in der Seitenleiste werden auf die Fensterhöhe begrenzt und scrollen, damit sie am unteren Bildschirmrand nicht abgeschnitten werden.",
+    ],
+  },
+  {
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [

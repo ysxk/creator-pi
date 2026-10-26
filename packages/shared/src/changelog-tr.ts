@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.8",
+    "date": "2026-10-26",
+    "highlights": [
+      "Dizin yolunu panoya hızla kopyalamak için kenar çubuğu proje menüsüne \"Proje yolunu kopyala\" eylemi eklendi.",
+      "Kenar çubuğundaki açılır menüler görünür alan yüksekliğiyle sınırlandırıldı ve pencerenin altından taşmaması için kaydırma eklendi.",
+    ],
+  },
+  {
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [

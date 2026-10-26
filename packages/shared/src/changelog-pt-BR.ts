@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.18.8",
+    "date": "2026-10-26",
+    "highlights": [
+      "Adiciona a ação \"Copiar caminho do projeto\" ao menu de projetos da barra lateral para copiar a localização do diretório para a área de transferência rapidamente.",
+      "Limita a altura dos menus flutuantes da barra lateral à área visível com rolagem, evitando que ultrapassem a borda inferior da janela.",
+    ],
+  },
+  {
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [

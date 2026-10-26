@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.8",
+    "date": "2026-10-26",
+    "highlights": [
+      "Se añade la acción \"Copiar ruta del proyecto\" al menú del proyecto en la barra lateral para copiar la ruta al portapapeles rápidamente.",
+      "Los menús flotantes de la barra lateral limitan su altura al área visible y permiten desplazamiento para evitar desbordar la pantalla.",
+    ],
+  },
+  {
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [

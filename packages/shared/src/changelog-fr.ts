@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.8",
+    "date": "2026-10-26",
+    "highlights": [
+      "Ajout de l'action « Copier le chemin du projet » dans le menu de projet de la barre latérale pour copier rapidement l'emplacement du dossier dans le presse-papiers.",
+      "Les menus flotants de la barre latérale sont limités à la hauteur de la fenêtre et défilent pour ne pas déborder de l'écran en bas.",
+    ],
+  },
+  {
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [

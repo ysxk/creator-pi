@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const zhTWEntries: ChangelogEntry[] = [
   {
+    version: "0.18.8",
+    date: "2026-10-26",
+    highlights: [
+      "側欄專案選單新增「複製專案路徑」操作，方便快速複製資料夾完整路徑。",
+      "側欄浮動選單的高度限制在視窗可視區域內並支援滾動，避免靠近底部時溢出螢幕。",
+    ],
+  },
+  {
     version: "0.18.7",
     date: "2026-10-25",
     highlights: [
