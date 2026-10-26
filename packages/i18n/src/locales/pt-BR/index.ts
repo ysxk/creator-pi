@@ -1666,6 +1666,7 @@ export const ptBR = {
   project: {
     open: "Abrir projeto",
     openFolder: "Abrir pasta",
+    copyPath: "Copiar caminho do projeto",
     none: "Sem projeto",
     clear: "Limpar projeto",
     title: "Projetos",

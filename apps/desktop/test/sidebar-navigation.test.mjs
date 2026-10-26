@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { loadStyles } from "./helpers/styles.mjs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const sidebarSource = await readFile(
   new URL("../src/components/Sidebar.tsx", import.meta.url),
@@ -195,6 +197,50 @@ test("sidebar floating menus open to the anchor's right", () => {
   assert.doesNotMatch(sidebarSource, /right: menuPosition\.right/);
 });
 
+test("floating menus limit scrolling height to the space below their placement", () => {
+  const triggerPlacement = sidebarSource.match(
+    /const placeMenu = useCallback\([\s\S]*?\n  }, \[\]\);/,
+  )?.[0] ?? "";
+  const pointPlacement = sidebarSource.match(
+    /const placeMenuAtPoint = useCallback\([\s\S]*?\n  }, \[\]\);/,
+  )?.[0] ?? "";
+  const paddingDeclaration = sidebarSource.match(/const VIEWPORT_PADDING = \d+;/)?.[0] ?? "";
+  const script = ts.transpileModule(
+    `${paddingDeclaration}\n${triggerPlacement}\n${pointPlacement}\n({ placeMenu, placeMenuAtPoint });`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } },
+  ).outputText;
+  let position;
+  const viewport = { innerHeight: 900 };
+  const callbacks = runInNewContext(script, {
+    window: viewport,
+    useCallback: (callback) => callback,
+    setMenuPosition: (next) => { position = next; },
+  });
+
+  for (const height of [140, 180, 320, 900]) {
+    viewport.innerHeight = height;
+    for (const y of [8, height / 2, height - 8]) {
+      for (const place of [
+        () => callbacks.placeMenu({ currentTarget: { getBoundingClientRect: () => ({ bottom: y, right: 180 }) } }),
+        () => callbacks.placeMenuAtPoint(180, y),
+      ]) {
+        place();
+        assert.equal(position.maxHeight, Math.max(120, height - position.top - 8));
+        assert.ok(position.top >= 8);
+        assert.ok(position.top + position.maxHeight <= height - 8);
+      }
+    }
+  }
+  const floatingMenus = [...sidebarSource.matchAll(
+    /className="[^"]*sidebar-floating-menu[^"]*"[\s\S]*?style=\{\{([\s\S]*?)\}\}/g,
+  )];
+  assert.equal(floatingMenus.length, 3);
+  for (const menu of floatingMenus) {
+    assert.match(menu[1], /maxHeight:\s*menuPosition\.maxHeight/);
+  }
+  assert.match(globalStyles, /\.sidebar-floating-menu\s*\{[^}]*overflow-y:\s*auto;/s);
+});
+
 test("portaled sort menu does not stretch to the viewport edge", () => {
   const basePopoverRule = globalStyles.match(
     /\.sidebar-row-menu,\n\.sidebar-popover\s*\{[^}]*\}/s,
@@ -242,6 +288,8 @@ test("sidebar action icons stay quiet until their toolbar or row is hovered", ()
 test("project rows expose folder actions and full-path hover", () => {
   assert.match(sidebarSource, /data-action="open-project-folder"/);
   assert.match(sidebarSource, /api\.openProjectFolder\(entry\.path\)/);
+  assert.match(sidebarSource, /data-action="copy-project-path"/);
+  assert.match(sidebarSource, /navigator\.clipboard\.writeText\(entry\.path\)/);
   assert.doesNotMatch(sidebarSource, /data-action="edit-project-instructions"/);
   assert.doesNotMatch(sidebarSource, /<ProjectInstructionsDialog/);
   assert.doesNotMatch(sidebarSource, /data-action="open-session-folder"/);

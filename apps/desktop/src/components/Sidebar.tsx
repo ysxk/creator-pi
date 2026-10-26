@@ -304,6 +304,7 @@ export function Sidebar({
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
     left: number;
+    maxHeight: number;
   } | null>(null);
   const {
     card: sessionHoverCard,
@@ -512,24 +513,28 @@ export function Sidebar({
 
   const placeMenu = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
+    const top = Math.max(
+      VIEWPORT_PADDING,
+      Math.min(rect.bottom + 4, window.innerHeight - 260),
+    );
     setMenuPosition({
-      top: Math.max(
-        VIEWPORT_PADDING,
-        Math.min(rect.bottom + 4, window.innerHeight - 220),
-      ),
+      top,
       left: Math.max(VIEWPORT_PADDING, rect.right + 4),
+      maxHeight: Math.max(120, window.innerHeight - top - VIEWPORT_PADDING),
     });
   }, []);
 
   // Body-level sidebar menus always anchor their left edge to the right side
   // of the trigger or pointer; they never flip to the left at the viewport edge.
   const placeMenuAtPoint = useCallback((x: number, y: number) => {
+    const top = Math.max(
+      VIEWPORT_PADDING,
+      Math.min(y + 4, window.innerHeight - 260),
+    );
     setMenuPosition({
-      top: Math.max(
-        VIEWPORT_PADDING,
-        Math.min(y + 4, window.innerHeight - 220),
-      ),
+      top,
       left: Math.max(VIEWPORT_PADDING, x + 4),
+      maxHeight: Math.max(120, window.innerHeight - top - VIEWPORT_PADDING),
     });
   }, []);
 
@@ -1434,6 +1439,16 @@ export function Sidebar({
     }
   };
 
+  const copyProjectPath = async (entry: ProjectEntry) => {
+    closeMenus();
+    try {
+      await navigator.clipboard.writeText(entry.path);
+      showToast(t("chat.copied"));
+    } catch (error) {
+      reportError(error);
+    }
+  };
+
   const editProjectEntry = (entry: ProjectEntry, name: string) => {
     renameProject(entry.path, name);
   };
@@ -2082,6 +2097,7 @@ export function Sidebar({
           style={{
             top: menuPosition.top,
             left: menuPosition.left,
+            maxHeight: menuPosition.maxHeight,
           }}
         >
           <button
@@ -2110,6 +2126,7 @@ export function Sidebar({
           style={{
             top: menuPosition.top,
             left: menuPosition.left,
+            maxHeight: menuPosition.maxHeight,
           }}
         >
           <div className="sidebar-popover-title">
@@ -2144,6 +2161,7 @@ export function Sidebar({
         style={{
           top: menuPosition.top,
           left: menuPosition.left,
+          maxHeight: menuPosition.maxHeight,
         }}
       >
         {session ? (
@@ -2295,6 +2313,15 @@ export function Sidebar({
             >
               <IconFolder size={14} />
               {t("project.openFolder", { defaultValue: "Open folder" })}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-action="copy-project-path"
+              onClick={() => void copyProjectPath(entry)}
+            >
+              <IconCopy size={14} />
+              {t("project.copyPath", { defaultValue: "Copy project path" })}
             </button>
             <button
               type="button"

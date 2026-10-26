@@ -1726,6 +1726,7 @@ sklm: {
   project: {
     open: "Open project",
     openFolder: "Open folder",
+    copyPath: "Copy project path",
     none: "No project",
     clear: "Clear project",
     title: "Projects",

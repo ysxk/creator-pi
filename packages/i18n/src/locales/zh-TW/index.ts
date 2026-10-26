@@ -1691,6 +1691,7 @@ sklm: {
   project: {
     open: "開啟專案",
     openFolder: "開啟資料夾",
+    copyPath: "複製專案路徑",
     none: "無專案",
     clear: "關閉專案",
     title: "專案",

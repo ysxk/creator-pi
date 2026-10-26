@@ -1703,6 +1703,7 @@ sklm: {
   "project": {
     "open": "Abrir proyecto",
     "openFolder": "Abrir carpeta",
+    "copyPath": "Copiar ruta del proyecto",
     "none": "Sin proyecto",
     "clear": "Borrar proyecto",
     "title": "Proyectos",

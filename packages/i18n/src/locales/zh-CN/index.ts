@@ -1691,6 +1691,7 @@ sklm: {
   project: {
     open: "打开项目",
     openFolder: "打开文件夹",
+    copyPath: "复制项目路径",
     none: "无项目",
     clear: "关闭项目",
     title: "项目",

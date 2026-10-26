@@ -1709,6 +1709,7 @@ sklm: {
   project: {
     open: "Proje aç",
     openFolder: "Klasörü aç",
+    copyPath: "Proje yolunu kopyala",
     none: "Proje yok",
     clear: "Projeyi temizle",
     title: "Projeler",

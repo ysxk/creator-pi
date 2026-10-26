@@ -1719,6 +1719,7 @@ sklm: {
   project: {
     open: "프로젝트 열기",
     openFolder: "폴더 열기",
+    copyPath: "프로젝트 경로 복사",
     none: "프로젝트 없음",
     clear: "프로젝트 지우기",
     title: "프로젝트",
