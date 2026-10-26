@@ -1,4 +1,4 @@
-import { IPC, type AgentEventEnvelope, type UiMessage } from "@pi-desktop/shared";
+import { IPC, resolveModelBinding, type AgentEventEnvelope, type UiMessage } from "@pi-desktop/shared";
 import {
   findSubagentProviderSource,
   modelConfigWithBinding,
@@ -533,6 +533,7 @@ export function createSidecarRuntime({
       supportsReasoning: capabilities.supportsReasoning,
       supportedThinkingLevels: [...capabilities.supportedThinkingLevels],
       ...(modelConfig ? { modelConfig } : {}),
+      ...(binding ? (resolveModelBinding(binding).systemPrompt ? { systemPrompt: resolveModelBinding(binding).systemPrompt } : {}) : {}),
     };
   });
   // Agent-driven work panel preview (D100): open a workspace HTML file in

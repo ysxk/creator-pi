@@ -212,6 +212,8 @@ export type ContextWindowSource = ModelLimitSource;
 /** Provider-local model settings persisted with the provider configuration. */
 export type ModelBinding = {
   id: string;
+  settings?: import("../model-settings.js").ModelSettingsLayers;
+  systemPrompt?: string;
   /** Optional display alias. When set it names the model everywhere the UI
    * shows a model label; the id remains the wire identity. */
   alias?: string;

@@ -7,6 +7,8 @@ import {
   imageGenerationBindings,
   isImageGenerationModel,
   normalizeMode,
+  resolveModelBinding,
+  resolveBindingLimits,
   globalSubagentsInProjectPolicy,
   trustedExtensionAgentKeyFromProviderId,
   type CommandShellCatalog,
@@ -307,6 +309,9 @@ export function createSessionLaunchRuntime({
       "providers.list",
       { includeDisabled: false },
     );
+    providers.providers = providers.providers.map((row) => ({
+      ...row, models: row.models?.map(resolveModelBinding),
+    }));
     for (const row of providers.providers) modelsDevCatalog.configureAccount(row);
     await syncDiscoveredModels(runtimeState.host!, modelsDevCatalog, logger);
     const requestedProviderId = overrides.providerId ?? session.providerId;
@@ -398,7 +403,8 @@ export function createSessionLaunchRuntime({
         apiStyle,
         modelId,
       });
-    const modelConfig = catalogModelConfig;
+    const limits = resolveBindingLimits(catalogModelConfig, storedModel);
+    const modelConfig = modelConfigWithBinding(limits.catalogConfig, limits.binding);
     const thinkingCapabilities = capabilitiesFromModelConfig(modelConfig);
     const thinkingLevel = clampThinkingLevel(
       thinkingCapabilities,
@@ -526,8 +532,8 @@ export function createSessionLaunchRuntime({
         (await runtimeState.host!.call<{ value?: string }>("providers.getSecret", { id })).value,
       resolveVendorBinding: (pinned, pinnedModelId) =>
         vendorOAuth.bindingFor(pinned.id, pinnedModelId),
-      resolveModel: async (pinned, pinnedModelId) => {
-        const catalogModelConfig = catalogModelConfigFor(modelsDevCatalog, {
+      resolveModel: async (pinned, pinnedModelId, vendorModelConfig) => {
+        const catalogModelConfig = vendorModelConfig ?? catalogModelConfigFor(modelsDevCatalog, {
           providerId: pinned.id,
           vendorKey: pinned.vendorKey,
           baseUrl: pinned.baseUrl,
@@ -618,6 +624,7 @@ export function createSessionLaunchRuntime({
           ...(row.vendorKey ? { vendorKey: row.vendorKey } : {}),
           ...(row.baseUrl ? { baseUrl: row.baseUrl } : {}),
           modelId: binding.id,
+          systemPrompt: binding.systemPrompt,
           apiKey,
           ...(row.authKind ? { authKind: row.authKind } : {}),
           ...(row.apiStyle ? { apiStyle: row.apiStyle } : {}),
@@ -725,6 +732,7 @@ export function createSessionLaunchRuntime({
           vendorKey: provider.vendorKey,
           baseUrl,
           modelId,
+          systemPrompt: storedModel?.systemPrompt,
           apiKey: secret.value || "",
           authKind: provider.authKind,
           extensionAgentKey: provider.extensionAgentKey,

@@ -75,7 +75,7 @@ async function fixture(options: {
     fallbackModels: [{ key: "secondary/secondary", provider: provider("secondary") }],
     onEvent: (event) => events.push(event), ...overrides,
   }).run();
-  return { run, provider, requests, headers, events, edits: () => edits };
+  return { run, provider, requests, headers, events, tool, edits: () => edits };
 }
 
 describe("subagent model fallback over real transport", () => {
@@ -239,6 +239,73 @@ describe("subagent model fallback over real transport", () => {
     const omitted = await g.run({ thinkingLevel: "omit" });
     expect(omitted.thinkingLevel).toBe("omit");
     expect(g.requests.every((request) => request.reasoning_effort === undefined)).toBe(true);
+  });
+
+  it.each(["prompt", "tools"] as const)("counts %s overhead once when continuing after a tool result", async (overhead) => {
+    const f = await fixture({ editFirst: true, fail: [] });
+    const base = f.provider("primary");
+    const result = await f.run({
+      provider: {
+        ...base,
+        modelConfig: {
+          ...genericModelConfig("primary", base.baseUrl!),
+          contextWindow: 4_096,
+          maxTokens: 1_024,
+        },
+      },
+      systemPrompt: overhead === "prompt" ? "s".repeat(4_800) : "Finish the work.",
+      tools: [{ ...f.tool, ...(overhead === "tools" ? { description: "t".repeat(4_800) } : {}) }],
+      fallbackModels: [],
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.contextCompactions).toBeUndefined();
+    expect(result.contextDegraded).toBeUndefined();
+    expect(f.requests.map((request) => request.model)).toEqual(["primary", "primary"]);
+    expect(f.edits()).toBe(1);
+    expect(f.requests[1].messages.some((message) => message.role === "tool")).toBe(true);
+  });
+
+  it.each([
+    { primaryPrompt: "Short primary instructions.", fallbackPrompt: "b".repeat(10_000), expected: "third" },
+    { primaryPrompt: "Short primary instructions.", fallbackPrompt: "Short fallback instructions.", expected: "secondary" },
+  ])("checks the target prompt before choosing $expected", async ({ primaryPrompt, fallbackPrompt, expected }) => {
+    const f = await fixture();
+    const base = f.provider("secondary");
+    const changes: string[] = [];
+    const result = await f.run({
+      provider: { ...f.provider("primary"), systemPrompt: primaryPrompt },
+      fallbackModels: [
+        {
+          key: "secondary/secondary",
+          provider: {
+            ...base,
+            systemPrompt: fallbackPrompt,
+            modelConfig: {
+              ...genericModelConfig("secondary", base.baseUrl!),
+              contextWindow: 4_096,
+              maxTokens: 1_024,
+            },
+          },
+        },
+        { key: "third/third", provider: f.provider("third") },
+      ],
+      onModelChange: (provider) => changes.push(provider.modelId),
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.modelId).toBe(expected);
+    expect(changes).toEqual([expected]);
+    expect(f.requests.map((request) => request.model)).toEqual(["primary", expected]);
+    if (expected === "secondary") {
+      const system = f.requests[1].messages.filter((message) => message.role === "system");
+      expect(JSON.stringify(system)).toContain(fallbackPrompt);
+      expect(JSON.stringify(system)).not.toContain(primaryPrompt);
+    } else {
+      expect(result.modelFailures).toContainEqual(expect.objectContaining({
+        model: "secondary/secondary", code: "SUBAGENT_CONTEXT_OVERFLOW",
+      }));
+    }
   });
 
   it("skips a fallback whose window cannot hold the carried context (ADR 0299)", async () => {

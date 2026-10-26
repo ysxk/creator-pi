@@ -231,7 +231,7 @@ export const ChatSurface = memo(function ChatSurface({
                 className="chat-error-action"
                 onClick={() => {
                   const store = useAppStore.getState();
-                  store.setSettingsTab("agent");
+                  store.setSettingsTab("providers");
                   store.setPage("settings");
                 }}
               >

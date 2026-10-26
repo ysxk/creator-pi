@@ -57,6 +57,7 @@ const settingsSource = (
   await Promise.all(
     [
       "../src/components/settings/ModelConfigPage.tsx",
+      "../src/components/settings/ModelSettingsForm.tsx",
       "../src/components/settings/ProviderSetupDialog.tsx",
       // The picker both credential kinds render owns the thinking chips (D270).
       "../src/components/settings/ModelSelectionPanes.tsx",

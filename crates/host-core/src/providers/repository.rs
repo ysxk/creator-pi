@@ -87,8 +87,10 @@ pub fn list_providers(
     let mut stmt = db.conn().prepare_cached(&sql)?;
     let rows = stmt.query_map([], |row| provider_from_row(row, secrets))?;
     let mut providers = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    let settings = crate::model_settings::get(db)?;
     for provider in &mut providers {
         hydrate_dynamic_plugin_models(db, provider)?;
+        crate::model_settings::attach(&settings, provider)?;
     }
     super::order::apply_saved_order(db, &mut providers)?;
     Ok(providers)
@@ -133,6 +135,8 @@ fn hydrate_dynamic_plugin_models(db: &Database, provider: &mut ProviderPublic) -
                 supports_documents: None,
                 available_for_subagents: None,
                 native_web_search: None,
+                settings: None,
+                system_prompt: None,
             }
         })
         .collect();
@@ -150,7 +154,7 @@ fn hydrate_dynamic_plugin_models(db: &Database, provider: &mut ProviderPublic) -
 pub fn create_provider(
     db: &Database,
     secrets: &SecretStore,
-    input: ProviderCreateInput,
+    mut input: ProviderCreateInput,
 ) -> Result<ProviderPublic> {
     let id = Uuid::new_v4().to_string();
     let now = now_ms();
@@ -159,6 +163,13 @@ pub fn create_provider(
     if let Some(models) = input.models.as_deref() {
         validate_model_aliases(models)?;
     }
+    let settings = match input.models.as_mut() {
+        Some(models) => Some(crate::model_settings::prepare_save(db, &id, models, None)?),
+        None => {
+            crate::model_settings::get(db)?;
+            None
+        }
+    };
     let secret_ref = secret_ref_for_provider(&id);
     let mut backend = None;
     if let Some(secret) = input.secret_value.as_ref().filter(|s| !s.is_empty()) {
@@ -194,6 +205,7 @@ pub fn create_provider(
         None => config_json,
     };
 
+    let tx = db.conn().unchecked_transaction()?;
     db.conn()
         .prepare_cached(
             "INSERT INTO providers (
@@ -225,6 +237,11 @@ pub fn create_provider(
             now,
         ])?;
 
+    if let Some(settings) = settings {
+        crate::model_settings::save(db, &settings)?;
+    }
+    tx.commit()?;
+
     get_provider(db, secrets, &id)?.ok_or_else(|| anyhow::anyhow!("provider missing after create"))
 }
 
@@ -236,7 +253,7 @@ pub(crate) fn create_provider_with_id(
     db: &Database,
     secrets: &SecretStore,
     id: &str,
-    input: ProviderCreateInput,
+    mut input: ProviderCreateInput,
 ) -> Result<ProviderPublic> {
     if id.trim().is_empty() || id.len() > 128 {
         bail!("PROVIDER_INVALID: provider id is invalid");
@@ -254,6 +271,13 @@ pub(crate) fn create_provider_with_id(
     if let Some(models) = input.models.as_deref() {
         validate_model_aliases(models)?;
     }
+    let settings = match input.models.as_mut() {
+        Some(models) => Some(crate::model_settings::prepare_save(db, id, models, None)?),
+        None => {
+            crate::model_settings::get(db)?;
+            None
+        }
+    };
     let now = now_ms();
     let secret_ref = secret_ref_for_provider(id);
     let mut backend = None;
@@ -288,6 +312,7 @@ pub(crate) fn create_provider_with_id(
         Some(headers) => config_with_headers(&config_json, headers)?,
         None => config_json,
     };
+    let tx = db.conn().unchecked_transaction()?;
     db.conn()
         .prepare_cached(
             "INSERT INTO providers (
@@ -318,13 +343,18 @@ pub(crate) fn create_provider_with_id(
             config_json,
             now,
         ])?;
+    if let Some(settings) = settings {
+        crate::model_settings::save(db, &settings)?;
+    }
+    tx.commit()?;
+
     get_provider(db, secrets, id)?.ok_or_else(|| anyhow::anyhow!("provider missing after import"))
 }
 
 pub fn update_provider(
     db: &Database,
     secrets: &SecretStore,
-    input: ProviderUpdateInput,
+    mut input: ProviderUpdateInput,
 ) -> Result<Option<ProviderPublic>> {
     let Some(current) = get_provider(db, secrets, &input.id)? else {
         return Ok(None);
@@ -342,6 +372,18 @@ pub fn update_provider(
     if let Some(models) = input.models.as_deref() {
         validate_model_aliases(models)?;
     }
+    let settings = match input.models.as_mut() {
+        Some(models) => Some(crate::model_settings::prepare_save(
+            db,
+            &input.id,
+            models,
+            Some(&current),
+        )?),
+        None => {
+            crate::model_settings::get(db)?;
+            None
+        }
+    };
     let raw_config: String = db.conn().query_row(
         "SELECT config_json FROM providers WHERE id = ?1",
         params![input.id],
@@ -424,6 +466,7 @@ pub fn update_provider(
             .execute(params![api_key_ref])?;
     }
 
+    let tx = db.conn().unchecked_transaction()?;
     db.conn()
         .prepare_cached(
             "UPDATE providers SET
@@ -462,6 +505,11 @@ pub fn update_provider(
             input.id,
             clear_api_key
         ])?;
+    if let Some(settings) = settings {
+        crate::model_settings::save(db, &settings)?;
+    }
+    tx.commit()?;
+
     // A save that drops bindings also forgets their cached rows. The cache is
     // the service's answer, and a model the user removed is no longer part of
     // the configuration that answer belongs to; keeping the row would feed the
@@ -471,10 +519,10 @@ pub fn update_provider(
             .models
             .iter()
             .filter(|binding| {
-                let id = binding.id.trim().to_lowercase();
+                let id = binding.id.trim().to_ascii_lowercase();
                 !models
                     .iter()
-                    .any(|model| model.id.trim().to_lowercase() == id)
+                    .any(|model| model.id.trim().to_ascii_lowercase() == id)
             })
             .map(|binding| binding.id.clone())
             .collect();
@@ -537,10 +585,13 @@ pub(crate) fn delete_provider_row(db: &Database, secrets: &SecretStore, id: &str
             .prepare_cached("DELETE FROM secrets_meta WHERE secret_ref = ?1")?
             .execute(params![sref])?;
     }
+    let tx = db.conn().unchecked_transaction()?;
+    crate::model_settings::remove_provider(db, id)?;
     let n = db
         .conn()
         .prepare_cached("DELETE FROM providers WHERE id = ?1")?
         .execute(params![id])?;
+    tx.commit()?;
     Ok(n > 0)
 }
 
@@ -761,6 +812,7 @@ pub fn get_provider(
         .optional()?;
     if let Some(provider) = provider.as_mut() {
         hydrate_dynamic_plugin_models(db, provider)?;
+        crate::model_settings::attach(&crate::model_settings::get(db)?, provider)?;
     }
     Ok(provider)
 }

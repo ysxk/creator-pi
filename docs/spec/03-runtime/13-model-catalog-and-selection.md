@@ -614,3 +614,8 @@ The default conversation model has a separate **Image generation model** row bel
 it. Model Advanced can select that unique binding; provider form Save commits it,
 Cancel discards it, and replacing it leaves the conversation default unchanged.
 See [image generation and editing](21-image-generation.md) for the tool and batch contract.
+
+
+### Model Preferences & Custom Prompts
+
+Users can configure model preferences globally and override them on specific channels. During turn execution, the effective model-specific system prompt is loaded and injected between the global instructions and project instructions. Subagents inherit their own selected model instructions rather than the parent model prompt.

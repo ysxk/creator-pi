@@ -83,6 +83,8 @@ pub(crate) fn normalize_model_bindings(bindings: &[ModelBinding]) -> Vec<ModelBi
                 supports_documents: binding.supports_documents,
                 available_for_subagents: binding.available_for_subagents,
                 native_web_search: binding.native_web_search,
+                settings: None,
+                system_prompt: binding.system_prompt.clone(),
             })
         })
         .collect()
@@ -108,6 +110,8 @@ fn legacy_model_binding(model_id: Option<String>) -> Vec<ModelBinding> {
                 supports_documents: None,
                 available_for_subagents: None,
                 native_web_search: None,
+                settings: None,
+                system_prompt: None,
             }]
         })
         .unwrap_or_default()
@@ -485,6 +489,7 @@ pub(crate) fn forget_cached_models(
             removed += stmt.execute(params![provider_id, model_id])?;
         }
     }
+    crate::model_settings::remove_models(db, provider_id, model_ids)?;
     tx.commit()?;
     Ok(removed)
 }
@@ -521,8 +526,10 @@ pub(crate) fn forget_missing_discovered_models(
     provider_id: &str,
     keep_ids: &[String],
 ) -> Result<usize> {
-    let keep: std::collections::BTreeSet<String> =
-        keep_ids.iter().map(|id| id.trim().to_lowercase()).collect();
+    let keep: std::collections::BTreeSet<String> = keep_ids
+        .iter()
+        .map(|id| id.trim().to_ascii_lowercase())
+        .collect();
     let stale: Vec<String> = {
         let mut stmt = db.conn().prepare_cached(
             "SELECT model_id FROM models WHERE provider_id = ?1 AND source = 'discovered'",
@@ -530,7 +537,7 @@ pub(crate) fn forget_missing_discovered_models(
         let rows = stmt.query_map(params![provider_id], |row| row.get::<_, String>(0))?;
         rows.collect::<rusqlite::Result<Vec<String>>>()?
             .into_iter()
-            .filter(|model_id| !keep.contains(&model_id.trim().to_lowercase()))
+            .filter(|model_id| !keep.contains(&model_id.trim().to_ascii_lowercase()))
             .collect()
     };
     forget_cached_models(db, provider_id, &stale)
@@ -557,6 +564,8 @@ mod tests {
             supports_documents: None,
             available_for_subagents: None,
             native_web_search: None,
+            settings: None,
+            system_prompt: None,
         }
     }
 

@@ -57,6 +57,7 @@ import {
   createProviderModels,
   type RuntimeProviderConfig,
 } from "./provider-binding.js";
+import { systemTranscriptCheckpoint } from "./system-transcript.js";
 
 /**
  * Safety margin between the summary prompt and the model window. The session
@@ -176,13 +177,17 @@ export async function prepareDelegateTurnContext(input: {
   if (input.messages.length === 0 && budget.tokens < budget.hardLimit) {
     return { kind: "unchanged" };
   }
+  const systemCheckpoint = systemTranscriptCheckpoint(input.messages);
+  const checkpointAdditionalMessages = systemCheckpoint
+    ? [systemCheckpoint, ...additionalMessages]
+    : additionalMessages;
 
   const compacted = await compactDelegateContext(input, budget);
   if (compacted) {
     const fit = delegateContextBudgetFor(
       input.model,
       compacted.messages,
-      additionalMessages,
+      checkpointAdditionalMessages,
       input.systemPrompt,
       input.tools,
     );
@@ -198,7 +203,7 @@ export async function prepareDelegateTurnContext(input: {
     {
       systemPrompt: input.systemPrompt,
       tools: input.tools,
-      additionalMessages,
+      additionalMessages: checkpointAdditionalMessages,
       includeTaskBrief: input.retainTaskBriefOnDegradation !== false,
     },
   );
@@ -206,7 +211,7 @@ export async function prepareDelegateTurnContext(input: {
     const fit = delegateContextBudgetFor(
       input.model,
       degraded,
-      additionalMessages,
+      checkpointAdditionalMessages,
       input.systemPrompt,
       input.tools,
     );

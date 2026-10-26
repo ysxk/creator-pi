@@ -2454,7 +2454,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   }
 
   private composeSystemPrompt(): string {
-    const projectPrompt = projectInstructionsPrompt(this.projectInstructions);
+    const projectPrompt = projectInstructionsPrompt(this.projectInstructions, this.provider.systemPrompt);
     const memoryPrompt = projectMemoryPrompt(this.projectMemory);
     const optionalToolsPrompt = this.optionalToolsPrompt();
     const mediaPrompt = viewMediaPrompt(new Set(this.toolCatalog.keys()));
@@ -2736,6 +2736,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     return (
       !this.disposed &&
       providerMatches &&
+      (this.provider.systemPrompt ?? "") === (config.provider.systemPrompt ?? "") &&
       this.mode === config.mode &&
       this.jevApiKey === config.jevApiKey &&
       this.thinkingLevel ===
@@ -4438,7 +4439,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
 
   /**
    * Session facts a delegate needs and cannot discover: the shell dialect, the
-   * scratch directory, and the project's own instruction chain. The parent's
+   * scratch directory, and tool-use rules. The parent's
    * collaboration rules are deliberately left out — a delegate has no user to
    * talk to, and its report format is set by `composeSubagentSystemPrompt`.
    */
@@ -4469,8 +4470,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       const skillsPrompt = pluginSkillsPrompt(this.pluginSkills);
       if (skillsPrompt) blocks.push(skillsPrompt);
     }
-    const projectPrompt = projectInstructionsPrompt(this.projectInstructions);
-    if (projectPrompt) blocks.push(projectPrompt);
     return blocks;
   }
 
@@ -4944,6 +4943,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               });
               this.publishDelegationSettlement(record);
             },
+            projectInstructions: this.projectInstructions,
             systemPrompt: composeSubagentSystemPrompt({
               definition,
               guidance: this.subagentGuidance(definition),

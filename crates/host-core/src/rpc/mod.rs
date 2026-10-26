@@ -1,4 +1,6 @@
 mod config_sync_rpc;
+#[cfg(test)]
+mod model_settings_tests;
 mod scheduled_rpc;
 mod scheduled_tools;
 mod todos;
@@ -712,7 +714,11 @@ fn config_sync_rpc_err(error: impl ToString) -> JsonRpcError {
 
 fn provider_rpc_err(error: impl ToString) -> JsonRpcError {
     let message = error.to_string();
-    for error_code in ["MODEL_ALIAS_TOO_LONG", "MODEL_BINDINGS_DEGRADED"] {
+    for error_code in [
+        "MODEL_ALIAS_TOO_LONG",
+        "MODEL_BINDINGS_DEGRADED",
+        "MODEL_SETTINGS_INVALID",
+    ] {
         if message.starts_with(&format!("{error_code}:")) {
             return rpc_err(1002, message, error_code);
         }
@@ -2413,6 +2419,30 @@ async fn handle_request(
             Ok(json!({ "value": value }))
         }
 
+        "modelSettings.get" => {
+            let st = state.lock().await;
+            let snapshot = crate::model_settings::get(&st.db)
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(json!(snapshot))
+        }
+        "modelSettings.update" => {
+            let input: crate::model_settings::UpdateInput = serde_json::from_value(params)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let snapshot = crate::model_settings::update(&st.db, input).map_err(|e| {
+                let invalid = e.to_string().starts_with("MODEL_SETTINGS_INVALID:");
+                rpc_err(
+                    if invalid { 1002 } else { 1000 },
+                    e.to_string(),
+                    if invalid {
+                        "INVALID_PARAMS"
+                    } else {
+                        "INTERNAL"
+                    },
+                )
+            })?;
+            Ok(json!(snapshot))
+        }
         "providers.list" => {
             let include_disabled = params
                 .get("includeDisabled")

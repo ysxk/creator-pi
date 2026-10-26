@@ -19,12 +19,22 @@ fn capture_application(st: &AppState) -> Result<PortableEntity> {
 
 fn capture_providers(st: &AppState) -> Result<Vec<PortableEntity>> {
     let providers = crate::providers::list_providers(&st.db, &st.secrets, true)?;
-    let mut result = Vec::new();
+    let mut result = vec![entity(
+        DOMAIN_PROVIDERS,
+        "model-settings",
+        "Model defaults and plugin model preferences",
+        serde_json::to_value(crate::model_settings::portable(&st.db)?)?,
+        false,
+        false,
+        false,
+        Vec::new(),
+    )];
     for provider in providers {
         if provider.owner_plugin_id.is_some() {
             continue;
         }
         let mut payload = serde_json::to_value(&provider)?;
+        crate::model_settings::strip_portable_defaults(&mut payload);
         strip_keys(
             &mut payload,
             &[
@@ -729,7 +739,7 @@ pub(crate) fn capture(
     }
     if selection.is_selected(DOMAIN_PROVIDERS) {
         for mut provider in capture_providers(st)? {
-            if include_secrets {
+            if include_secrets && provider.entity_id.starts_with("provider:") {
                 let id = provider
                     .entity_id
                     .strip_prefix("provider:")

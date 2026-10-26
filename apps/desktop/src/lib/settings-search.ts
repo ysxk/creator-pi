@@ -10,6 +10,7 @@ export type SettingsTabId =
   | "ai"
   | "shortcuts"
   | "instructions"
+  | "providers"
   | "agent"
   | "skills"
   | "mcp"
@@ -166,17 +167,16 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     ],
   },
   {
-    id: "agent",
-    labelKey: "settings.nav.models",
-    titleKey: "settings.configuration",
+    id: "providers",
+    labelKey: "settings.nav.providers",
+    titleKey: "settings.providersTitle",
     group: "agent",
     keywordKeys: [
       "settings.providers",
-      "settings.models",
+      "settings.addProvider",
       "settings.apiKey",
       "settings.baseUrl",
       "settings.apiStyle",
-      // Subscription accounts share the service list (D625).
       "settings.vendorAccounts",
       "settings.vendorSubscription",
       "settings.importTitle",
@@ -187,6 +187,27 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.importSourceCodex",
       "settings.importSourcePi",
       "settings.importSourceCcSwitch",
+    ],
+  },
+  {
+    id: "agent",
+    labelKey: "settings.nav.models",
+    titleKey: "settings.modelsTitle",
+    group: "agent",
+    keywordKeys: [
+      "settings.models",
+      "settings.modelAlias",
+      "settings.contextWindow",
+      "settings.maxOutput",
+      "settings.defaultThinkingLevel",
+      "settings.thinkingProtocol",
+      "settings.imageInput",
+      "settings.videoInput",
+      "settings.audioInput",
+      "settings.documentInput",
+      "settings.availableForSubagents",
+      "settings.nativeWebSearch",
+      "settings.modelPrefs.prompt",
     ],
   },
   {

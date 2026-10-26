@@ -49,7 +49,8 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   2. **AI** — Lucide `Sparkles` (permissions, defaults, command shell)
   3. **Shortcuts / 快捷键** — Lucide `Keyboard` (keyboard shortcuts)
   4. **Instructions / 指令** — Lucide `FileText` (global and project instruction files)
-  5. **Models / 模型** — Lucide `Bot` (providers and default model)
+  5. **Channels / 渠道** — Lucide `Server` (AI service endpoints, credentials, OAuth, discovery)
+  6. **Models / 模型** — Lucide `Bot` (aggregated model preferences, defaults, channel overrides, model system prompts)
   6. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
   7. **MCP** — Lucide `Server` (agent connections)
   8. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
@@ -62,7 +63,7 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
 - The directory remains a flat searchable list in the same exact order. For
   scanability, the destinations are shown in four titled visual clusters:
   `Preferences` / `偏好` (General, AI, Shortcuts), `Agent` / `智能体`
-  (Instructions, Models, Skills, MCP, Subagents), `Workspace` / `工作区`
+  (Instructions, Channels, Models, Skills, MCP, Subagents), `Workspace` / `工作区`
   (Projects), and `System` / `系统` (Cloud sync, Remote Hosts, Info; Cloud sync
   is development-build-only, Remote Hosts is developer-only). Headings are
   muted, non-interactive labels and use whitespace for separation; no divider

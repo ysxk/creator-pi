@@ -1,6 +1,7 @@
 import {
   ErrorCodes as SharedErrorCodes,
   SESSION_THINKING_LEVELS,
+  resolveModelBinding,
   defaultCommandShellForPlatform,
   isCommandShellId,
   validateNetworkProxy,
@@ -68,6 +69,11 @@ export type ProviderCatalogRuntimeDependencies = {
   logger?: Pick<Logger, "app">;
 };
 
+function applyModelBinding(model: ModelConfig, binding?: ModelBinding): ModelConfig {
+  const limits = resolveBindingLimits(model, binding);
+  return modelConfigWithBinding(limits.catalogConfig, limits.binding);
+}
+
 export function createProviderCatalogRuntime({
   getHost,
   modelsDevCatalog,
@@ -76,10 +82,12 @@ export function createProviderCatalogRuntime({
   const bindingForModel = (
     provider: Pick<RuntimeProvider, "models">,
     modelId: string,
-  ): ModelBinding | undefined =>
-    provider.models?.find((binding) =>
+  ): ModelBinding | undefined => {
+    const binding = provider.models?.find((binding) =>
       binding.id.trim().toLowerCase() === modelId.trim().toLowerCase(),
     );
+    return binding ? resolveModelBinding(binding) : undefined;
+  };
 
   const modelsDevModelFor = (provider: RuntimeProvider, modelId: string) =>
     modelsDevCatalog.findModel({
@@ -99,11 +107,11 @@ export function createProviderCatalogRuntime({
     modelId: string,
     catalogModelConfig?: ModelConfig,
   ) => {
-    modelsDevCatalog.configureAccount(provider);
+    modelsDevCatalog.configureAccount({ ...provider, models: provider.models?.map(resolveModelBinding) });
     const modelConfig = modelsDevCatalog.modelConfigFor({
       providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId,
     }, catalogModelConfig);
-    const effectiveModelConfig = modelConfigWithBinding(
+    const effectiveModelConfig = applyModelBinding(
       modelConfig,
       bindingForModel(provider, modelId),
     );
@@ -123,15 +131,14 @@ export function createProviderCatalogRuntime({
       provider.models?.[0]?.id ||
       provider.defaultModelId ||
       "";
-    modelsDevCatalog.configureAccount(provider);
+    modelsDevCatalog.configureAccount({ ...provider, models: provider.models?.map(resolveModelBinding) });
     const catalogConfig = catalogModelConfigFor(modelsDevCatalog, {
       providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId,
     });
-    const modelConfig = modelConfigWithBinding(
-      catalogConfig,
-      bindingForModel(provider, modelId),
-    );
-    const models = provider.models?.map((binding) => {
+    const limits = resolveBindingLimits(catalogConfig, bindingForModel(provider, modelId));
+    const modelConfig = modelConfigWithBinding(limits.catalogConfig, limits.binding);
+    const models = provider.models?.map((rawBinding) => {
+      const binding = resolveModelBinding(rawBinding);
       const catalogConfig = catalogModelConfigFor(modelsDevCatalog, {
         providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId: binding.id,
       });
@@ -283,9 +290,12 @@ export function createProviderCatalogRuntime({
       { includeDisabled },
     );
     await modelsDevCatalog.ensureLoaded();
-    for (const provider of result.providers) modelsDevCatalog.configureAccount(provider);
+    const providers = result.providers.map((provider) => ({
+      ...provider, models: provider.models?.map(resolveModelBinding),
+    }));
+    for (const provider of providers) modelsDevCatalog.configureAccount(provider);
     await syncDiscoveredModels(host, modelsDevCatalog, logger);
-    return result.providers;
+    return providers;
   };
 
   const enrichProviderList = async <T extends RuntimeProvider>(result: {
@@ -366,14 +376,12 @@ export function createProviderCatalogRuntime({
       };
     }
     const { provider, modelId } = target;
-    modelsDevCatalog.configureAccount(provider);
+    modelsDevCatalog.configureAccount({ ...provider, models: provider.models?.map(resolveModelBinding) });
     const catalogConfig = catalogModelConfigFor(modelsDevCatalog, {
       providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId,
     });
-    const modelConfig = modelConfigWithBinding(
-      catalogConfig,
-      bindingForModel(provider, modelId),
-    );
+    const limits = resolveBindingLimits(catalogConfig, bindingForModel(provider, modelId));
+    const modelConfig = modelConfigWithBinding(limits.catalogConfig, limits.binding);
     return {
       ...session,
       ...capabilitiesFromModelConfig(modelConfig),

@@ -8,10 +8,13 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { loadStyles } from "./helpers/styles.mjs";
 
-const pickerSource = await readFile(
+const pickerSource = (await readFile(
   new URL("../src/components/settings/ModelSelectionPanes.tsx", import.meta.url),
   "utf8",
-);
+)) + "\n" + (await readFile(
+  new URL("../src/components/settings/ModelSettingsForm.tsx", import.meta.url),
+  "utf8",
+));
 const imageModelRowSource = await readFile(
   new URL("../src/components/settings/ImageGenerationModelRow.tsx", import.meta.url),
   "utf8",

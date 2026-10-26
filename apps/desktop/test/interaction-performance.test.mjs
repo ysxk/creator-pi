@@ -37,8 +37,8 @@ test("streaming state stays inside the chat render boundary", () => {
   assert.match(chatSurface, /const StableComposer = memo\(Composer\)/);
 });
 
-test("chat configuration errors still navigate to agent settings", () => {
-  assert.match(chatSurface, /store\.setSettingsTab\("agent"\)/);
+test("chat configuration errors navigate to channel settings", () => {
+  assert.match(chatSurface, /store\.setSettingsTab\("providers"\)/);
   assert.match(chatSurface, /store\.setPage\("settings"\)/);
 });
 

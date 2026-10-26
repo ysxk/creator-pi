@@ -13,6 +13,7 @@ export const deEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "App-Symbole verwenden jetzt das MingCute-Set; gefüllte Varianten kennzeichnen die geöffnete Einstellungsseite, das aktive Projekt, die Wiedergabe und angeheftete Elemente.",
       "Ein Agent in einem Gespräch im Hintergrund kann seinen eigenen Browser-Tab anzeigen, Screenshots aufnehmen und bedienen, während du ein anderes Gespräch ansiehst; Browser-Aktionen erreichen nie die Seite eines anderen Gesprächs.",
       "Die Leiste für Hintergrundaufgaben über dem Eingabefeld zeigt nur die Aufgaben des aktuellen Gesprächs, sodass „Stoppen“ keinen Prozess eines anderen Gesprächs mehr beendet.",

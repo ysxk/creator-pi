@@ -37,7 +37,7 @@ export function OnboardingChecklist() {
       case "settings.providers":
       case "addProvider":
       case "saveKey":
-        setSettingsTab("agent");
+        setSettingsTab("providers");
         setPage("settings");
         break;
       case "project.open":

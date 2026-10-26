@@ -142,6 +142,10 @@ pub struct ProviderUpdateInput {
 #[serde(rename_all = "camelCase")]
 pub struct ModelBinding {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<crate::model_settings::Layers>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
     /// Optional display alias. A blank or absent alias falls back to the catalog's
     /// published name; `id` remains the wire identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]

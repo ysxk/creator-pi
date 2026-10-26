@@ -272,6 +272,8 @@ export const IPC = {
     providersOauthRespond: "pi-desktop/providers/oauth/respond",
     providersOauthCancel: "pi-desktop/providers/oauth/cancel",
     providersOauthDelete: "pi-desktop/providers/oauth/delete",
+    modelSettingsGet: "pi-desktop/modelSettings/get",
+    modelSettingsUpdate: "pi-desktop/modelSettings/update",
     pluginList: "pi-desktop/plugin/list",
     /** A renderer slot component asking its own plugin for one JSON answer. */
     pluginRendererCall: "pi-desktop/plugin/rendererCall",

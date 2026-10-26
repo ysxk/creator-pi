@@ -255,6 +255,8 @@ fn model_bindings_roundtrip_and_legacy_model_migrates_on_read() {
                     supports_documents: None,
                     available_for_subagents: Some(true),
                     native_web_search: None,
+                    settings: None,
+                    system_prompt: None,
                 },
                 ModelBinding {
                     id: "plain-model".into(),
@@ -272,6 +274,8 @@ fn model_bindings_roundtrip_and_legacy_model_migrates_on_read() {
                     supports_documents: Some(false),
                     available_for_subagents: None,
                     native_web_search: None,
+                    settings: None,
+                    system_prompt: None,
                 },
             ]),
             default_model_id: None,
@@ -383,6 +387,8 @@ fn binding_with_alias(id: &str, alias: Option<&str>) -> ModelBinding {
         supports_documents: None,
         available_for_subagents: None,
         native_web_search: None,
+        settings: None,
+        system_prompt: None,
     }
 }
 
@@ -1588,6 +1594,8 @@ fn binding_with_limits(id: &str, context_window: u32, max_tokens: u32) -> ModelB
         supports_documents: None,
         available_for_subagents: None,
         native_web_search: None,
+        settings: None,
+        system_prompt: None,
     }
 }
 

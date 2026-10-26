@@ -110,6 +110,14 @@ export function registerProviderIpc({
   handle(IPC.invoke.providersList, async () => {
     return enrichProviderList({ providers: await listRuntimeProviders() });
   });
+  handle(IPC.invoke.modelSettingsGet, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("modelSettings.get");
+  });
+  handle(IPC.invoke.modelSettingsUpdate, async (input: unknown) => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("modelSettings.update", input);
+  });
   handle(IPC.invoke.providersReorder, async (input: ProviderReorderInput) => {
     if (!host) throw new Error("host unavailable");
     return host.call("providers.reorder", input);

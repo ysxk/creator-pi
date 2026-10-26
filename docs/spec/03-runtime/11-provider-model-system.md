@@ -790,3 +790,13 @@ exact origins and paths, never display names or model substrings.
 The resolved adapter remains authoritative for search extraction and replay.
 Unknown connection formats are described as not integrated by this app rather
 than unsupported by the vendor. See the provider configuration specification.
+
+
+## Channel and Model Settings Separation
+
+Model configuration separates AI service connectivity (Channels) from model-level preferences (Models):
+
+1. **Channels (`providers`)**: Manages service endpoints, protocol, API keys, OAuth vendor accounts, and discovered model lists.
+2. **Models (`agent`)**: Aggregates models served across configured channels. Allows editing public defaults and per-channel overrides.
+3. **Inheritance hierarchy**: Explicit channel override > Model public default > Catalog/runtime baseline.
+4. **Model system prompt**: Model-specific system instructions are inserted after global instructions and before project instructions. Channel overrides can specify a custom prompt, inherit the model default, or explicitly disable model instructions.

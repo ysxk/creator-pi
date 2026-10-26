@@ -211,7 +211,7 @@ export function modelConfigWithBinding(
     ...(compat ? { compat } : {}),
     ...(Object.keys(thinkingLevelMap).length > 0 ? { thinkingLevelMap } : {}),
     ...modalityOverride(model, binding),
-    ...(binding.nativeWebSearch === true ? { webSearch: true } : {}),
+    ...(typeof binding.nativeWebSearch === "boolean" ? { webSearch: binding.nativeWebSearch } : {}),
   };
 }
 

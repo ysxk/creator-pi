@@ -13,6 +13,7 @@ export const enEntries: ChangelogEntry[] = [
     version: "0.18.7",
     date: "2026-10-25",
     highlights: [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "App icons now use the MingCute set, with filled variants marking the open settings page, the active project, playback and pinned items.",
       "An agent in a background conversation can preview, screenshot and operate its own Browser tab while you view another conversation; browser actions never reach another conversation's page.",
       "The background tasks bar above the composer lists only the current conversation's tasks, so Stop can no longer end another conversation's process.",

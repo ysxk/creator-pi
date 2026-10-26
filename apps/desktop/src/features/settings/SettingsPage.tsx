@@ -35,6 +35,8 @@ import {
 } from "../../components/icons";
 import { Badge, Button, cx, SegmentedControl, SettingsToggle } from "../../components/ui";
 import { ModelConfigPage } from "../../components/settings/ModelConfigPage";
+import { ProviderConfigPage } from "../../components/settings/ProviderConfigPage";
+import { requestSettingsNavigation } from "../../lib/settings-navigation-guard";
 import { KeyboardShortcutsSection } from "../../components/settings/KeyboardShortcutsSection";
 import { FontFamilyRow } from "../../components/settings/FontFamilyRow";
 import { ShowThinkingRow } from "../../components/settings/ShowThinkingRow";
@@ -236,6 +238,7 @@ export function SettingsPage() {
       ai: IconSparkles,
       shortcuts: IconKeyboard,
       instructions: IconFileText,
+      providers: IconServer,
       agent: IconBot,
       skills: IconBookOpen,
       mcp: IconServer,
@@ -321,8 +324,10 @@ export function SettingsPage() {
                     key={item.id}
                     className={cx("settings-nav-item", tab === item.id && "active")}
                     onClick={() => {
-                      setActiveExtension(null);
-                      setSettingsTab(item.id);
+                      requestSettingsNavigation(() => {
+                        setActiveExtension(null);
+                        setSettingsTab(item.id);
+                      });
                     }}
                   >
                     <span className="settings-nav-icon"><item.icon size={14} filled={tab === item.id} /></span>
@@ -604,6 +609,8 @@ export function SettingsPage() {
               />
             </div>
           )}
+
+          {tab === "providers" && <ProviderConfigPage />}
 
           {tab === "agent" && <ModelConfigPage />}
 

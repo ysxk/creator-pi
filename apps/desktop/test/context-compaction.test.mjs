@@ -145,7 +145,7 @@ test("a delegate gets the session's turn-boundary budget protection (ADR 0299)",
   assert.match(subagent, /error\.code === "CONTEXT_TOO_LARGE"/);
   // Fallback alternatives are re-evaluated against their own window before
   // switching; one that cannot fit is skipped with the reason recorded.
-  assert.match(subagent, /contextBudgetFor\(binding\.model, carried\)/);
+  assert.match(subagent, /contextBudgetFor\(binding\.model, targetMessages\)/);
   assert.match(
     subagent,
     /budget\.tokens >= budget\.hardLimit[\s\S]*?recordModelFailure\(identity/,

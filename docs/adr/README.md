@@ -368,4 +368,5 @@ Each ADR includes:
 | 0324 | [Make Composer Prompt Enhancement an Optional Plugin](0324-plugin-owned-composer-prompt-enhancement.md) | Accepted (D653; supersedes ADR 0121) |
 | plugin-fetch-redirect-policy | [Host-enforced plugin fetch redirect policy](plugin-fetch-redirect-policy.md) | Accepted (implementation candidate for #1475) |
 | 0325 | [User-Editable Endpoints on Plugin-Declared Providers](0325-plugin-provider-editable-endpoints.md) | Accepted (D656; extends ADR 0259 and 0322) |
+| 0327 | [Separation of Channel and Model Settings](0327-channel-and-model-settings-separation.md) | Accepted |
 | 0326 | [Project-Level Subagent Definitions](0326-project-level-subagent-definitions.md) | Accepted for implementation (D658; supersedes the global-only clauses of ADR 0062 / 0063 / 0112; amends ADR 0126 / 0269 / 0270) |

@@ -15,7 +15,7 @@ const settingsSearchSource = await readFile(
   "utf8",
 );
 const providersSource = await readFile(
-  new URL("../src/components/settings/ModelConfigPage.tsx", import.meta.url),
+  new URL("../src/components/settings/ProviderConfigPage.tsx", import.meta.url),
   "utf8",
 );
 const defaultModelSource = await readFile(
@@ -471,6 +471,7 @@ test("settings rail uses short parallel labels and descriptive page titles", () 
     "settings.nav.ai",
     "settings.nav.shortcuts",
     "settings.nav.instructions",
+    "settings.nav.providers",
     "settings.nav.models",
     "settings.nav.skills",
     "settings.nav.mcp",
@@ -485,7 +486,8 @@ test("settings rail uses short parallel labels and descriptive page titles", () 
     assert.match(zhTWLocaleSource, new RegExp(`${key.split(".").at(-1)}:`));
     assert.match(trLocaleSource, new RegExp(`${key.split(".").at(-1)}:`));
   }
-  assert.match(settingsSearchSource, /titleKey: "settings\.configuration"/);
+  assert.match(settingsSearchSource, /titleKey: "settings\.providersTitle"/);
+  assert.match(settingsSearchSource, /titleKey: "settings\.modelsTitle"/);
   assert.match(settingsSearchSource, /titleKey: "settings\.projectArchive"/);
   assert.match(settingsPageSource, /activeTitleKey/);
   assert.match(settingsPageSource, /titleKey: entry\.titleKey/);

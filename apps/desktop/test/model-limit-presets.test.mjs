@@ -48,7 +48,7 @@ test("matchPresetIndex highlights only an exact token count", () => {
 });
 
 test("both limit fields wire a preset ladder above their numeric input", async () => {
-  const pane = await read("../src/components/settings/ModelSelectionPanes.tsx");
+  const pane = await read("../src/components/settings/ModelSettingsForm.tsx");
   // One ladder group per field, each chip applying its preset to the binding.
   assert.equal(pane.split("provider-limit-presets").length - 1, 2);
   assert.match(pane, /CONTEXT_WINDOW_PRESETS\.map\(\(preset, index\) =>/);
@@ -58,11 +58,11 @@ test("both limit fields wire a preset ladder above their numeric input", async (
   // The current value highlights (aria-pressed) via the shared match helper.
   assert.match(
     pane,
-    /matchPresetIndex\(\s*CONTEXT_WINDOW_PRESETS,\s*binding\.contextWindow,\s*\)/,
+    /matchPresetIndex\(\s*CONTEXT_WINDOW_PRESETS,\s*binding\.contextWindow,?\s*\)/,
   );
   assert.match(
     pane,
-    /matchPresetIndex\(\s*MAX_OUTPUT_PRESETS,\s*binding\.maxTokens,\s*\)/,
+    /matchPresetIndex\(\s*MAX_OUTPUT_PRESETS,\s*binding\.maxTokens,?\s*\)/,
   );
   // Chips reuse the thinking controls' segmented-track style.
   assert.match(pane, /"provider-thinking-chip",\s*on && "selected"/);

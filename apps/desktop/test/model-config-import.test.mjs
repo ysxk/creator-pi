@@ -84,10 +84,10 @@ test("scanModelConfigs returns nothing when the home directory is empty", async 
   assert.deepEqual(drafts, []);
 });
 
-test("model settings embeds the model-config importer while retaining its protocol", async () => {
+test("channel settings embeds the model-config importer while retaining its protocol", async () => {
   const { readFile } = await import("node:fs/promises");
   const modelPage = await readFile(
-    new URL("../src/components/settings/ModelConfigPage.tsx", import.meta.url),
+    new URL("../src/components/settings/ProviderConfigPage.tsx", import.meta.url),
     "utf8",
   );
   const modelImport = await readFile(

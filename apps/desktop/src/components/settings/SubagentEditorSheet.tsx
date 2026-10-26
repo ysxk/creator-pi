@@ -539,7 +539,7 @@ function ModelField({
                 size="sm"
                 onClick={() => {
                   const store = useAppStore.getState();
-                  store.setSettingsTab("agent");
+                  store.setSettingsTab("providers");
                 }}
               >
                 {t("extensions.subagents.modelPickEmptyAction")}

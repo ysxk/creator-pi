@@ -389,3 +389,14 @@ it("keeps native Pi null and absent extended mappings unavailable", () => {
   expect(configured.thinkingLevelMap?.xhigh).toBeNull();
   expect(configured.thinkingLevelMap?.max).toBeUndefined();
 });
+
+
+it.each([true, false])("applies explicit native search=%s over a catalog setting", (enabled) => {
+  const model = { ...knownModel(), webSearch: !enabled };
+  expect(modelConfigWithBinding(model, {
+    contextWindow: model.contextWindow, maxTokens: model.maxTokens, thinkingLevels: ["high"], nativeWebSearch: enabled,
+  }).webSearch).toBe(enabled);
+  expect(modelConfigWithBinding(model, {
+    contextWindow: model.contextWindow, maxTokens: model.maxTokens, thinkingLevels: ["high"],
+  }).webSearch).toBe(!enabled);
+});

@@ -13,6 +13,7 @@ export const trEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "Uygulama simgeleri artık MingCute setini kullanıyor; açık ayarlar sayfası, etkin proje, oynatma ve sabitlenen öğeler dolu simgelerle gösteriliyor.",
       "Arka plandaki bir konuşmadaki ajan, siz başka bir konuşmayı görüntülerken kendi tarayıcı sekmesini önizleyebilir, ekran görüntüsü alabilir ve kullanabilir; tarayıcı işlemleri hiçbir zaman başka bir konuşmanın sayfasına ulaşmaz.",
       "Yazma alanının üstündeki arka plan görevleri çubuğu yalnızca geçerli konuşmanın görevlerini listeler; Durdur artık başka bir konuşmanın işlemini sonlandıramaz.",

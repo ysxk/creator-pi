@@ -45,7 +45,7 @@ test("assistant error messages expose readable provider details and one Continue
   assert.doesNotMatch(component, /errors\.action\.retry/);
   assert.match(component, /errors\.action\.continue/);
   assert.match(component, /chat\.continueCurrentTaskPrompt/);
-  assert.match(component, /setSettingsTab\("agent"\)/);
+  assert.match(component, /setSettingsTab\("providers"\)/);
 
 // Issue #234: the localized NETWORK_ERROR summary cannot tell DNS from TLS from
 // a dropped socket, so both failure surfaces render the transport errno next to

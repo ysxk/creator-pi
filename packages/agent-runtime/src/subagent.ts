@@ -1,3 +1,6 @@
+import { initialSystemTranscript, replaceSystemPrompt, systemTranscriptCheckpoint } from "./system-transcript.js";
+import { projectInstructionsPrompt } from "./project-instructions-prompt.js";
+import type { ProjectInstructions } from "./project-instructions.js";
 /**
  * Subagents: bounded delegate agent loops spawned by the `Task` tool (ADR 0062).
  *
@@ -156,7 +159,8 @@ export type SubagentRunOptions = {
   /** Original parent thinking selection, before primary-model clamping. */
   inheritedThinkingLevel?: SubagentThinkingLevel;
   onModelChange?: (provider: RuntimeProviderConfig, thinkingLevel: SubagentThinkingLevel) => void;
-  /** Fully composed child system prompt (see `composeSubagentSystemPrompt`). */
+  projectInstructions?: ProjectInstructions;
+  /** Child framing and definition prompt, without model or project instructions. */
   systemPrompt: string;
   /** Host-backed tools, built by the session runtime so a delegate's calls
    * take the exact same path as the parent's. */
@@ -291,15 +295,21 @@ export class SubagentRun {
         this.prepareNextTurn(context, signal),
       afterToolCall: async (context) => this.afterToolCall(context),
       initialState: {
-        systemPrompt: opts.systemPrompt,
+        systemPrompt: this.systemPromptFor(opts.provider),
         model: binding.model,
         tools: opts.tools,
         thinkingLevel: binding.agentThinkingLevel,
-        messages: opts.initialMessages ? [...opts.initialMessages] : [],
+        messages: initialSystemTranscript(this.systemPromptFor(opts.provider), opts.tools,
+          opts.initialMessages ? [...opts.initialMessages] : []),
       },
       toolExecution: "sequential",
     });
     this.agent.subscribe((event) => this.handleEvent(event));
+  }
+
+  private systemPromptFor(provider: RuntimeProviderConfig): string {
+    return [this.opts.systemPrompt, projectInstructionsPrompt(this.opts.projectInstructions, provider.systemPrompt)]
+      .filter(Boolean).join("\n\n");
   }
 
   async run(): Promise<SubagentRunResult> {
@@ -454,9 +464,7 @@ export class SubagentRun {
   private installContextOutcome(
     outcome: Extract<DelegateTurnUpdate, { kind: "compacted" | "degraded" }>,
   ): void {
-    const systemMessage = this.agent.state.messages.find(
-      (message) => message.role === "system",
-    );
+    const systemMessage = systemTranscriptCheckpoint(this.agent.state.messages);
     this.agent.state.messages = [
       ...(systemMessage ? [systemMessage] : []),
       ...outcome.messages.filter((message) => message.role !== "system"),
@@ -479,8 +487,6 @@ export class SubagentRun {
   ): Promise<AgentLoopTurnUpdate | undefined> {
     const outcome = await prepareDelegateTurnContext({
       messages: this.agent.state.messages,
-      systemPrompt: this.agent.state.systemPrompt,
-      tools: this.agent.state.tools,
       model: this.agent.state.model,
       taskBrief: this.opts.task,
       retentionMode: delegateRetentionMode(turn),
@@ -552,10 +558,11 @@ export class SubagentRun {
       const requested = this.opts.definition.thinkingLevel ?? this.opts.inheritedThinkingLevel ?? this.opts.thinkingLevel;
       const thinking = requested === "omit" ? "omit" : clampThinkingLevel(next.provider, requested);
       const binding = this.bindingFor(next.provider, thinking);
+      const targetMessages = replaceSystemPrompt(carried, this.systemPromptFor(next.provider));
       // An alternative whose window cannot hold the carried context would fail
       // identically to the model it replaces; skip it with the reason recorded
       // instead of burning the slot on the same overflow.
-      const budget = contextBudgetFor(binding.model, carried);
+      const budget = contextBudgetFor(binding.model, targetMessages);
       if (budget.tokens >= budget.hardLimit) {
         this.recordModelFailure(identity, {
           code: "SUBAGENT_CONTEXT_OVERFLOW",
@@ -569,7 +576,7 @@ export class SubagentRun {
       this.agent.state.thinkingLevel = binding.agentThinkingLevel;
       this.agent.streamFunction = binding.streamFn;
       this.agent.getApiKey = binding.getApiKey;
-      this.agent.state.messages = carried;
+      this.agent.state.messages = targetMessages;
       this.streamError = undefined;
       this.providerTransientRetryAttempt = 0;
       this.providerRateLimitRetryAttempt = 0;

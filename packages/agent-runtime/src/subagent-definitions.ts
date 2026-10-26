@@ -1,3 +1,4 @@
+import type { ModelBinding } from "@pi-desktop/shared";
 /**
  * Where subagent definitions come from, and how a definition's model pin turns
  * into a usable provider binding (ADR 0062).
@@ -441,6 +442,7 @@ export async function loadSubagentDefinitions(
 /** The stored-provider fields a pin can be resolved against. */
 export type SubagentProviderSource = {
   id: string;
+  models?: readonly ModelBinding[];
   enabled?: boolean;
   headers?: Record<string, string>;
   name: string;
@@ -517,10 +519,11 @@ export async function resolveSubagentProviders(input: {
     provider: SubagentProviderSource,
     modelId: string,
   ) => Promise<VendorModelBinding | undefined>;
-  /** Resolve non-OAuth model metadata from Electron's models.dev snapshot. */
+  /** Apply effective model settings to catalog or vendor-account metadata. */
   resolveModel?: (
     provider: SubagentProviderSource,
     modelId: string,
+    catalogModelConfig?: ModelConfig,
   ) => Promise<{ modelConfig: ModelConfig; capabilities: ThinkingCapabilitySet } | undefined>;
   /**
    * Whether the user offered this provider model to delegates
@@ -611,15 +614,12 @@ export async function resolveSubagentProviders(input: {
         continue;
       }
     }
-    const resolvedModel = !isVendorAccount
-      ? await input.resolveModel?.(provider, pin.modelId)
-      : undefined;
+    const resolvedModel = await input.resolveModel?.(provider, pin.modelId, binding?.modelConfig);
     const modelConfig =
-      binding?.modelConfig ??
       resolvedModel?.modelConfig ??
+      binding?.modelConfig ??
       genericModelConfig(pin.modelId, binding?.baseUrl ?? provider.baseUrl ?? "");
-    const capabilities = binding ??
-      resolvedModel?.capabilities ??
+    const capabilities = resolvedModel?.capabilities ?? binding ??
       capabilitiesFromModelConfig(modelConfig);
     const apiStyle = binding?.apiStyle ?? provider.apiStyle;
     resolved[key] = {
@@ -631,6 +631,9 @@ export async function resolveSubagentProviders(input: {
         ? { baseUrl: binding?.baseUrl ?? provider.baseUrl }
         : {}),
       modelId: pin.modelId,
+      systemPrompt: provider.models?.find((model) =>
+        model.id.trim().toLowerCase() === pin.modelId.trim().toLowerCase(),
+      )?.systemPrompt,
       apiKey,
       ...(provider.authKind ? { authKind: provider.authKind } : {}),
       ...(apiStyle ? { apiStyle } : {}),

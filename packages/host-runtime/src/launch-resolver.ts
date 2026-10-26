@@ -7,6 +7,7 @@ import {
   isCommandShellCatalog,
   normalizeMode,
   resolveBindingLimits,
+  resolveModelBinding,
   trustedExtensionAgentKeyFromProviderId,
   globalSubagentsInProjectPolicy,
   type CommandShellCatalog,
@@ -220,6 +221,9 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
     const providers = await host.call<{ providers: HostProviderRecord[] }>("providers.list", {
       includeDisabled: false,
     });
+    providers.providers = providers.providers.map((row) => ({
+      ...row, models: row.models?.map(resolveModelBinding),
+    }));
     const sessionProviderId = typeof session.providerId === "string" ? session.providerId : undefined;
     const sessionModelId = typeof session.modelId === "string" ? session.modelId : undefined;
     const requestedProviderId = overrides.providerId ?? sessionProviderId;
@@ -357,6 +361,7 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
           ...(row.vendorKey ? { vendorKey: row.vendorKey } : {}),
           ...(row.baseUrl ? { baseUrl: row.baseUrl } : {}),
           modelId: binding.id,
+          systemPrompt: binding.systemPrompt,
           apiKey,
           ...(row.authKind ? { authKind: row.authKind } : {}),
           ...(row.apiStyle ? { apiStyle: row.apiStyle } : {}),
@@ -397,6 +402,7 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
           vendorKey: provider.vendorKey,
           baseUrl: provider.baseUrl,
           modelId,
+          systemPrompt: storedModel?.systemPrompt,
           apiKey: secretValue || "",
           authKind: provider.authKind,
           apiStyle: provider.apiStyle,

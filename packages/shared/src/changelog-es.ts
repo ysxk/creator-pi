@@ -13,6 +13,7 @@ export const esEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "Los iconos de la app usan ahora el conjunto MingCute, con variantes rellenas para la página de ajustes abierta, el proyecto activo, la reproducción y los elementos fijados.",
       "Un agente en una conversación en segundo plano puede previsualizar, capturar y manejar su propia pestaña del navegador mientras ves otra conversación; las acciones del navegador nunca llegan a la página de otra conversación.",
       "La barra de tareas en segundo plano sobre el compositor muestra solo las tareas de la conversación actual, así que Detener ya no puede terminar el proceso de otra conversación.",

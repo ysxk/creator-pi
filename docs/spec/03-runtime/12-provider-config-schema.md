@@ -83,6 +83,7 @@ Tables (canonical DDL in [04-data-storage](04-data-storage.md) §4.3–4.4, §4.
     "defaultModelId": { "type": "string" },
     "models": {
       "type": "array",
+      "description": "Provider-local model bindings. Supports additive settings layers (baseline, defaults, overrides) and model-specific system prompts.",
       "items": {
         "type": "object",
         "required": ["id"],

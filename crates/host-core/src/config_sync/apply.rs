@@ -1,5 +1,9 @@
 use super::*;
 
+#[cfg(test)]
+#[path = "model_settings_tests.rs"]
+mod model_settings_tests;
+
 fn mapped_project_paths(config: &StoredConfig, payload: &Value) -> Result<Option<Vec<String>>> {
     let logical_ids = [
         payload.get("projectGroupLogicalId"),
@@ -128,6 +132,14 @@ fn apply_entity(
         return st.db.set_setting("app", &current);
     }
     if entity.domain == domains::DOMAIN_PROVIDERS {
+        if entity.entity_id == "model-settings" {
+            let settings = if entity.deleted {
+                crate::model_settings::Snapshot::default()
+            } else {
+                serde_json::from_value(entity.payload.clone())?
+            };
+            return crate::model_settings::import_portable(&st.db, settings);
+        }
         let provider_id = entity
             .payload
             .get("id")

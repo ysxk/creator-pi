@@ -1,10 +1,14 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { ModelBinding } from "@pi-desktop/shared";
 import { describe, expect, it } from "vitest";
 
 import { createHeadlessLaunchResolver, type HostProviderRecord } from "./launch-resolver.js";
 
 type Call = { method: string; params: Record<string, unknown> };
 
-function hostWith(providers: HostProviderRecord[], secrets: Record<string, string> = {}) {
+function hostWith(providers: HostProviderRecord[], secrets: Record<string, string> = {}, subagentPath?: string) {
   const calls: Call[] = [];
   return {
     calls,
@@ -26,7 +30,7 @@ function hostWith(providers: HostProviderRecord[], secrets: Record<string, strin
           case "skills.active":
             return { skills: [{ id: "review", name: "Review", enabled: true, description: "Review code" }] } as T;
           case "agents.active":
-            return { subagents: [] } as T;
+            return { subagents: subagentPath ? [{ id: "worker", path: subagentPath }] : [] } as T;
           case "agents.disabledBuiltins":
             return { disabled: [] } as T;
           case "project.group.context":
@@ -142,4 +146,44 @@ describe("createHeadlessLaunchResolver", () => {
     const offline = createHeadlessLaunchResolver({ getHost: () => null, dataDir: "/data", log: () => undefined });
     await expect(offline.resolve("s1", {}, {})).rejects.toMatchObject({ errorCode: "HOST_UNAVAILABLE" });
   });
+});
+
+
+it("resolves raw model settings before headless launch, opt-in selection, definition pins and fallback", async () => {
+  const root = await mkdtemp(join(tmpdir(), "headless-model-settings-"));
+  try {
+    const path = join(root, "worker.md");
+    await writeFile(path, "---\nname: worker\ndescription: Fixture\nmodel: openai/child\nfallbackModels: [openai/backup]\n---\nCustom worker rules.\n");
+    const binding = (id: string): ModelBinding => ({
+      id, contextWindow: 128_000, maxTokens: 8_192, thinkingLevels: ["off"], defaultThinkingLevel: null,
+      availableForSubagents: false,
+      settings: {
+        baseline: { contextWindow: 64_000, maxTokens: 2_000, thinkingLevels: ["low"], supportsImages: true },
+        defaults: { maxTokens: 4_096, thinkingLevels: ["high"], defaultThinkingLevel: "high",
+          availableForSubagents: true, systemPrompt: `Instructions for ${id}` },
+        overrides: id === "main" ? { supportsImages: false, availableForSubagents: false, systemPrompt: "" } : {},
+      },
+    });
+    const row: HostProviderRecord = { ...provider, models: [binding("main"), binding("child"), {
+      ...binding("backup"), settings: { baseline: {}, defaults: { systemPrompt: "Backup instructions" }, overrides: {} },
+    }] };
+    const before = structuredClone(row);
+    const { host, calls } = hostWith([row], { p1: "fixture-key" }, path);
+    const launch = await createHeadlessLaunchResolver({ getHost: () => host, dataDir: root, log: () => undefined })
+      .resolve("s1", { providerId: "p1", modelId: "main" }, {});
+    expect(launch.sidecarParams.provider).toMatchObject({
+      systemPrompt: "", supportsVision: false, supportedThinkingLevels: ["high"],
+      modelConfig: { contextWindow: 64_000, maxTokens: 4_096 },
+    });
+    expect(launch.sidecarParams.thinkingLevel).toBe("high");
+    expect(launch.sidecarParams.subagentModelKeys).toEqual(["openai/child"]);
+    expect(launch.sidecarParams.subagentProviders).toMatchObject({
+      "openai/child": { systemPrompt: "Instructions for child", modelConfig: { contextWindow: 64_000, maxTokens: 4_096 } },
+      "openai/backup": { systemPrompt: "Backup instructions" },
+    });
+    expect(calls.some((call) => call.method === "modelSettings.get")).toBe(false);
+    expect(row).toEqual(before);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

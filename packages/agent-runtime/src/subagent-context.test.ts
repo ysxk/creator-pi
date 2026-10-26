@@ -4,6 +4,7 @@ import {
   type PrepareNextTurnContext,
 } from "@earendil-works/pi-agent-core";
 import { createCompactionSummaryMessage } from "./pi-runtime-messages.js";
+import { initialSystemTranscript, systemTranscriptCheckpoint } from "./system-transcript.js";
 import type {
   Api,
   AssistantMessage,
@@ -370,6 +371,27 @@ describe("prepareDelegateTurnContext", () => {
     });
 
     expect(outcome.kind).toBe("degraded");
+  });
+
+  it.each(["success", "failure"] as const)("reserves the system checkpoint after a summary %s", async (response) => {
+    const messages = initialSystemTranscript("s".repeat(6_000), [], overflowingMessages("Read the three files."));
+    const checkpoint = systemTranscriptCheckpoint(messages)!;
+    const { factory } = summaryModels(() => response === "success"
+      ? summarySuccess("summary".repeat(600))
+      : summaryFailure("invalid api key"));
+    const outcome = await prepareDelegateTurnContext({
+      messages,
+      model: smallModel(),
+      taskBrief: "Read the three files.",
+      retentionMode: "active_turn",
+      summaryModels: factory,
+      signal: new AbortController().signal,
+    });
+
+    expect(outcome.kind).toBe("degraded");
+    if (outcome.kind !== "degraded") return;
+    const fit = contextBudgetFor(smallModel(), [checkpoint, ...outcome.messages]);
+    expect(fit.tokens).toBeLessThan(fit.hardLimit);
   });
 
   it("reports the terminal overflow when even the task brief does not fit", async () => {

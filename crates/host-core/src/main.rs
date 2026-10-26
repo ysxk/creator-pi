@@ -8,6 +8,7 @@ mod data_relocation;
 mod db;
 mod keyboard;
 mod mcp_servers;
+mod model_settings;
 mod network_policy;
 mod network_proxy;
 mod notifications;

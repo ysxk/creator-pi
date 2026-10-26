@@ -39,6 +39,13 @@
   compaction, and terminal Task snapshots through the real React rendering.
   The headless command does not replace the rendered Electron check above.
 
+### E2E-SETTINGS-channel-model-separation
+
+- **Preconditions:** Dedicated request worktree, isolated temporary data and Chromium profiles.
+- **Steps:** Open Settings -> Channels and verify service configurations. Open Settings -> Models, configure public defaults and model system prompt. Verify channel models inherit. Apply an override on one channel, verify only that channel diverges. Reset override to verify restoration of inheritance.
+- **Expected:** Channels and Models are distinct navigation items. Defaults apply to all serving channels unless overridden. Inherited values update when default changes; overrides remain pinned. Model prompt is correctly sequenced in prompt chain.
+- **Coverage:** `apps/desktop/test/model-settings-user-path.test.mjs`, `apps/desktop/test/provider-model-config.test.mjs`, `packages/agent-runtime/src/model-system-prompt.test.ts`.
+
 ### E2E-STORAGE-custom-location-and-maintenance
 
 - **Preconditions:** Dedicated request worktree, current remote-main base, shared

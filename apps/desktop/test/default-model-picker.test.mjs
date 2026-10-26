@@ -8,7 +8,9 @@ test("model settings expose image selection but no fixed chat default", async ()
   const list = await read("../src/components/settings/ServiceList.tsx");
   assert.doesNotMatch(page, /"settings\.defaultModel"|changeDefaultModel|setDefaultModel|pickingDefault/);
   assert.doesNotMatch(list, /settings\.makeDefault|onMakeDefault|defaultProviderId/);
-  assert.match(page, /<ImageGenerationModelRow/);
+  assert.match(page, /<ModelImageSettings/);
+  const imageSettings = await read("../src/components/settings/ModelImageSettings.tsx");
+  assert.match(imageSettings, /<ImageGenerationModelRow/);
 });
 
 test("shared anchored menus keep keyboard focus contained", async () => {

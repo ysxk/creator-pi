@@ -51,6 +51,8 @@ export type RuntimeProviderConfig = {
   vendorKey?: string;
   baseUrl?: string;
   modelId: string;
+  /** Model-specific appended instructions, never a replacement system prompt. */
+  systemPrompt?: string;
   apiKey: string;
   authKind?: string;
   /** Plugin-owned trusted agent key when this is not a host provider row. */

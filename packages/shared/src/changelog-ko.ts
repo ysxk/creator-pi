@@ -13,6 +13,7 @@ export const koEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "앱 아이콘이 MingCute 세트로 바뀌었으며, 열린 설정 페이지, 활성 프로젝트, 재생 상태와 고정된 항목은 채워진 아이콘으로 표시됩니다.",
       "백그라운드 대화의 에이전트가 다른 대화를 보는 동안에도 자신의 브라우저 탭을 미리 보고, 스크린샷을 찍고, 조작할 수 있습니다. 브라우저 작업은 다른 대화의 페이지에 닿지 않습니다.",
       "입력창 위의 백그라운드 작업 표시줄은 현재 대화의 작업만 보여 주므로 중지 버튼이 더 이상 다른 대화의 프로세스를 끝내지 않습니다.",

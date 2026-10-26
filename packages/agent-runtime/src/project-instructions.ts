@@ -16,6 +16,7 @@ const GLOBAL_INSTRUCTION_PATH = join(homedir(), ".pi", "agent", "AGENTS.md");
 const GLOBAL_INSTRUCTION_SOURCE = "~/.pi/agent/AGENTS.md";
 
 export type ProjectInstruction = {
+  scope?: "global" | "project";
   source: string;
   content: string;
 };

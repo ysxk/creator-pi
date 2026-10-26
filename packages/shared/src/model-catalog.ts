@@ -11,6 +11,7 @@
  * tests share one implementation instead of re-deriving these rules per surface.
  */
 
+import { withInheritedModelSettings } from "./model-settings.js";
 import { publishedThinkingLevels } from "./thinking-levels.js";
 import type {
   ModelLimitSource,
@@ -307,7 +308,7 @@ export function resolveBindingLimits(
  */
 export function bindingFromModelInfo(model: ModelInfo): ModelBinding {
   const thinkingLevels = sortThinkingLevels(publishedThinkingLevels(model));
-  return {
+  return withInheritedModelSettings({
     id: model.modelId,
     contextWindow:
       model.contextWindow || model.limit?.context || CATALOG_DEFAULT_CONTEXT_WINDOW,
@@ -327,7 +328,7 @@ export function bindingFromModelInfo(model: ModelInfo): ModelBinding {
     supportsVideos: null,
     supportsAudio: null,
     supportsDocuments: null,
-  };
+  });
 }
 
 /**
@@ -347,7 +348,7 @@ export function bindingForCustomModelInfo(
 
 /** Binding for a model id the catalog does not publish. */
 export function bindingForCustomModel(id: string): ModelBinding {
-  return {
+  return withInheritedModelSettings({
     id: id.trim(),
     // An unpublished model has no catalog value to inherit yet, so the seed
     // stays catalog-sourced: if models.dev describes the id later, the window
@@ -360,7 +361,7 @@ export function bindingForCustomModel(id: string): ModelBinding {
     defaultThinkingLevel: null,
     supportsImages: null,
     supportsDocuments: null,
-  };
+  });
 }
 
 /**

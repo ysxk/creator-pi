@@ -219,7 +219,7 @@ export function LiveVoiceSettings({
           <Button
             variant="ghost"
             className="settings-text-action"
-            onClick={() => setSettingsTab("agent")}
+            onClick={() => setSettingsTab("providers")}
           >
             {t("settings.configuration")}
           </Button>

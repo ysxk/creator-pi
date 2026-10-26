@@ -8153,7 +8153,11 @@ describe("DesktopAgentRuntime subagents", () => {
     );
     expect(readOnly).toContain("Grep takes a file-or-directory `path`");
     expect(readOnly).not.toContain("use Edit for one small unique replacement");
-    expect(readOnly).toContain("Use project rules.");
+    expect(readOnly).not.toContain("Use project rules.");
+    await taskTool(runtime).execute("guidance-task", { agent: "explorer", task: "Inspect the project." });
+    expect(subagentRuns.calls.at(-1).projectInstructions).toEqual({
+      entries: [{ source: "AGENTS.md", content: "Use project rules." }],
+    });
 
     const withShell = ((runtime as any).subagentGuidance(pinned) as string[]).join(
       "\n\n",

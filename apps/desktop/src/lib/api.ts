@@ -27,6 +27,8 @@ import type {
   PendingInteractiveRequests,
   AgentInstructionFile,
   AppSettings,
+  ModelSettingsSnapshot,
+  ModelSettingsUpdate,
   JevKeyCheckResult,
   CommandShellCatalog,
   AppVersionInfo,
@@ -804,6 +806,10 @@ export const api = {
     invoke<CommandShellCatalog>(IPC.invoke.commandShellList),
   reorderProviders: (input: ProviderReorderInput) =>
     invoke<{ ok: boolean }>(IPC.invoke.providersReorder, input),
+  getModelSettings: () =>
+    invoke<ModelSettingsSnapshot>(IPC.invoke.modelSettingsGet),
+  updateModelSettings: (input: ModelSettingsUpdate) =>
+    invoke<ModelSettingsSnapshot>(IPC.invoke.modelSettingsUpdate, input),
   listProviders: () =>
     invoke<{ providers: ProviderPublic[] }>(IPC.invoke.providersList),
   createProvider: (input: ProviderCreateInput) =>

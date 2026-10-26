@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
 import type { AgentEventEnvelope, SubagentDefinition } from "@pi-desktop/shared";
-import type { Message } from "@earendil-works/pi-ai";
+import { getCurrentSystemPrompt, toToolDeclaration, type Message } from "@earendil-works/pi-ai";
 import {
   composeSubagentSystemPrompt,
   MAX_SUBAGENT_REPORT_CHARS,
@@ -909,6 +909,48 @@ describe("SubagentRun context budget (ADR 0299)", () => {
     expect(typeof run.agent.prepareNextTurnWithContext).toBe("function");
   });
 
+  it.each(["compacted", "degraded"] as const)("preserves the latest fallback prompt and tools after context is %s", (kind) => {
+    const tool = {
+      name: "Read",
+      label: "Read",
+      description: "Read a file.",
+      parameters: Type.Object({}),
+      execute: async () => ({ content: [{ type: "text" as const, text: "read" }], details: {} }),
+    };
+    const { run } = createRun({
+      provider: { ...provider, systemPrompt: "Primary model instructions." },
+      tools: [tool],
+      fallbackModels: [{
+        key: "backup/backup-model",
+        provider: { ...provider, id: "backup", modelId: "backup-model", systemPrompt: "Backup model instructions." },
+      }],
+    });
+    run.agent.state.messages.push(
+      { role: "user", content: "Continue the task.", timestamp: 1 },
+      assistantMessage({ content: [], stopReason: "error" }),
+    );
+    run.streamError = { code: "MODEL_NOT_CONFIGURED", message: "model not found" };
+    expect(run.useNextModel()).toBe(true);
+    const retained = { role: "user", content: "Retained task context.", timestamp: 2 };
+
+    run.installContextOutcome({
+      kind,
+      messages: [{ role: "system", content: "Stale summary instructions.", timestamp: 0 }, retained],
+      tokensBefore: 10_000,
+    });
+
+    const messages = run.agent.state.messages as Message[];
+    const systems = messages.filter((message) => message.role === "system");
+    expect(systems).toHaveLength(1);
+    expect(getCurrentSystemPrompt(messages)).toContain("Backup model instructions.");
+    expect(getCurrentSystemPrompt(messages)).not.toContain("Primary model instructions.");
+    expect(getCurrentSystemPrompt(messages)).not.toContain("Stale summary instructions.");
+    expect(systems[0].toolsAdded).toEqual([toToolDeclaration(tool)]);
+    expect(messages.filter((message) => message.role !== "system")).toEqual([retained]);
+    expect(run.contextCompactions).toBe(kind === "compacted" ? 1 : 0);
+    expect(run.contextDegraded).toBe(kind === "degraded");
+  });
+
   it("preflights the first request with system and tool-schema overhead", async () => {
     const smallProvider: RuntimeProviderConfig = {
       ...provider,
@@ -1098,7 +1140,8 @@ describe("SubagentRun context budget (ADR 0299)", () => {
     expect(switched).toBe(true);
     expect(run.agent.state.model.id).toBe("big-model");
     // Only the failed assistant row is dropped; nothing is compacted away.
-    expect(run.agent.state.messages).toEqual([brief]);
+    expect(run.agent.state.messages.filter((message: { role: string }) => message.role !== "system")).toEqual([brief]);
+    expect(run.agent.state.systemPrompt).toContain("system");
     expect(run.streamError).toBeUndefined();
     expect(events.some((event) => event.event.type === "message_end")).toBe(true);
   });

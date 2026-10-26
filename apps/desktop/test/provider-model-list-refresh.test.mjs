@@ -12,7 +12,7 @@ register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 const { registerProviderIpc } = await import("../electron/main/ipc/provider-ipc.ts");
 const { ModelsDevCatalog } = await import("../electron/main/models-dev-catalog.ts");
 const { createProviderCatalogRuntime } = await import("../electron/main/runtime/provider-catalog.ts");
-const { bindingForCustomModel, formatTokenCount, IPC } = await import("@pi-desktop/shared");
+const { bindingForCustomModel, updateModelBindingSettings, formatTokenCount, IPC } = await import("@pi-desktop/shared");
 
 // Run the real IPC discovery and settings picker; mock only HTTP and host persistence.
 test("refresh removes revoked service rows and preserves configured chat bindings", async (t) => {
@@ -22,12 +22,12 @@ test("refresh removes revoked service rows and preserves configured chat binding
     baseUrl: "https://relay.example/v1",
     models: ["gpt-6-sol", "claude-sonnet-4-5"].map(bindingForCustomModel),
   };
-  row.models[1] = { ...row.models[1], alias: "Saved alias", contextWindow: 190_000, contextWindowSource: "user" };
-  row.models.push({
-    ...bindingForCustomModel("gpt-6-astra"),
-    contextWindow: 1_000_000,
-    contextWindowSource: "user",
+  row.models[1] = updateModelBindingSettings(row.models[1], {
+    alias: "Saved alias", contextWindow: 190_000,
   });
+  row.models.push(updateModelBindingSettings(bindingForCustomModel("gpt-6-astra"), {
+    contextWindow: 1_000_000,
+  }));
   let served = ["claude-sonnet-4-5", "gpt-6-sol", "gpt-6-astra"];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({

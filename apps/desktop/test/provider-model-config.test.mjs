@@ -24,9 +24,9 @@ const read = (rel) => readFile(new URL(rel, import.meta.url), "utf8");
 
 const setupSource = await read("../src/components/settings/ProviderSetupDialog.tsx");
 const hookSource = await read("../src/components/settings/useProviderModels.ts");
-const pageSource = await read("../src/components/settings/ModelConfigPage.tsx");
+const pageSource = await read("../src/components/settings/ProviderConfigPage.tsx");
 const vendorDialogSource = await read("../src/components/settings/VendorAccountDialog.tsx");
-const pickerSource = await read("../src/components/settings/ModelSelectionPanes.tsx");
+const pickerSource = (await read("../src/components/settings/ModelSelectionPanes.tsx")) + "\n" + (await read("../src/components/settings/ModelSettingsForm.tsx"));
 const fieldsSource = await read("../src/components/settings/ProviderConnectionFields.tsx");
 const filterSource = await read("../src/components/settings/model-chosen-filter.ts");
 const vendorAccountsSource = await read("../src/components/settings/useVendorAccounts.ts");
@@ -38,12 +38,9 @@ test("model configuration places AI services before Jev and image generation", (
   const services = pageSource.indexOf('className="model-config-section-head"');
   const catalogStatus = pageSource.indexOf('className="model-catalog-status"');
   const jev = pageSource.indexOf("<JevSettingsCard");
-  const image = pageSource.indexOf("<ImageGenerationModelRow");
-
   assert.ok(services >= 0, "the AI services section is present");
   assert.ok(catalogStatus > services, "catalog actions stay with AI services");
   assert.ok(jev > catalogStatus, "Jev follows AI services");
-  assert.ok(image > jev, "image generation follows Jev");
 });
 
 test("the model list comes from the AI service, not from a browsable catalog", () => {

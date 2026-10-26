@@ -13,6 +13,7 @@ export const frEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "Les icônes de l'application utilisent désormais le jeu MingCute, avec des variantes pleines pour la page de réglages ouverte, le projet actif, la lecture et les éléments épinglés.",
       "Un agent dans une conversation en arrière-plan peut prévisualiser, capturer et piloter son propre onglet de navigateur pendant que vous consultez une autre conversation ; les actions du navigateur n'atteignent jamais la page d'une autre conversation.",
       "La barre des tâches en arrière-plan au-dessus du compositeur n'affiche que les tâches de la conversation actuelle : Arrêter ne peut plus mettre fin au processus d'une autre conversation.",

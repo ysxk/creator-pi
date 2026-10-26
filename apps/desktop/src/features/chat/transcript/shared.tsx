@@ -285,7 +285,7 @@ export function AssistantErrorMessage({ message }: { message: UiMessage }) {
               type="button"
               className="copy-btn"
               onClick={() => {
-                useAppStore.getState().setSettingsTab("agent");
+                useAppStore.getState().setSettingsTab("providers");
                 useAppStore.getState().setPage("settings");
               }}
             >
