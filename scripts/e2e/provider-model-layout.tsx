@@ -38,30 +38,34 @@ async function probe(vendor: boolean) {
         ? <VendorAccountDialog provider={provider} initialName="Fixture" onClose={() => {}} onSave={() => {}} saving={false} />
         : <ProviderSetupDialog provider={provider} onClose={() => {}} onSaved={() => {}} />}
     </I18nextProvider>));
+    const dialog = document.querySelector<HTMLElement>(vendor
+      ? '[role="dialog"][aria-labelledby="vendor-account-title"]'
+      : '[role="dialog"][aria-labelledby="provider-setup-title"]')!;
+    assert(dialog, "the active provider dialog must be mounted");
     const deadline = performance.now() + 5000;
-    while (document.querySelector(".provider-models-list")?.children.length !== 60 && performance.now() < deadline) await frame();
+    while (dialog.querySelector(".provider-models-list")?.children.length !== 60 && performance.now() < deadline) await frame();
     // Wait for the production opening animation before measuring geometry.
     await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getTiming().iterations !== Infinity).map((animation) => animation.finished));
     const heights: number[] = [];
     for (const selector of [".provider-models-list", ".provider-chosen-list"]) {
-      const list = document.querySelector<HTMLElement>(selector)!;
+      const list = dialog.querySelector<HTMLElement>(selector)!;
       assert(list?.children.length === 60, `${selector}: full model list missing`);
       const first = list.firstElementChild as HTMLElement;
       const last = list.lastElementChild as HTMLElement;
-      assert(list.clientHeight >= first.getBoundingClientRect().height, `${selector}: list cannot display even one complete row (height=${list.clientHeight})`);
+      assert(list.clientHeight >= first.getBoundingClientRect().height, `${selector}: list cannot display even one complete row (vendor=${vendor}, viewport=${innerWidth}x${innerHeight}, height=${list.clientHeight}, row=${first.getBoundingClientRect().height})`);
       for (const row of [last, first]) {
         list.scrollTop = row === last ? list.scrollHeight : 0;
         row.scrollIntoView({ block: "nearest" });
         await frame();
         const item = row.getBoundingClientRect();
         const bounds = list.getBoundingClientRect();
-        const body = document.querySelector<HTMLElement>(vendor ? ".vendor-account-body" : ".provider-setup-body")!.getBoundingClientRect();
+        const body = dialog.querySelector<HTMLElement>(vendor ? ".vendor-account-body" : ".provider-setup-body")!.getBoundingClientRect();
         assert(item.top >= Math.max(bounds.top, body.top, 0) - 1 && item.bottom <= Math.min(bounds.bottom, body.bottom, innerHeight) + 1,
           `${selector}: ${row === last ? "last" : "first"} model is clipped`);
       }
       heights.push(list.clientHeight);
     }
-    const panes = document.querySelector<HTMLElement>(".provider-setup-panes")!;
+    const panes = dialog.querySelector<HTMLElement>(".provider-setup-panes")!;
     const trays = [...panes.children].map((child) => child.getBoundingClientRect());
     assert(innerWidth <= 940 ? trays[1].top >= trays[0].bottom : trays[1].left >= trays[0].right,
       "narrow panes must stack; wide panes must stay side by side");

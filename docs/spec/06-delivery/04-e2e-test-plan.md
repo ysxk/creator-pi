@@ -1164,10 +1164,12 @@ identify the platform validation still needed.
 - **Preconditions:** 60 discovered and configured models; isolated Electron
   fixture with real provider/account dialogs, hooks and production styles.
 - **Steps:** Open both dialog types at 850×600, 850×850, 1000×560, 1200×700
-  and 1600×1000 content sizes. Scroll each list to its last and first model.
+  and 1600×1000 content sizes. Wait for discovery in the active dialog, not a
+  prior dialog's inert exit copy. Scroll each list to its last and first model.
 - **Expected:** Every list displays at least one complete row. Both endpoints
   are fully visible inside the list, dialog body and viewport. Narrow panes
-  stack; short wide windows keep the side-by-side layout.
+  stack; short wide windows keep the side-by-side layout and scroll the form
+  body rather than compressing either list below a complete row.
 - **Command:** `pnpm test:e2e:provider-model-layout`
 - **Boundary:** Model-discovery IPC is a fixture; no real credentials or host
   persistence are involved. React, browser layout and scrolling are real.
@@ -2569,15 +2571,19 @@ identify the platform validation still needed.
 - **Preconditions**: Chat route active; provider configured with two reasoning
   models whose binding defaults differ.
 - **Steps**: 1) Click the Composer-right model × reasoning chip. 2) Confirm the
-  menu opens upward from the bottom composer. 3) Enter Model, select a different
-  provider/model, and return to the root. 4) Confirm its default thinking level,
-  choose another supported level, then reselect the same model. 5) Open Settings
-  from the command palette or application menu.
+  menu opens upward from the bottom composer. 3) Inspect the recent group and
+  remaining configured models in one searchable list, then select a different
+  model. 4) Confirm its default thinking level, choose another supported level
+  with the reasoning slider, then search for and reselect the same model.
+  5) Open Settings from the command palette or application menu.
 - **Expected**: The trigger uses a Bot icon while retaining the current model
-  and reasoning labels. The root shows only Model and Reasoning level entries.
-  The Model submenu lists enabled runnable providers and only the model bindings
-  saved for each provider, with each model row visibly indented beneath its provider
-  heading. Cached or freshly discovered models may supply display names and
+  and reasoning labels. All configured models are directly visible in one
+  scrolling list, without a disclosure or submenu step. Up to three recent
+  models lead in usage order; remaining models appear once beneath provider
+  headings. Menu interactions alone do not record usage. Without history the
+  full configured list remains available. Search, arrow navigation and focus
+  changes preserve the keyboard-highlight contract. Cached or freshly
+  discovered models may supply display names and
   metadata for those bindings, but unconfigured discovery results are absent;
   configured IDs remain available when discovery is unavailable. The root slider
   lists the selected model's supported levels. Selecting a different model

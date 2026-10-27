@@ -15,6 +15,11 @@ import { api } from "../../apps/desktop/src/lib/api";
 
 declare global { var providerApiStyleProbe: () => Promise<unknown>; }
 const assert = (value: unknown, message: string) => { if (!value) throw new Error(message); };
+const activeElements = <T extends Element = HTMLElement>(selector: string) =>
+  [...document.querySelectorAll<T>(selector)].filter((element) =>
+    !element.closest('[data-exit-ghost], [data-surface-state="closing"]'));
+const activeElement = <T extends Element = HTMLElement>(selector: string) =>
+  activeElements<T>(selector)[0] ?? null;
 const pause = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 /* Anchored menus mount, position and reveal on animation frames, so wait for a
    frame instead of guessing a duration; the timeout keeps a throttled window
@@ -105,14 +110,14 @@ globalThis.providerApiStyleProbe = async () => {
         {...props}
       />
     </I18nextProvider>));
-    const advanced = document.querySelector<HTMLButtonElement>(".provider-chosen-advanced-toggle");
+    const advanced = activeElement<HTMLButtonElement>(".provider-chosen-advanced-toggle");
     if (advanced?.getAttribute("aria-expanded") === "false") flushSync(() => advanced.click());
   };
   const click = (element: HTMLElement | null | undefined) => {
     assert(element, "missing click target");
     flushSync(() => element!.click());
   };
-  const button = (key: string) => [...document.querySelectorAll<HTMLButtonElement>("button")]
+  const button = (key: string) => [...activeElements<HTMLButtonElement>("button")]
     .find((element) => element.textContent?.trim() === i18n.t(key));
   const control = (key: string) => {
     const element = button(key);
@@ -124,11 +129,11 @@ globalThis.providerApiStyleProbe = async () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
   };
   const labeledSwitch = (label: string) =>
-    [...document.querySelectorAll<HTMLButtonElement>('[role="switch"]')]
+    [...activeElements<HTMLButtonElement>('[role="switch"]')]
       .find((button) => button.getAttribute("aria-label") === label);
   /* A Field explains itself through the help icon's accessible name, so read the
      row's explanations from the affordance that carries them. */
-  const rowHints = () => [...document.querySelectorAll<HTMLElement>(
+  const rowHints = () => [...activeElements<HTMLElement>(
     ".provider-setup-custom-auth-row .ui-help-icon")]
     .map((element) => element.getAttribute("aria-label") ?? "");
   const apiStyleLabel = (style: string) =>
@@ -141,9 +146,9 @@ globalThis.providerApiStyleProbe = async () => {
     document.body. Open the real control, read the real option list, and click
     the real option button.
   */
-  const apiStyleTrigger = () => document.querySelector<HTMLButtonElement>(
+  const apiStyleTrigger = () => activeElement<HTMLButtonElement>(
     ".provider-setup-custom-auth-row .settings-menu-select-trigger");
-  const apiStyleMenu = () => document.querySelector<HTMLElement>(".settings-menu-select-menu");
+  const apiStyleMenu = () => activeElement<HTMLElement>(".settings-menu-select-menu");
   const apiStyleOptions = () => [...(apiStyleMenu()?.querySelectorAll<HTMLButtonElement>(
     ".settings-menu-select-option") ?? [])];
   const optionLabel = (option: HTMLElement) =>
@@ -209,7 +214,7 @@ globalThis.providerApiStyleProbe = async () => {
       await frame();
     }
   };
-  const searchInput = () => [...document.querySelectorAll<HTMLInputElement>("input[type=checkbox]")]
+  const searchInput = () => [...activeElements<HTMLInputElement>("input[type=checkbox]")]
     .find((input) => input.closest("label")?.textContent?.trim() === i18n.t("settings.nativeWebSearch"));
   const openModelManager = async () => {
     // The model panel is on screen when the editor opens (D625): no Manage
@@ -222,14 +227,14 @@ globalThis.providerApiStyleProbe = async () => {
       render();
       const beforeStepfunCreate = creates.length;
       const beforeStepfunDiscovery = discoveries.length;
-      const stepfunTile = document.querySelector<HTMLElement>('[data-service-id="stepfun-plan"]');
+      const stepfunTile = activeElement<HTMLElement>('[data-service-id="stepfun-plan"]');
       assert(stepfunTile?.textContent?.includes("api.stepfun.com/step_plan/v1"),
         `${locale}: StepFun chooser hides the subscription path`);
       click(stepfunTile);
       await frame();
-      assert(document.querySelector(".provider-service-chip-host")?.textContent === "api.stepfun.com/step_plan/v1",
+      assert(activeElement(".provider-service-chip-host")?.textContent === "api.stepfun.com/step_plan/v1",
         `${locale}: StepFun connection summary hides the subscription path`);
-      const keyInput = document.querySelector<HTMLInputElement>('input[type="password"]');
+      const keyInput = activeElement<HTMLInputElement>('input[type="password"]');
       assert(keyInput, `${locale}: StepFun key input missing`);
       flushSync(() => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!
@@ -241,11 +246,13 @@ globalThis.providerApiStyleProbe = async () => {
       assert(discovery.baseUrl === "https://api.stepfun.com/step_plan/v1" &&
         discovery.apiStyle === "anthropic_messages" && discovery.apiKey === "stepfun-fixture-key",
         `${locale}: StepFun discovery used the wrong route or credentials`);
-      const stepfunCheckbox = () => [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+      const stepfunCheckbox = () => [...activeElements<HTMLInputElement>('input[type="checkbox"]')]
         .find((input) => input.closest("label")?.textContent?.includes("step-5-preview"));
-      await until(() => Boolean(stepfunCheckbox()), "StepFun discovered model");
-      // Exercise explicit selection even when the recommendation preselected it.
-      if (stepfunCheckbox()!.checked) click(stepfunCheckbox());
+      await until(() => stepfunCheckbox()?.checked === true &&
+        activeElement(".provider-chosen-row-id")?.textContent?.trim() === "step-5-preview",
+        "StepFun automatic recommendation");
+      click(stepfunCheckbox());
+      assert(!stepfunCheckbox()!.checked, `${locale}: StepFun model was not deselected`);
       click(stepfunCheckbox());
       assert(stepfunCheckbox()!.checked, `${locale}: StepFun model was not selected`);
       await until(() => !control("settings.saveProvider").disabled, "StepFun save enabled");
@@ -261,13 +268,13 @@ globalThis.providerApiStyleProbe = async () => {
       render();
       // A new service opens on the chooser (D625, D626); the custom endpoint
       // leads the API-key tiles, and picking it moves to the form.
-      const tiles = [...document.querySelectorAll<HTMLButtonElement>("[data-service-id]")];
+      const tiles = [...activeElements<HTMLButtonElement>("[data-service-id]")];
       assert(tiles.length > 1, `${locale}: service chooser tiles missing`);
       assert(tiles.at(0)?.dataset.serviceId === CUSTOM_SERVICE, `${locale}: custom endpoint is not first`);
       assert(!apiStyleTrigger(), `${locale}: form rendered before a service was chosen`);
       click(tiles.at(0));
       await frame();
-      assert(!document.querySelector("[data-service-id]"), `${locale}: chooser stayed open after a pick`);
+      assert(!activeElement("[data-service-id]"), `${locale}: chooser stayed open after a pick`);
       await openApiStyleMenu();
       const newCustomOptions = optionSnapshot();
       assert(JSON.stringify(newCustomOptions.map((option) => option.label)) === JSON.stringify(customLabels()),
@@ -280,7 +287,7 @@ globalThis.providerApiStyleProbe = async () => {
       const noKeyControl = labeledSwitch(i18n.t("settings.noApiKeyRequired"));
       assert(noKeyControl && noKeyControl.getAttribute("aria-checked") === "false",
         `${locale}: custom endpoint must default to API-key authentication`);
-      const identityInputs = [...document.querySelectorAll<HTMLInputElement>(
+      const identityInputs = [...activeElements<HTMLInputElement>(
         ".provider-setup-custom-identity-row input",
       )];
       assert(identityInputs.length === 2, `${locale}: custom identity fields are missing`);
@@ -289,7 +296,7 @@ globalThis.providerApiStyleProbe = async () => {
       click(noKeyControl);
       assert(noKeyControl.getAttribute("aria-checked") === "true",
         `${locale}: no-API-key mode did not turn on`);
-      const disabledKeyInput = document.querySelector<HTMLInputElement>('input[type="password"]');
+      const disabledKeyInput = activeElement<HTMLInputElement>('input[type="password"]');
       assert(disabledKeyInput?.disabled && disabledKeyInput.value === "",
         `${locale}: no-API-key mode did not clear and disable the API-key input`);
       assert(document.documentElement.innerText.includes(i18n.t("settings.noApiKeyHint")),
@@ -300,10 +307,10 @@ globalThis.providerApiStyleProbe = async () => {
       assert(localProbe.baseUrl === "http://127.0.0.1:11434/v1" && !localProbe.apiKey,
         `${locale}: local model discovery included an API key`);
       await until(
-        () => Boolean(document.querySelector<HTMLInputElement>(".provider-models-row input")),
+        () => Boolean(activeElement<HTMLInputElement>(".provider-models-row input")),
         "local model discovery result",
       );
-      const localModel = document.querySelector<HTMLInputElement>(".provider-models-row input");
+      const localModel = activeElement<HTMLInputElement>(".provider-models-row input");
       assert(localModel, `${locale}: the local service model was not selectable`);
       if (!localModel.checked) click(localModel);
       await until(() => !control("settings.saveProvider").disabled, "no-auth provider save enabled");
@@ -336,7 +343,7 @@ globalThis.providerApiStyleProbe = async () => {
       assert(editNoKeyControl && editNoKeyControl.getAttribute("aria-checked") === "false",
         `${locale}: API-key provider edit opened in the wrong mode`);
       click(editNoKeyControl);
-      const disabledEditKeyInput = document.querySelector<HTMLInputElement>('input[type="password"]');
+      const disabledEditKeyInput = activeElement<HTMLInputElement>('input[type="password"]');
       assert(disabledEditKeyInput?.disabled,
         `${locale}: switched no-auth edit did not disable the API-key field`);
       const beforeNoAuthUpdate = updates.length;
@@ -408,7 +415,7 @@ globalThis.providerApiStyleProbe = async () => {
         await openModelManager();
         await until(() => Boolean(searchInput()), "official model settings");
         assert(!searchInput()?.disabled && !searchInput()?.checked, `${vendorKey}: search must be directly selectable and default off`);
-        assert(!document.querySelector(".provider-endpoint-guidance"), "official search requires an extra interface action");
+        assert(!activeElement(".provider-endpoint-guidance"), "official search requires an extra interface action");
         const count = updates.length;
         click(searchInput());
         click(control("settings.cancel"));
@@ -480,13 +487,13 @@ globalThis.providerApiStyleProbe = async () => {
       await pause(650);
       // The account editor opens straight on the model panel (D625): the
       // per-model controls sit behind the row's own Advanced disclosure.
-      assert(!document.querySelector(".provider-models-summary"), `${locale}: the chosen-models summary is gone from the account dialog`);
+      assert(!activeElement(".provider-models-summary"), `${locale}: the chosen-models summary is gone from the account dialog`);
       await frame();
-      const advancedToggle = document.querySelector<HTMLButtonElement>(".provider-chosen-advanced-toggle");
+      const advancedToggle = activeElement<HTMLButtonElement>(".provider-chosen-advanced-toggle");
       assert(advancedToggle?.getAttribute("aria-expanded") === "false", `${locale}: a model opened its advanced settings on its own`);
       click(advancedToggle);
       await frame();
-      const findWebSearch = () => [...document.querySelectorAll<HTMLInputElement>("input[type=checkbox]")].find((input) => input.closest("label")?.textContent?.trim() === i18n.t("settings.nativeWebSearch"));
+      const findWebSearch = () => [...activeElements<HTMLInputElement>("input[type=checkbox]")].find((input) => input.closest("label")?.textContent?.trim() === i18n.t("settings.nativeWebSearch"));
       const searchCheckbox = findWebSearch();
       assert(searchCheckbox, `${locale}: Codex web search checkbox missing`);
       assert(!searchCheckbox!.disabled, `${locale}: Codex web search checkbox stayed disabled`);

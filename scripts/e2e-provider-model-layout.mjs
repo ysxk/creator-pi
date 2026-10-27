@@ -36,7 +36,7 @@ try {
     nodePaths: [join(root, "apps/desktop/node_modules")],
   });
   let css = "";
-  for (const name of ["tokens", "base", "ui-kit", "settings", "providers", "model-config"]) {
+  for (const name of ["tokens", "base", "ui-kit", "settings", "providers", "model-config", "model-settings"]) {
     css += (await readFile(join(root, `apps/desktop/src/styles/${name}.css`), "utf8")).replace(/@theme(?: inline)?/g, ":root") + "\n";
   }
   await writeFile(join(temp, "style.css"), css);
@@ -51,7 +51,7 @@ const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 app.setPath("userData", path.join(__dirname, "profile"));
 app.whenReady().then(async () => {
-  const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+  const window = new BrowserWindow({ show: false, webPreferences: { backgroundThrottling: false, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
   window.webContents.on("console-message", (event) => console.error(event.message));
   try {
     const cases = [];

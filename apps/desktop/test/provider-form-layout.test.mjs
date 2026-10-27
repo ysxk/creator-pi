@@ -232,7 +232,9 @@ test("picking and reviewing models are two side-by-side panes", () => {
   const panes = block(".provider-setup-panes");
   assert.match(panes, /display: grid/);
   assert.match(panes, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(0, 1fr\)/);
-  assert.match(panes, /min-height: 0/);
+  assert.ok(Number(panes.match(/min-height:\s*(\d+)px/)?.[1]) > 0,
+    "the model panes retain a usable minimum height in short windows");
+  assert.match(block(".provider-setup-body"), /overflow-y:\s*auto/);
   // The available list must come before the chosen list in reading order.
   assert.ok(
     pickerSource.indexOf('className="provider-models"') <

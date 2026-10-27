@@ -9,8 +9,6 @@ import type { ModelInfo, ProviderPublic, SessionThinkingLevel } from "@pi-deskto
 import { useComposerModelMenu } from "../../apps/desktop/src/features/chat/composer/hooks/useComposerModelMenu";
 import { useAppStore } from "./fixtures/composer-model-selection-store";
 
-type MenuController = ReturnType<typeof useComposerModelMenu>;
-
 declare global {
   var composerModelSelectionProbe: () => Promise<{
     model: string;
@@ -18,7 +16,6 @@ declare global {
     level: string;
     writes: Array<{ providerId?: string; modelId?: string; thinkingLevel: SessionThinkingLevel }>;
   }>;
-  var composerModelSelectionController: MenuController | undefined;
 }
 
 const provider: ProviderPublic = {
@@ -79,7 +76,6 @@ function Fixture() {
       setThinkingLevel(configuration.thinkingLevel);
     },
   });
-  globalThis.composerModelSelectionController = controller;
   return (
     <div className="composer-stack" style={{ position: "absolute", left: 120, top: 300, width: 640 }}>
       <ComposerModelPicker
@@ -102,66 +98,70 @@ globalThis.composerModelSelectionProbe = async () => {
   await i18n.init({ lng: "en", resources: { en: { translation: en } }, interpolation: { escapeValue: false } });
   flushSync(() => root.render(<Fixture />));
   await settle();
-  document.querySelector<HTMLButtonElement>(".composer-model-thinking-chip")!.click();
+  const trigger = document.querySelector<HTMLButtonElement>(".composer-model-thinking-chip")!;
+  flushSync(() => trigger.click());
   await settle();
-  const recentRows = Array.from(document.querySelectorAll<HTMLButtonElement>(".composer-menu-root [role=menuitemradio]"));
-  if (recentRows.length !== 3 || !recentRows[0].textContent?.includes("model-d") || !recentRows[2].textContent?.includes("model-b")) {
-    throw new Error("The first model menu must show exactly the three most recent models in order");
+  const menu = () => document.querySelector<HTMLElement>('.composer-model-menu[data-surface-state="open"]')!;
+  const rows = () => Array.from(menu().querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]'));
+  const recentRows = () => Array.from(menu().querySelectorAll<HTMLButtonElement>(
+    '[role="group"][aria-label="' + i18n.t("chat.recentModels") + '"] [role="menuitemradio"]',
+  ));
+  const recentIds = () => recentRows().map((row) => row.querySelector(".composer-model-label")?.textContent);
+  if (JSON.stringify(recentIds()) !== JSON.stringify(["model-d", "model-c", "model-b"])) {
+    throw new Error("The recent group must show exactly the three most recently used models in order");
   }
-  recentRows[2].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-  await settle();
-  const otherModels = document.querySelector<HTMLButtonElement>(".composer-menu-root [aria-expanded]")!;
-  otherModels.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-  otherModels.focus();
-  await settle();
-  if (document.querySelector(".composer-model-list .kb-active")) {
-    throw new Error("Moving from a recent model to Other models must clear stale keyboard highlight");
+  if (rows().length !== 4 || !rows()[3].textContent?.includes("model-a")) {
+    throw new Error("All configured models must be visible once without a disclosure step");
   }
-  const keyboardSearch = document.querySelector<HTMLInputElement>(".composer-model-search input")!;
+  recentRows()[2].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  await settle();
+  if (menu().querySelector(".kb-active")) throw new Error("Pointer navigation must clear stale keyboard highlight");
+  const keyboardSearch = menu().querySelector<HTMLInputElement>(".composer-model-search input")!;
   keyboardSearch.focus();
   keyboardSearch.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
   await settle();
-  if (!document.querySelector(".composer-model-list .kb-active")) throw new Error("Arrow navigation must highlight a model");
-  otherModels.focus();
-  // The offscreen window does not own OS focus; deliver the native focusout edge.
-  keyboardSearch.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: otherModels }));
+  if (!menu().querySelector(".kb-active")) throw new Error("Arrow navigation must highlight a model");
+  trigger.focus();
+  keyboardSearch.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: trigger }));
   await settle();
-  if (document.querySelector(".composer-model-list .kb-active")) throw new Error("Leaving search must clear keyboard highlight");
-  recentRows[2].click();
+  if (menu().querySelector(".kb-active")) throw new Error("Leaving search must clear keyboard highlight");
+  flushSync(() => recentRows()[2].click());
   await settle();
-  if (!document.querySelector(".composer-menu-root [role=menuitemradio]")?.textContent?.includes("model-d")) {
+  if (JSON.stringify(recentIds()) !== JSON.stringify(["model-d", "model-c", "model-b"])) {
     throw new Error("Selecting without sending must preserve actual usage order");
   }
-
   const switchedLevel = document.querySelector(".selected-thinking-level")?.textContent?.trim() ?? "";
-  await globalThis.composerModelSelectionController!.commitThinkingLevel("low");
+  const low = menu().querySelector<HTMLButtonElement>('.composer-thinking-tick[title="low"]')!;
+  if (!low) throw new Error("The selected model must offer its supported reasoning levels");
+  flushSync(() => low.click());
   await settle();
-  const disclosure = document.querySelector<HTMLButtonElement>(".composer-menu-root [aria-expanded]")!;
-  disclosure.click();
-  await settle();
-  const expandedRows = document.querySelectorAll(".composer-model-list [role=menuitemradio]");
-  if (expandedRows.length !== 4) throw new Error("Expanded models must appear once in the same list");
-  const recentStyle = getComputedStyle(expandedRows[0]);
-  const otherStyle = getComputedStyle(expandedRows[3]);
+  const allRows = rows();
+  const recentStyle = getComputedStyle(allRows[0]);
+  const otherStyle = getComputedStyle(allRows[3]);
   if (recentStyle.fontSize !== otherStyle.fontSize || recentStyle.fontWeight !== otherStyle.fontWeight) {
     throw new Error(`Model typography differs: recent ${recentStyle.fontSize}/${recentStyle.fontWeight}, other ${otherStyle.fontSize}/${otherStyle.fontWeight}`);
   }
-  disclosure.click();
+  const search = menu().querySelector<HTMLInputElement>(".composer-model-search input")!;
+  const setSearch = (value: string) => flushSync(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value);
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  setSearch("model-b");
   await settle();
-  const search = document.querySelector<HTMLInputElement>(".composer-model-search input")!;
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "model-b");
-  search.dispatchEvent(new Event("input", { bubbles: true }));
-  await settle();
+  if (rows().length !== 1 || !rows()[0].textContent?.includes("model-b")) {
+    throw new Error("Search must narrow the configured models without duplicates");
+  }
   search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   await settle();
   const restored = useAppStore.getState().recentModels;
   if (restored[0]?.modelId !== "model-d") throw new Error("Menu interactions alone must not record usage");
-  useAppStore.setState({ recentModels: [] });
+  setSearch("");
+  flushSync(() => useAppStore.setState({ recentModels: [] }));
   await settle();
-  if (document.querySelectorAll(".composer-model-list [role=menuitemradio]").length !== 4) {
-    throw new Error("Without history all configured models must be directly visible");
+  if (rows().length !== 4 || recentRows().length !== 0) {
+    throw new Error("Without history all configured models must remain directly visible");
   }
-  useAppStore.setState({ recentModels: restored });
+  flushSync(() => useAppStore.setState({ recentModels: restored }));
   await settle();
   return {
     model: document.querySelector(".selected-model")?.textContent?.trim() ?? "",
