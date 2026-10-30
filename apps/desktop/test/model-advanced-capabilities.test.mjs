@@ -300,3 +300,14 @@ test("the offered default and the saved default use one order", () => {
     /resolveBindingDefaultThinkingLevel\(\s*binding\.defaultThinkingLevel,\s*sortThinkingLevels\(next\),/,
   );
 });
+
+test("unchecking a delegation or web-search toggle stores an explicit off with a way back", async () => {
+  const form = await readFile(
+    new URL("../src/components/settings/ModelSettingsForm.tsx", import.meta.url),
+    "utf8",
+  );
+  for (const field of ["availableForSubagents", "nativeWebSearch"]) {
+    assert.match(form, new RegExp(`onChange\\(\\{ ${field}: event\\.target\\.checked \\}\\)`), field);
+    assert.match(form, new RegExp(`resetBtn\\("${field}"`), field);
+  }
+});

@@ -148,9 +148,15 @@ fn migration_is_idempotent_excludes_catalog_seeds_and_plugin_declarations() {
     assert!(!fields.contains_key("maxTokensSource"));
     assert_eq!(fields["maxTokens"], 42000);
     assert_eq!(fields["supportsImages"], false);
-    assert_eq!(fields["supportsAudio"], Value::Null);
-    assert_eq!(fields["alias"], "");
-    assert_eq!(fields["systemPrompt"], "");
+    for inherited in [
+        "supportsAudio",
+        "alias",
+        "systemPrompt",
+        "thinkingLevels",
+        "defaultThinkingLevel",
+    ] {
+        assert!(!fields.contains_key(inherited), "{inherited} was pinned");
+    }
     assert!(!first.channels[&provider.id].contains_key("seeds"));
     assert_eq!(
         first.channels[&provider.id]["old-explicit"]["contextWindow"],
@@ -162,13 +168,7 @@ fn migration_is_idempotent_excludes_catalog_seeds_and_plugin_declarations() {
         &db,
         json!({"providerId":provider.id,"modelId":"vendor/full-wire-id","unset":["maxTokens","supportsImages"]}),
     );
-    assert!(
-        !get(&db).unwrap().channels[&provider.id]["vendor/full-wire-id"].contains_key("maxTokens")
-    );
-    assert!(
-        !get(&db).unwrap().channels[&provider.id]["vendor/full-wire-id"]
-            .contains_key("supportsImages")
-    );
+    assert!(!get(&db).unwrap().channels[&provider.id].contains_key("vendor/full-wire-id"));
 }
 
 #[test]
@@ -559,4 +559,143 @@ fn migration_uses_the_same_limit_source_normalization_as_binding_reads() {
     }));
     assert!(!fields.contains_key("contextWindow"));
     assert_eq!(fields["maxTokens"], 8192);
+}
+
+#[test]
+fn migrated_channels_let_model_defaults_apply_and_keep_real_choices() {
+    let (_dir, db, secrets) = context();
+    let provider = create(&db, &secrets, json!([]));
+    db.kv_delete(NAMESPACE, SNAPSHOT_KEY).unwrap();
+    let config = json!({"models":[{
+        "id":"model","contextWindow":128000,"maxTokens":8192,
+        "thinkingLevels":["off","high"],"defaultThinkingLevel":null,
+        "thinkingProtocol":"adaptive","supportsImages":null,"alias":"",
+        "supportsVideos":false,"availableForSubagents":true
+    },{
+        "id":"chosen","contextWindow":128000,"maxTokens":8192,
+        "thinkingLevels":["off","high"],"defaultThinkingLevel":"high","alias":"Mine"
+    }]});
+    db.conn()
+        .execute(
+            "UPDATE providers SET config_json = ?1 WHERE id = ?2",
+            rusqlite::params![config.to_string(), provider.id],
+        )
+        .unwrap();
+    let snapshot = get(&db).unwrap();
+    let channel = &snapshot.channels[&provider.id];
+    assert_eq!(
+        channel["model"].keys().cloned().collect::<Vec<_>>(),
+        vec!["availableForSubagents", "supportsVideos"],
+    );
+    assert_eq!(channel["chosen"]["defaultThinkingLevel"], "high");
+    assert_eq!(channel["chosen"]["alias"], "Mine");
+}
+
+/// The model the renderer holds: effective fields over the stored layers.
+fn resolved_with_override(db: &Database, secrets: &SecretStore, provider_id: &str) -> Value {
+    let provider = providers::get_provider(db, secrets, provider_id)
+        .unwrap()
+        .unwrap();
+    let mut binding = serde_json::to_value(&provider.models[0]).unwrap();
+    binding["contextWindow"] = json!(500000);
+    binding["contextWindowSource"] = json!("user");
+    binding
+}
+
+#[test]
+fn saving_a_resolved_binding_does_not_mark_its_baseline_limit_as_user_set() {
+    let (_dir, db, secrets) = context();
+    let provider = create(&db, &secrets, json!([seeded("Model")]));
+    change(
+        &db,
+        json!({"modelId":"model","providerId":provider.id,"set":{"contextWindow":500000}}),
+    );
+    let binding = resolved_with_override(&db, &secrets, &provider.id);
+    edit(&db, &secrets, &provider.id, json!([binding]));
+    let stored = &raw(&db, &provider.id)["models"][0];
+    assert_eq!(stored["contextWindow"], 200000);
+    assert_eq!(stored["contextWindowSource"], "catalog");
+    assert_eq!(
+        get(&db).unwrap().channels[&provider.id]["model"]["contextWindow"],
+        500000
+    );
+
+    // Same when the limit comes from the model's default rather than the channel.
+    change(
+        &db,
+        json!({"modelId":"model","providerId":provider.id,"unset":["contextWindow"]}),
+    );
+    change(
+        &db,
+        json!({"modelId":"model","set":{"contextWindow":500000}}),
+    );
+    let binding = resolved_with_override(&db, &secrets, &provider.id);
+    edit(&db, &secrets, &provider.id, json!([binding]));
+    assert_eq!(
+        raw(&db, &provider.id)["models"][0]["contextWindowSource"],
+        "catalog"
+    );
+}
+
+#[test]
+fn saving_a_resolved_binding_keeps_a_baseline_the_user_set() {
+    let (_dir, db, secrets) = context();
+    let mut model = seeded("Model");
+    model["contextWindowSource"] = json!("user");
+    let provider = create(&db, &secrets, json!([model]));
+    change(
+        &db,
+        json!({"modelId":"model","providerId":provider.id,"set":{"contextWindow":500000}}),
+    );
+    let binding = resolved_with_override(&db, &secrets, &provider.id);
+    edit(&db, &secrets, &provider.id, json!([binding]));
+    assert_eq!(
+        raw(&db, &provider.id)["models"][0]["contextWindowSource"],
+        "user"
+    );
+}
+
+#[test]
+fn a_new_binding_edited_before_its_first_save_keeps_a_catalog_baseline() {
+    let (_dir, db, secrets) = context();
+    let mut model = seeded("Model");
+    model["contextWindow"] = json!(500000);
+    model["contextWindowSource"] = json!("user");
+    model["settings"]["overrides"]["contextWindow"] = json!(500000);
+    let provider = create(&db, &secrets, json!([model]));
+    let stored = &raw(&db, &provider.id)["models"][0];
+    assert_eq!(stored["contextWindow"], 200000);
+    assert_eq!(stored["contextWindowSource"], "catalog");
+}
+
+#[test]
+fn an_unreadable_snapshot_leaves_providers_usable_and_is_not_overwritten() {
+    let (_dir, db, secrets) = context();
+    let provider = create(&db, &secrets, json!([seeded("Model")]));
+    let doomed = create(&db, &secrets, json!([seeded("Other")]));
+    let future = json!({"version":2,"defaults":{},"channels":{},"added":true});
+    db.kv_set(NAMESPACE, SNAPSHOT_KEY, &future).unwrap();
+
+    let listed = providers::list_providers(&db, &secrets, true).unwrap();
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[0].models[0].context_window, 200000);
+    assert!(providers::get_provider(&db, &secrets, &provider.id)
+        .unwrap()
+        .is_some());
+
+    let renamed = serde_json::from_value(json!({"id":provider.id,"name":"Renamed"})).unwrap();
+    let renamed = providers::update_provider(&db, &secrets, renamed)
+        .unwrap()
+        .unwrap();
+    assert_eq!(renamed.name, "Renamed");
+    assert!(providers::delete_provider(&db, &secrets, &doomed.id).unwrap());
+
+    // Editing settings has nothing safe to merge into, so it refuses.
+    assert!(get(&db).is_err());
+    let models = serde_json::from_value(
+        json!({"id":provider.id,"name":"Renamed","models":[seeded("Model")]}),
+    )
+    .unwrap();
+    assert!(providers::update_provider(&db, &secrets, models).is_err());
+    assert_eq!(db.kv_get(NAMESPACE, SNAPSHOT_KEY).unwrap(), Some(future));
 }

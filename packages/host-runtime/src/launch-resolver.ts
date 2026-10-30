@@ -7,7 +7,7 @@ import {
   isCommandShellCatalog,
   normalizeMode,
   resolveBindingLimits,
-  resolveModelBinding,
+  resolveProviderModels,
   trustedExtensionAgentKeyFromProviderId,
   globalSubagentsInProjectPolicy,
   type CommandShellCatalog,
@@ -221,9 +221,7 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
     const providers = await host.call<{ providers: HostProviderRecord[] }>("providers.list", {
       includeDisabled: false,
     });
-    providers.providers = providers.providers.map((row) => ({
-      ...row, models: row.models?.map(resolveModelBinding),
-    }));
+    providers.providers = providers.providers.map(resolveProviderModels);
     const sessionProviderId = typeof session.providerId === "string" ? session.providerId : undefined;
     const sessionModelId = typeof session.modelId === "string" ? session.modelId : undefined;
     const requestedProviderId = overrides.providerId ?? sessionProviderId;

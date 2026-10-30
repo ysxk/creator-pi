@@ -81,6 +81,11 @@ export function resolveModelBinding(binding: ModelBinding): ModelBinding {
   return resolved;
 }
 
+/** A provider row as its models behave: what every reader of bindings needs. */
+export function resolveProviderModels<T extends { models?: ModelBinding[] }>(provider: T): T {
+  return provider.models ? { ...provider, models: provider.models.map(resolveModelBinding) } : provider;
+}
+
 export function withInheritedModelSettings(binding: ModelBinding): ModelBinding {
   if (binding.settings) return binding;
   return { ...binding, settings: { baseline: modelSettingsValues(binding), defaults: {}, overrides: {} } };

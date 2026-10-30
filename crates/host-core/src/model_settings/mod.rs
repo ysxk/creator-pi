@@ -50,11 +50,41 @@ fn deserialize_provider_id<'de, D: serde::Deserializer<'de>>(
     String::deserialize(deserializer).map(Some)
 }
 
+fn decode(value: Value) -> Result<Snapshot> {
+    let snapshot: Snapshot = serde_json::from_value(value)?;
+    validate_snapshot(&snapshot)?;
+    Ok(snapshot)
+}
+
+/// The snapshot for applying settings to provider rows.
+///
+/// One unreadable settings row (a newer build wrote it, or it is corrupt) must
+/// not take provider access down with it: rows fall back to their baselines.
+/// The row itself is left alone, and writers keep refusing through `get`.
+pub(crate) fn read(db: &Database) -> Result<Snapshot> {
+    if let Some(value) = db.kv_get(NAMESPACE, SNAPSHOT_KEY)? {
+        return Ok(decode(value).unwrap_or_else(|error| {
+            tracing::warn!(%error, "model settings unreadable; using provider baselines");
+            Snapshot::default()
+        }));
+    }
+    get(db)
+}
+
+/// A cleanup has nothing to do in a snapshot nobody can read.
+fn writable(db: &Database) -> Result<Option<Snapshot>> {
+    if let Some(value) = db.kv_get(NAMESPACE, SNAPSHOT_KEY)? {
+        if let Err(error) = decode(value) {
+            tracing::warn!(%error, "model settings unreadable; cleanup skipped");
+            return Ok(None);
+        }
+    }
+    get(db).map(Some)
+}
+
 pub fn get(db: &Database) -> Result<Snapshot> {
     if let Some(value) = db.kv_get(NAMESPACE, SNAPSHOT_KEY)? {
-        let snapshot: Snapshot = serde_json::from_value(value)?;
-        validate_snapshot(&snapshot)?;
-        return Ok(snapshot);
+        return decode(value);
     }
     let mut snapshot = Snapshot::default();
     let mut stmt = db
@@ -158,7 +188,9 @@ pub(crate) fn remove_models(db: &Database, provider_id: &str, ids: &[String]) ->
     if ids.is_empty() {
         return Ok(());
     }
-    let mut snapshot = get(db)?;
+    let Some(mut snapshot) = writable(db)? else {
+        return Ok(());
+    };
     if let Some(models) = snapshot.channels.get_mut(provider_id) {
         for id in ids {
             models.remove(&model_key(id));
@@ -170,7 +202,9 @@ pub(crate) fn remove_models(db: &Database, provider_id: &str, ids: &[String]) ->
 }
 
 pub(crate) fn remove_provider(db: &Database, provider_id: &str) -> Result<()> {
-    let mut snapshot = get(db)?;
+    let Some(mut snapshot) = writable(db)? else {
+        return Ok(());
+    };
     snapshot.channels.remove(provider_id);
     save(db, &snapshot)
 }

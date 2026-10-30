@@ -105,6 +105,15 @@ pub fn legacy_overrides(value: &Value) -> Values {
             values.remove(field);
         }
     }
+    // The stored record stays the baseline, so dropping a field here changes
+    // nothing until the user sets a model default. Only a choice someone made
+    // may outrank that default: empty values say nothing, and the thinking
+    // fields are seeded from the catalog when a model is added.
+    values.retain(|field, value| match field.as_str() {
+        "thinkingLevels" | "thinkingProtocol" => false,
+        "alias" | "systemPrompt" => value.as_str().is_some_and(|text| !text.is_empty()),
+        _ => !value.is_null(),
+    });
     values
         .retain(|field, value| validate(&BTreeMap::from([(field.clone(), value.clone())])).is_ok());
     values

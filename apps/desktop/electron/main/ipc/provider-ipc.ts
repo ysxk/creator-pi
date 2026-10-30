@@ -3,6 +3,7 @@ import {
   ErrorCodes,
   inferEndpointProfile,
   normalizeApiStyle,
+  resolveProviderModels,
   type ModelBinding,
   type ModelModality,
   type ProviderReorderInput,
@@ -369,7 +370,7 @@ export function registerProviderIpc({
       const providers = req.source === "cache"
         ? (await host.call<{ providers: RuntimeProvider[] }>("providers.list", {
             includeDisabled: true,
-          })).providers
+          })).providers.map(resolveProviderModels)
         : await listRuntimeProviders();
       const provider = req.providerId
         ? providers.find((p) => p.id === req.providerId)

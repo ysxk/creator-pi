@@ -14,8 +14,8 @@ import type {
   PluginLlmContext,
   PluginModelInfo,
 } from "@pi-desktop/plugin-sdk";
-import type { AppSettings, ContextCompactionRecord, ThinkingLevel, UiMessage } from "@pi-desktop/shared";
-import { THINKING_LEVELS } from "@pi-desktop/shared";
+import type { AppSettings, ContextCompactionRecord, ModelBinding, ThinkingLevel, UiMessage } from "@pi-desktop/shared";
+import { resolveProviderModels, THINKING_LEVELS } from "@pi-desktop/shared";
 
 export function parsePluginModelKey(modelKey: string): { providerId: string; modelId: string } | null {
   const slash = modelKey.indexOf("/");
@@ -40,12 +40,7 @@ type ListedProvider = {
   supportsReasoning?: boolean;
   supportedThinkingLevels?: ThinkingLevel[];
   defaultModelId?: string;
-  models?: Array<{
-    id: string;
-    alias?: string;
-    availableForSubagents?: boolean;
-    thinkingLevels?: ThinkingLevel[];
-  }>;
+  models?: ModelBinding[];
 };
 
 export function listReadyPluginModels(
@@ -53,7 +48,10 @@ export function listReadyPluginModels(
   settings: Pick<AppSettings, "defaultProviderId" | "defaultModelId"> = {},
 ): PluginModelInfo[] {
   const models: PluginModelInfo[] = [];
-  const enabled = providers.filter((provider) => provider.enabled !== false);
+  // Saved model settings live in layers; the top-level fields are only the baseline.
+  const enabled = providers
+    .filter((provider) => provider.enabled !== false)
+    .map(resolveProviderModels);
   const isReady = (provider: ListedProvider) =>
     provider.hasSecret === true || provider.hasOauth === true || provider.authKind === "none";
   // Match session launch fallback order without advertising an unavailable default.
@@ -66,7 +64,7 @@ export function listReadyPluginModels(
   let defaultAssigned = false;
   for (const provider of enabled) {
     if (!isReady(provider)) continue;
-    const bindings: NonNullable<ListedProvider["models"]> =
+    const bindings: Array<Pick<ModelBinding, "id"> & Partial<ModelBinding>> =
       provider.models?.length
         ? provider.models
         : provider.defaultModelId

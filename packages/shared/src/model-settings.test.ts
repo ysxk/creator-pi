@@ -16,6 +16,17 @@ describe("model settings inheritance", () => {
     expect(inherited).toMatchObject({ maxTokens: 10000, systemPrompt: "global model", supportsImages: true });
     expect(binding.settings!.overrides).toEqual({});
   });
+  it("an explicit off beats an inherited on and is a real change to save", () => {
+    const binding = bindingForCustomModel("model");
+    binding.settings!.baseline = { ...binding.settings!.baseline, availableForSubagents: true, nativeWebSearch: true };
+    const off = updateModelBindingSettings(binding, { availableForSubagents: false, nativeWebSearch: false });
+    expect(off).toMatchObject({ availableForSubagents: false, nativeWebSearch: false });
+    expect(modelSettingsPatch({}, { availableForSubagents: false })).toEqual({
+      set: { availableForSubagents: false }, unset: [],
+    });
+    const inherited = updateModelBindingSettings(off, {}, ["availableForSubagents", "nativeWebSearch"]);
+    expect(inherited).toMatchObject({ availableForSubagents: true, nativeWebSearch: true });
+  });
   it("resetting the final layer restores catalog provenance", () => {
     const binding = updateModelBindingSettings(bindingForCustomModel("model"), { contextWindow: 321000 });
     const reset = updateModelBindingSettings(binding, {}, ["contextWindow"]);

@@ -47,6 +47,29 @@ function writePlugin({ permissions, main }) {
   return dir;
 }
 
+test("listReadyPluginModels reads the settings the user saved, not the stored baseline", () => {
+  const layered = (overrides, defaults = {}) => ({
+    id: "m1",
+    alias: "Baseline",
+    availableForSubagents: true,
+    thinkingLevels: ["off"],
+    settings: {
+      baseline: { alias: "Baseline", availableForSubagents: true, thinkingLevels: ["off"] },
+      defaults,
+      overrides,
+    },
+  });
+  const list = (binding) =>
+    listReadyPluginModels([{ id: "p1", name: "Ready", hasSecret: true, models: [binding] }])[0];
+  assert.equal(list(layered({ availableForSubagents: false })).availableForSubagents, false);
+  assert.equal(list(layered({}, { availableForSubagents: false })).availableForSubagents, false);
+  const shown = list(layered({ alias: "Mine", thinkingLevels: ["off", "high"] }));
+  assert.equal(shown.alias, "Mine");
+  assert.deepEqual(shown.thinkingLevels, ["off", "high"]);
+  assert.equal(shown.supportsReasoning, true);
+  assert.equal(list(layered({})).availableForSubagents, true);
+});
+
 test("listReadyPluginModels omits providers without credentials", () => {
   const models = listReadyPluginModels([
     {

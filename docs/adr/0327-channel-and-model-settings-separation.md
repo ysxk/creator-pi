@@ -31,3 +31,12 @@ Previously, the "Models" settings page was predominantly a provider/channel conn
 - Direct, convenient model parameter and prompt adjustments without navigating into channel modals.
 - Clean separation between provider connection credentials and model behavior.
 - Full backward compatibility with existing stored providers and plugin declarations.
+
+## Amendment (D705)
+
+Every reader of provider bindings applies the layers: `resolveProviderModels`
+is the shared read, including the worker-spawn gate and plugin model list.
+Migration keeps only values someone chose as channel overrides, so model
+defaults reach migrated channels. A layered save never stores an effective
+limit source beside a baseline value. An unreadable snapshot degrades provider
+reads to baselines without being overwritten; settings writers still refuse.

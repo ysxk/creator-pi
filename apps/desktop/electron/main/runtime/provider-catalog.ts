@@ -2,6 +2,7 @@ import {
   ErrorCodes as SharedErrorCodes,
   SESSION_THINKING_LEVELS,
   resolveModelBinding,
+  resolveProviderModels,
   defaultCommandShellForPlatform,
   isCommandShellId,
   validateNetworkProxy,
@@ -107,7 +108,7 @@ export function createProviderCatalogRuntime({
     modelId: string,
     catalogModelConfig?: ModelConfig,
   ) => {
-    modelsDevCatalog.configureAccount({ ...provider, models: provider.models?.map(resolveModelBinding) });
+    modelsDevCatalog.configureAccount(resolveProviderModels(provider));
     const modelConfig = modelsDevCatalog.modelConfigFor({
       providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId,
     }, catalogModelConfig);
@@ -131,7 +132,7 @@ export function createProviderCatalogRuntime({
       provider.models?.[0]?.id ||
       provider.defaultModelId ||
       "";
-    modelsDevCatalog.configureAccount({ ...provider, models: provider.models?.map(resolveModelBinding) });
+    modelsDevCatalog.configureAccount(resolveProviderModels(provider));
     const catalogConfig = catalogModelConfigFor(modelsDevCatalog, {
       providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId,
     });
@@ -290,9 +291,7 @@ export function createProviderCatalogRuntime({
       { includeDisabled },
     );
     await modelsDevCatalog.ensureLoaded();
-    const providers = result.providers.map((provider) => ({
-      ...provider, models: provider.models?.map(resolveModelBinding),
-    }));
+    const providers = result.providers.map(resolveProviderModels);
     for (const provider of providers) modelsDevCatalog.configureAccount(provider);
     await syncDiscoveredModels(host, modelsDevCatalog, logger);
     return providers;
@@ -376,7 +375,7 @@ export function createProviderCatalogRuntime({
       };
     }
     const { provider, modelId } = target;
-    modelsDevCatalog.configureAccount({ ...provider, models: provider.models?.map(resolveModelBinding) });
+    modelsDevCatalog.configureAccount(resolveProviderModels(provider));
     const catalogConfig = catalogModelConfigFor(modelsDevCatalog, {
       providerId: provider.id, vendorKey: provider.vendorKey, baseUrl: provider.baseUrl, modelId,
     });

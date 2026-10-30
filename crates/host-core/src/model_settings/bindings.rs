@@ -35,6 +35,32 @@ pub(crate) fn attach(snapshot: &Snapshot, provider: &mut ProviderPublic) -> Resu
     Ok(())
 }
 
+/// Provenance of the limit a layered save stores as its baseline.
+///
+/// A renderer holds resolved bindings, whose source describes the effective
+/// limit: an override makes it `user`. Storing that beside the baseline value
+/// would keep the limit from following the catalog once the override is gone.
+fn baseline_limit_source(
+    field: &str,
+    sent: Option<String>,
+    previous: Option<(&ModelBinding, &Option<String>)>,
+    layers: &Layers,
+) -> Result<Option<String>> {
+    if let Some((previous, stored)) = previous {
+        if binding_values(previous)?.get(field) == layers.baseline.get(field) {
+            return Ok(stored.clone());
+        }
+    }
+    // A model new to this channel is seeded from the catalog, so the user's
+    // number is in a layer and not in the baseline.
+    let layered = layers.defaults.contains_key(field) || layers.overrides.contains_key(field);
+    Ok(if layered {
+        Some("catalog".to_string())
+    } else {
+        sent
+    })
+}
+
 pub(crate) fn prepare_save(
     db: &Database,
     provider_id: &str,
@@ -60,6 +86,24 @@ pub(crate) fn prepare_save(
             values::validate(&layers.baseline)?;
             values::validate(&layers.defaults)?;
             values::validate(&layers.overrides)?;
+            let previous = current.and_then(|provider| {
+                provider
+                    .models
+                    .iter()
+                    .find(|model| model_key(&model.id) == key)
+            });
+            let context_window_source = baseline_limit_source(
+                "contextWindow",
+                binding.context_window_source.clone(),
+                previous.map(|model| (model, &model.context_window_source)),
+                &layers,
+            )?;
+            let max_tokens_source = baseline_limit_source(
+                "maxTokens",
+                binding.max_tokens_source.clone(),
+                previous.map(|model| (model, &model.max_tokens_source)),
+                &layers,
+            )?;
             let mut raw = serde_json::to_value(&binding)?;
             let object = raw
                 .as_object_mut()
@@ -69,6 +113,8 @@ pub(crate) fn prepare_save(
             }
             object.extend(layers.baseline);
             *binding = serde_json::from_value(raw)?;
+            binding.context_window_source = context_window_source;
+            binding.max_tokens_source = max_tokens_source;
             channel.insert(key, layers.overrides);
         } else if let Some(previous) = current.and_then(|provider| {
             provider

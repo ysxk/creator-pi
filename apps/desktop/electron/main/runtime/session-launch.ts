@@ -7,7 +7,7 @@ import {
   imageGenerationBindings,
   isImageGenerationModel,
   normalizeMode,
-  resolveModelBinding,
+  resolveProviderModels,
   resolveBindingLimits,
   globalSubagentsInProjectPolicy,
   trustedExtensionAgentKeyFromProviderId,
@@ -309,9 +309,7 @@ export function createSessionLaunchRuntime({
       "providers.list",
       { includeDisabled: false },
     );
-    providers.providers = providers.providers.map((row) => ({
-      ...row, models: row.models?.map(resolveModelBinding),
-    }));
+    providers.providers = providers.providers.map(resolveProviderModels);
     for (const row of providers.providers) modelsDevCatalog.configureAccount(row);
     await syncDiscoveredModels(runtimeState.host!, modelsDevCatalog, logger);
     const requestedProviderId = overrides.providerId ?? session.providerId;

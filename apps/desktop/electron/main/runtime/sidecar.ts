@@ -521,6 +521,7 @@ export function createSidecarRuntime({
       modelId,
       catalogModelConfig,
     );
+    const systemPrompt = binding && resolveModelBinding(binding).systemPrompt;
 
     return {
       id: provider.id,
@@ -533,7 +534,7 @@ export function createSidecarRuntime({
       supportsReasoning: capabilities.supportsReasoning,
       supportedThinkingLevels: [...capabilities.supportedThinkingLevels],
       ...(modelConfig ? { modelConfig } : {}),
-      ...(binding ? (resolveModelBinding(binding).systemPrompt ? { systemPrompt: resolveModelBinding(binding).systemPrompt } : {}) : {}),
+      ...(systemPrompt ? { systemPrompt } : {}),
     };
   });
   // Agent-driven work panel preview (D100): open a workspace HTML file in

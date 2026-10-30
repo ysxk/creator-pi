@@ -87,7 +87,7 @@ pub fn list_providers(
     let mut stmt = db.conn().prepare_cached(&sql)?;
     let rows = stmt.query_map([], |row| provider_from_row(row, secrets))?;
     let mut providers = rows.collect::<rusqlite::Result<Vec<_>>>()?;
-    let settings = crate::model_settings::get(db)?;
+    let settings = crate::model_settings::read(db)?;
     for provider in &mut providers {
         hydrate_dynamic_plugin_models(db, provider)?;
         crate::model_settings::attach(&settings, provider)?;
@@ -166,7 +166,7 @@ pub fn create_provider(
     let settings = match input.models.as_mut() {
         Some(models) => Some(crate::model_settings::prepare_save(db, &id, models, None)?),
         None => {
-            crate::model_settings::get(db)?;
+            crate::model_settings::read(db)?;
             None
         }
     };
@@ -274,7 +274,7 @@ pub(crate) fn create_provider_with_id(
     let settings = match input.models.as_mut() {
         Some(models) => Some(crate::model_settings::prepare_save(db, id, models, None)?),
         None => {
-            crate::model_settings::get(db)?;
+            crate::model_settings::read(db)?;
             None
         }
     };
@@ -380,7 +380,7 @@ pub fn update_provider(
             Some(&current),
         )?),
         None => {
-            crate::model_settings::get(db)?;
+            crate::model_settings::read(db)?;
             None
         }
     };
@@ -812,7 +812,7 @@ pub fn get_provider(
         .optional()?;
     if let Some(provider) = provider.as_mut() {
         hydrate_dynamic_plugin_models(db, provider)?;
-        crate::model_settings::attach(&crate::model_settings::get(db)?, provider)?;
+        crate::model_settings::attach(&crate::model_settings::read(db)?, provider)?;
     }
     Ok(provider)
 }

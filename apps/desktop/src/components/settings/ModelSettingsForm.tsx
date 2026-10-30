@@ -384,7 +384,7 @@ export function ModelSettingsForm({
                 checked={binding.availableForSubagents ?? false}
                 disabled={disabled}
                 onChange={(event) =>
-                  onChange({ availableForSubagents: event.target.checked || undefined })
+                  onChange({ availableForSubagents: event.target.checked })
                 }
               />
               <span>{t("settings.availableForSubagents")}</span>
@@ -396,6 +396,7 @@ export function ModelSettingsForm({
             >
               <IconHelp size={13} />
             </Tooltip>
+            {resetBtn("availableForSubagents", t("settings.availableForSubagents"))}
           </span>
 
           <span className="provider-chosen-delegation">
@@ -405,7 +406,7 @@ export function ModelSettingsForm({
                 checked={binding.nativeWebSearch === true}
                 disabled={disabled || !nativeWebSearchWireCapable}
                 onChange={(event) =>
-                  onChange({ nativeWebSearch: event.target.checked || undefined })
+                  onChange({ nativeWebSearch: event.target.checked })
                 }
               />
               <span>{t("settings.nativeWebSearch")}</span>
@@ -425,6 +426,7 @@ export function ModelSettingsForm({
             >
               <IconHelp size={13} />
             </Tooltip>
+            {resetBtn("nativeWebSearch", t("settings.nativeWebSearch"))}
           </span>
         </div>
       </div>
