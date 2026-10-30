@@ -160,12 +160,12 @@ check("other plugins keep no owned provider rows", (providerList.providers ?? []
 const ui = await connectUiRenderer(Number(process.env.E2E_CDP_PORT));
 await ui.click('button[data-nav="settings"]');
 await ui.until(() => Boolean(document.querySelector(".settings-shell-full")), null, "Settings page");
-const openedModels = await ui.run((label) => {
+const openedChannels = await ui.run((label) => {
   const button = [...document.querySelectorAll(".settings-nav-item")].find((entry) => entry.textContent?.includes(label));
   button?.click();
   return Boolean(button);
-}, "Models");
-check("Model configuration is reachable from Settings navigation", openedModels);
+}, "Channels");
+check("Channel configuration is reachable from Settings navigation", openedChannels);
 await ui.until(() => Boolean(document.querySelector("button.model-provider-add")), null, "Add provider action");
 await ui.click("button.model-provider-add");
 await ui.until(
@@ -253,12 +253,12 @@ check("refresh credentials never enter model requests", !JSON.stringify(oauthReq
 
 await ui.click('button[data-nav="settings"]');
 await ui.until(() => Boolean(document.querySelector(".settings-shell-full")), null, "Settings before sign-out");
-const reopenedModels = await ui.run((label) => {
+const reopenedChannels = await ui.run((label) => {
   const button = [...document.querySelectorAll(".settings-nav-item")].find((entry) => entry.textContent?.includes(label));
   button?.click();
   return Boolean(button);
-}, "Models");
-check("Model settings can be reopened after an OAuth-backed turn", reopenedModels);
+}, "Channels");
+check("Channel settings can be reopened after an OAuth-backed turn", reopenedChannels);
 await ui.until(
   (id) => Boolean(document.querySelector(`[data-provider-id="${id}"] button[aria-haspopup="menu"]`)),
   pluginOAuthId,

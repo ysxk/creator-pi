@@ -251,7 +251,12 @@ void (async () => {
 })();
 `;
 
-test("Model settings page displays aggregated models and integrates IPC", async (t) => {
+test("Model settings page displays aggregated models and integrates IPC", {
+  skip:
+    process.platform === "linux" && !process.env.DISPLAY
+      ? "Isolated Electron UI test requires a display"
+      : false,
+}, async (t) => {
   const electronBinary = resolveElectronBinary(root).electronBinary;
   const temp = await mkdtemp(join(tmpdir(), "pi-model-settings-test-"));
 
