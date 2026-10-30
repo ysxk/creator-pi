@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.9",
+    "date": "2026-10-31",
+    "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
+      "Installed Windows and Linux AppImage copies now update themselves from creator-pi's GitHub Releases; ZIP, deb and rpm copies tell you when a new version is out. Versions before this one have no updater, so install this one by hand.",
+      "Turning off \"Available for subagents\" or native web search for a model now really turns it off, and a new Inherit button returns it to the default.",
+      "Workers and plugin model lists now follow your saved model settings, so a model you turned off for delegation is no longer used by a worker.",
+      "Model defaults now reach channels created before the settings split, and a context window you override goes back to following the catalog once you clear the override.",
+      "Damaged or newer-version model settings no longer stop providers from loading or conversations from starting; the app falls back to each channel's stored values and leaves the settings data untouched."
+    ],
+  },
+  {
     "version": "0.18.8",
     "date": "2026-10-26",
     "highlights": [
@@ -13,7 +25,6 @@ export const deEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
-      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "App-Symbole verwenden jetzt das MingCute-Set; gefüllte Varianten kennzeichnen die geöffnete Einstellungsseite, das aktive Projekt, die Wiedergabe und angeheftete Elemente.",
       "Ein Agent in einem Gespräch im Hintergrund kann seinen eigenen Browser-Tab anzeigen, Screenshots aufnehmen und bedienen, während du ein anderes Gespräch ansiehst; Browser-Aktionen erreichen nie die Seite eines anderen Gesprächs.",
       "Die Leiste für Hintergrundaufgaben über dem Eingabefeld zeigt nur die Aufgaben des aktuellen Gesprächs, sodass „Stoppen“ keinen Prozess eines anderen Gesprächs mehr beendet.",

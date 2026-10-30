@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.18.9",
+    "date": "2026-10-31",
+    "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
+      "Installed Windows and Linux AppImage copies now update themselves from creator-pi's GitHub Releases; ZIP, deb and rpm copies tell you when a new version is out. Versions before this one have no updater, so install this one by hand.",
+      "Turning off \"Available for subagents\" or native web search for a model now really turns it off, and a new Inherit button returns it to the default.",
+      "Workers and plugin model lists now follow your saved model settings, so a model you turned off for delegation is no longer used by a worker.",
+      "Model defaults now reach channels created before the settings split, and a context window you override goes back to following the catalog once you clear the override.",
+      "Damaged or newer-version model settings no longer stop providers from loading or conversations from starting; the app falls back to each channel's stored values and leaves the settings data untouched."
+    ],
+  },
+  {
     "version": "0.18.8",
     "date": "2026-10-26",
     "highlights": [
@@ -13,7 +25,6 @@ export const ptBREntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
-      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "Os ícones do app agora usam o conjunto MingCute, com variantes preenchidas para a página de configurações aberta, o projeto ativo, a reprodução e os itens fixados.",
       "Um agente em uma conversa em segundo plano pode visualizar, capturar e operar a própria aba do navegador enquanto você vê outra conversa; as ações do navegador nunca alcançam a página de outra conversa.",
       "A barra de tarefas em segundo plano acima do compositor mostra apenas as tarefas da conversa atual, então Parar não encerra mais o processo de outra conversa.",

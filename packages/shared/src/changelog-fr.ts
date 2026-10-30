@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.9",
+    "date": "2026-10-31",
+    "highlights": [
+      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
+      "Installed Windows and Linux AppImage copies now update themselves from creator-pi's GitHub Releases; ZIP, deb and rpm copies tell you when a new version is out. Versions before this one have no updater, so install this one by hand.",
+      "Turning off \"Available for subagents\" or native web search for a model now really turns it off, and a new Inherit button returns it to the default.",
+      "Workers and plugin model lists now follow your saved model settings, so a model you turned off for delegation is no longer used by a worker.",
+      "Model defaults now reach channels created before the settings split, and a context window you override goes back to following the catalog once you clear the override.",
+      "Damaged or newer-version model settings no longer stop providers from loading or conversations from starting; the app falls back to each channel's stored values and leaves the settings data untouched."
+    ],
+  },
+  {
     "version": "0.18.8",
     "date": "2026-10-26",
     "highlights": [
@@ -13,7 +25,6 @@ export const frEntries: ChangelogEntry[] = [
     "version": "0.18.7",
     "date": "2026-10-25",
     "highlights": [
-      "Channels and Models settings are now separated into distinct destinations: configure global model defaults and dedicated system prompts in Models, override them on specific channels, and have model prompts inserted after global instructions and before project instructions.",
       "Les icônes de l'application utilisent désormais le jeu MingCute, avec des variantes pleines pour la page de réglages ouverte, le projet actif, la lecture et les éléments épinglés.",
       "Un agent dans une conversation en arrière-plan peut prévisualiser, capturer et piloter son propre onglet de navigateur pendant que vous consultez une autre conversation ; les actions du navigateur n'atteignent jamais la page d'une autre conversation.",
       "La barre des tâches en arrière-plan au-dessus du compositeur n'affiche que les tâches de la conversation actuelle : Arrêter ne peut plus mettre fin au processus d'une autre conversation.",
