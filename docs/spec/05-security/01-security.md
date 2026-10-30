@@ -231,6 +231,9 @@ claim availability or freshness against a malicious server.
   GitHub's latest stable release rather than a same-channel prerelease pin.
 - Feed manifests bind artifacts with electron-builder hashes. An error,
   unavailable feed, hash mismatch, or invalid updater state must not install.
+- In creator-pi the fixed repository is `ysxk/creator-pi`, and packaged macOS
+  has updates off because the fork publishes no macOS feed (D704). Windows
+  installers are unsigned, so there is no publisher check on an update.
 - Packaged macOS, Windows NSIS, and Linux AppImage download and install in-app
   from the GitHub Releases feed. Linux deb/rpm and Windows ZIP detect a
   release and open the fixed releases page. Legacy Windows portable

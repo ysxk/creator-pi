@@ -88,8 +88,8 @@ test("main process registers update handlers and the auto-check lifecycle", () =
     assert.ok(mainSource.includes(channel), channel);
   }
   assert.match(mainSource, /new AppUpdaterController\(/);
-  // Off in development, and in a personal build that must not replace itself
-  // with an upstream release.
+  // Off in development, in a personal build that must not replace itself with
+  // a published release, and where the fork publishes no feed.
   assert.match(mainSource, /isPackaged:\s*updatesEnabled/);
   assert.match(mainSource, /updater\.startAutoCheck\(\)/);
   assert.match(
@@ -143,7 +143,7 @@ test("updater gates delivery mode by platform and delivery policy", () => {
   assert.match(updaterSource, /autoUpdater\.on\("error"/);
   assert.match(
     updaterSource,
-    /github\.com\/vastsa\/PI-Desktop\/releases/,
+    /github\.com\/ysxk\/creator-pi\/releases/,
     "releases fallback URL",
   );
   assert.match(
@@ -259,8 +259,11 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
   const pkg = JSON.parse(pkgSource);
   assert.ok(pkg.dependencies["electron-updater"], "electron-updater dependency");
   assert.equal(pkg.build.publish[0].provider, "github");
-  assert.equal(pkg.build.publish[0].owner, "vastsa");
-  assert.equal(pkg.build.publish[0].repo, "PI-Desktop");
+  assert.equal(pkg.build.publish[0].owner, "ysxk");
+  assert.equal(pkg.build.publish[0].repo, "creator-pi");
+  // A released build keeps its own identity and follows its own feed (D704).
+  assert.equal(pkg.build.extraMetadata.piInstallation.dataDirName, ".creator-pi");
+  assert.equal(pkg.build.extraMetadata.piInstallation.updates, undefined);
   const macTargets = pkg.build.mac.target.map((entry) => entry.target);
   assert.ok(macTargets.includes("zip"), "mac zip target (Squirrel.Mac feed)");
   // electron-builder must never self-publish (implicit tag publishing would

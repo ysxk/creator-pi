@@ -89,16 +89,15 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "vastsa",
-        "repo": "PI-Desktop"
+        "owner": "ysxk",
+        "repo": "creator-pi"
       }
     ],
     "extraMetadata": {
       "piDistribution": "installed",
       "piInstallation": {
         "name": "creator-pi",
-        "dataDirName": ".creator-pi",
-        "updates": false
+        "dataDirName": ".creator-pi"
       }
     },
     "files": [

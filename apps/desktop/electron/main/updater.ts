@@ -1,8 +1,8 @@
 /**
  * App auto-update via electron-updater against GitHub Releases.
  *
- * The feed (latest*.yml + installers) is attached to each GitHub Release by
- * .github/workflows/release.yml. Discovery always tracks the latest stable
+ * The feed (latest*.yml + installers) is attached to each GitHub Release of
+ * ysxk/creator-pi by .github/workflows/release.yml (D704). Discovery always tracks the latest stable
  * release (`allowPrerelease = false`) so RC installs still graduate to newer
  * stables. Delivery mode per install:
  *  - Windows NSIS / Linux AppImage / packaged macOS → full in-app flow: silent
@@ -12,6 +12,7 @@
  *    NSIS installer must not replace a no-install run.
  *  - Linux deb (no $APPIMAGE in env) → notify + link.
  *  - Unpackaged dev runs → disabled (no app-update.yml in resources).
+ *  - macOS → disabled: the fork publishes no macOS feed (`hasReleaseFeed`).
  *
  * The installer download cache lives in the user cache directory rather than
  * beside the installation; `PI_DESKTOP_UPDATE_CACHE_DIR` relocates it, and
@@ -72,7 +73,7 @@ function createRelocatedUpdater(
   return platform === "win32" ? new RelocatedNsisUpdater(baseCachePath) : null;
 }
 
-export const RELEASES_URL = "https://github.com/vastsa/PI-Desktop/releases/latest";
+export const RELEASES_URL = "https://github.com/ysxk/creator-pi/releases/latest";
 
 const AUTO_CHECK_INITIAL_DELAY_MS = 15_000;
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;

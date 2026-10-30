@@ -127,3 +127,14 @@ available on supported Windows packages only after the UI warns that NSIS may
 replace the extracted no-install copy. Unsupported installer formats remain
 Manual. This additive setting requires no database schema or host protocol
 version change.
+
+## Amendment (D704)
+
+creator-pi publishes its own releases, so the fixed feed in decision 1 is
+`ysxk/creator-pi`. Released fork builds no longer set
+`piInstallation.updates: false`; personal builds still do. The fork's release
+matrix has no macOS lane, so packaged macOS stays disabled through
+`hasReleaseFeed` rather than failing against a feed with no `latest-mac*.yml`.
+Windows NSIS installers stay unsigned, so the feed's SHA-512 over HTTPS is what
+binds an update, with no publisher check. Builds at or before 0.18.8 have the
+updater off and reach the first updating version by a manual install.

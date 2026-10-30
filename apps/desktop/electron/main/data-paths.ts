@@ -40,9 +40,9 @@ export const DEVELOPMENT_DATA_DIR_NAME = ".pi-desktop-dev";
  * development build does: a shared `userData` means a shared single-instance
  * lock, and a shared data directory means two host-cores over one database —
  * here with different schema versions. A personal build also must not update
- * itself, because the only release feed there is would replace it with the
- * upstream app. A released build carries no such metadata and keeps the
- * shipped identity untouched.
+ * itself, because the release feed would replace it with the published app
+ * (`updates: false`). A released build names its own identity and leaves
+ * updates on, so it follows its own feed (D704).
  */
 export type InstallationProfile = {
   /** `userData` directory name; absent keeps the shipped one. */

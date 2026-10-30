@@ -2,6 +2,15 @@ import type { UpdateMode, UpdatePreference } from "@pi-desktop/shared";
 
 export type WindowsDistribution = "installed" | "zip" | "portable";
 
+/**
+ * Whether this fork's releases carry an update feed for the platform (D704).
+ * The release matrix builds Windows and Linux only, because the macOS lanes
+ * need a Developer ID the fork does not have.
+ */
+export function hasReleaseFeed(platform: NodeJS.Platform): boolean {
+  return platform === "win32" || platform === "linux";
+}
+
 export function supportsAutomaticUpdates(
   platform: NodeJS.Platform,
   isPackaged: boolean,

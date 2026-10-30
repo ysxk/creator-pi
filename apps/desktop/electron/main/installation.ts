@@ -12,6 +12,7 @@ import {
 } from "./data-paths";
 import { ignoreBrokenStdio } from "./logger";
 import { installMainProcessErrorHandlers } from "./main-process-errors";
+import { hasReleaseFeed } from "./update-policy";
 
 // Complete identity and locking synchronously, before the ready promise or any writer.
 ignoreBrokenStdio();
@@ -31,8 +32,12 @@ function readInstallationProfile(): InstallationProfile {
   }
 }
 const installationProfile = readInstallationProfile();
-/** False in development, and in a personal build that must not self-replace. */
-export const updatesEnabled = !isDevelopmentBuild && installationProfile.updates;
+/**
+ * False in development, in a personal build that must not self-replace, and on
+ * a platform whose releases carry no update feed.
+ */
+export const updatesEnabled =
+  !isDevelopmentBuild && installationProfile.updates && hasReleaseFeed(process.platform);
 
 app.setName(APP_NAME);
 applyDevelopmentUserData(app, isDevelopmentBuild);

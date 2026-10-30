@@ -23,6 +23,7 @@ const [
 ]);
 
 const {
+  hasReleaseFeed,
   resolveDefaultUpdatePreference,
   resolveEffectiveUpdatePreference,
   resolveStoredUpdatePreference,
@@ -30,6 +31,12 @@ const {
 } = policy;
 const { ManualUpdateReminderTracker } = reminders;
 const { persistUpdatePreference } = settingsPreference;
+
+ test("only platforms the fork's releases carry a feed for look for one", () => {
+  assert.equal(hasReleaseFeed("win32"), true);
+  assert.equal(hasReleaseFeed("linux"), true);
+  assert.equal(hasReleaseFeed("darwin"), false);
+});
 
  test("installed builds keep automatic by default while portable and ZIP builds default to manual", () => {
   assert.equal(resolveDefaultUpdatePreference("win32", true, {}, "installed"), "automatic");

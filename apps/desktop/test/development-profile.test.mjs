@@ -231,7 +231,7 @@ test("the installation reads its profile once and the updater follows it", () =>
   assert.match(installationSource, /const installationProfile = readInstallationProfile\(\);/);
   assert.match(
     installationSource,
-    /export const updatesEnabled = !isDevelopmentBuild && installationProfile\.updates;/,
+    /export const updatesEnabled =\s*!isDevelopmentBuild && installationProfile\.updates && hasReleaseFeed\(process\.platform\);/,
   );
   assert.match(
     installationSource,
