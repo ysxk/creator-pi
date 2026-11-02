@@ -3,10 +3,9 @@
  * transcript can preview them: HTML in the work-panel browser, other files
  * with the OS default handler, URLs in the embedded browser.
  *
- * File detection is deliberately conservative: a bare token only counts as a
- * file when it carries a known extension, so ordinary dotted identifiers in
- * prose (`store.messages`) stay plain text. Explicit `@path` tokens from the
- * composer (D124 / D320) are accepted even when quoted or absolute.
+ * Automatic links require a directory-qualified path. Bare filenames stay
+ * text/code; explicit Markdown destinations and composer `@path` references
+ * retain file recognition even when they name a workspace-root file.
  *
  * Path tokens recognize Unicode letters and digits, spaces, and Windows drive
  * paths. Absolute candidates stay whole for main-process resolution, which
@@ -258,6 +257,18 @@ export function resolvePreviewTarget(
   return rel ? { kind: "file", path: rel, ...(position ?? {}) } : null;
 }
 
+/** A filename alone carries no directory identity for an inferred chat link. */
+export function resolveAutoPreviewTarget(
+  text: string,
+  root?: string | null,
+  baseDir?: string | null,
+): ChatPreviewTarget | null {
+  const target = resolvePreviewTarget(text, root, baseDir);
+  return target?.kind === "file" && !/[\\/]/.test(text) && !text.trimStart().startsWith("@")
+    ? null
+    : target;
+}
+
 /** Route a plain click on a local Markdown link through the existing file opener. */
 export function handleMarkdownFileLinkClick(
   event: { preventDefault(): void },
@@ -370,7 +381,7 @@ function splitChatTextWithBudget(
   const { candidates } = scanChatLinkCandidates(
     text,
     budget,
-    (raw) => resolvePreviewTarget(raw, root, baseDir),
+    (raw) => resolveAutoPreviewTarget(raw, root, baseDir),
     spacedRefDisposition,
   );
   for (const { start, end, raw, target } of candidates) {
@@ -480,7 +491,7 @@ export function linkifyMdastTree(
           const value = child.value.trim();
           const spacedPathLike = /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("/") || value.startsWith("~/");
           target = spacedPathLike || !value.includes(" ")
-            ? resolvePreviewTarget(value, root, baseDir)
+            ? resolveAutoPreviewTarget(value, root, baseDir)
             : null;
           if (target) budget.links += 1;
         }

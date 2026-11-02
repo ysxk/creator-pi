@@ -16,7 +16,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { mediaViewUrl } from "@pi-desktop/shared";
+import { mediaViewUrl, type FsChatRefMatch } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { toWorkspaceRel } from "../lib/chat-links";
 import { isChatImagePath, type ChatMediaKind, type ChatMediaVariant } from "../lib/chat-media-refs";
@@ -46,27 +46,25 @@ export const MarkdownChatMediaContext = createContext<MarkdownChatMedia | null>(
 /** Marks a picture the viewer can step to; the value is the file to load. */
 export const CHAT_GALLERY_ATTRIBUTE = "data-chat-gallery-path";
 
-const MAX_RESOLVED_ENTRIES = 256;
 /** A file named before it is written is asked for again after this long. */
 const MISSING_RETRY_MS = 4000;
 /** ...a few times. A name that still finds nothing is prose, not a file. */
 const MAX_LOOKUPS = 4;
 
 const NO_FOLDERS: readonly string[] = [];
-const resolvedPaths = new Map<string, string>();
-const missingUntil = new Map<string, number>();
-const pendingLookups = new Map<string, Promise<string | null>>();
+const pendingLookups = new Map<string, Promise<FsChatRefMatch | null>>();
+const activeMentions = new WeakMap<MarkdownChatMedia, Map<string, Map<string, string>>>();
 
 function isAbsolutePath(path: string): boolean {
   return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
 }
 
 /** The first candidate the host can find, tried in order. */
-async function firstMatch(candidates: readonly string[], sessionId: string | null): Promise<string | null> {
+async function firstMatch(candidates: readonly string[], sessionId: string | null): Promise<FsChatRefMatch | null> {
   for (const candidate of candidates) {
     try {
       const result = await api.fsResolveRef(candidate, sessionId ?? undefined);
-      if (result.match) return result.match.absolutePath;
+      if (result.match) return result.match;
     } catch {
       // A lookup that fails is a file not found, as far as a preview goes.
     }
@@ -78,24 +76,12 @@ async function lookUp(
   key: string,
   candidates: readonly string[],
   sessionId: string | null,
-): Promise<string | null> {
+): Promise<FsChatRefMatch | null> {
   const pending = pendingLookups.get(key);
   if (pending) return pending;
-  const lookup = firstMatch(candidates, sessionId)
-    .then((absolutePath) => {
-      pendingLookups.delete(key);
-      if (absolutePath) {
-        if (resolvedPaths.size >= MAX_RESOLVED_ENTRIES) {
-          const oldest = resolvedPaths.keys().next().value;
-          if (oldest !== undefined) resolvedPaths.delete(oldest);
-        }
-        resolvedPaths.set(key, absolutePath);
-        missingUntil.delete(key);
-      } else {
-        missingUntil.set(key, Date.now() + MISSING_RETRY_MS);
-      }
-      return absolutePath;
-    });
+  const lookup = firstMatch(candidates, sessionId).finally(() => {
+    pendingLookups.delete(key);
+  });
   pendingLookups.set(key, lookup);
   return lookup;
 }
@@ -134,30 +120,28 @@ function useMentionedFile(
   const [found, setFound] = useState<{ key: string; path: string } | null>(null);
   useEffect(() => {
     if (!key || !ref) return;
-    if (resolvedPaths.has(key)) return;
     const candidates = lookupCandidates(ref, folderKey);
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let lookups = 0;
     const ask = () => {
       lookups += 1;
-      void lookUp(key, candidates, sessionId).then((absolutePath) => {
+      void lookUp(key, candidates, sessionId).then((match) => {
         if (!current) return;
-        if (absolutePath) setFound({ key, path: absolutePath });
-        // The reply may be describing a file a tool is still writing.
-        else if (lookups < MAX_LOOKUPS) timer = setTimeout(ask, MISSING_RETRY_MS);
+        setFound(match ? { key, path: match.absolutePath } : null);
+        if ((!match || (match.matchedBy !== "exact-relative" && match.matchedBy !== "exact-absolute")) && lookups < MAX_LOOKUPS) {
+          timer = setTimeout(ask, MISSING_RETRY_MS);
+        }
       });
     };
-    const wait = (missingUntil.get(key) ?? 0) - Date.now();
-    if (wait > 0) timer = setTimeout(ask, wait);
-    else ask();
+    ask();
     return () => {
       current = false;
       if (timer !== undefined) clearTimeout(timer);
     };
   }, [key, ref, folderKey, sessionId]);
   if (!key) return null;
-  return resolvedPaths.get(key) ?? (found?.key === key ? found.path : null);
+  return found?.key === key ? found.path : null;
 }
 
 /**
@@ -178,7 +162,7 @@ export function useOpenReplyFileRef(): (
   const sessionId = useAppStore((s) => s.activeSessionId) ?? null;
   return useCallback(
     (path, baseDir, trigger) => {
-      if (!media || !trigger || !isChatImagePath(path)) {
+      if (!media) {
         openFileRef(path, baseDir);
         return;
       }
@@ -189,12 +173,17 @@ export function useOpenReplyFileRef(): (
         workspacePath,
         sessionId,
       );
-      const cached = resolvedPaths.get(key);
-      const resolved = cached
-        ? Promise.resolve(cached)
-        : lookUp(key, lookupCandidates(ref, folderKey), sessionId);
+      const selected = Array.from(activeMentions.get(media)?.get(key)?.values() ?? []).at(-1);
+      if (!trigger || !isChatImagePath(path)) {
+        openFileRef(selected ?? path, baseDir);
+        return;
+      }
+      const resolved = selected ? Promise.resolve(selected) : lookUp(key, lookupCandidates(ref, folderKey), sessionId)
+        .then((match) => match?.absolutePath ?? null);
       void resolved.then((file) => {
-        if (file && trigger.isConnected) media.openImage(trigger, file);
+        const state = useAppStore.getState();
+        if (state.activeSessionId !== sessionId || (state.workspace?.path ?? null) !== workspacePath || !trigger.isConnected) return;
+        if (file) media.openImage(trigger, file);
         else openFileRef(path, baseDir);
       });
     },
@@ -343,6 +332,21 @@ export function MentionedMedia({
   const file = useMentionedFile(media ? path : null, baseDir, media?.folders ?? NO_FOLDERS);
   const owner = useId();
   const [owned, setOwned] = useState<string | null>(null);
+  const workspacePath = useAppStore((s) => s.workspace?.path ?? null);
+  const sessionId = useAppStore((s) => s.activeSessionId) ?? null;
+  const key = mentionLookup(path, baseDir, media?.folders ?? NO_FOLDERS, workspacePath, sessionId).key;
+  useEffect(() => {
+    if (!media || !file || owned !== file) return;
+    const mentions = activeMentions.get(media) ?? new Map<string, Map<string, string>>();
+    const entries = mentions.get(key) ?? new Map<string, string>();
+    entries.set(owner, file);
+    mentions.set(key, entries);
+    activeMentions.set(media, mentions);
+    return () => {
+      entries.delete(owner);
+      if (!entries.size) mentions.delete(key);
+    };
+  }, [file, key, media, owner, owned]);
   useEffect(() => {
     if (!media || !file) return;
     if (media.claim(file, owner)) setOwned(file);

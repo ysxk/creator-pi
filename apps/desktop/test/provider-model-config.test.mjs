@@ -35,7 +35,7 @@ const catalogContractSource = await read("../../../packages/shared/src/model-cat
 const styles = await loadStyles();
 
 test("model configuration places AI services before Jev and image generation", () => {
-  const services = pageSource.indexOf('className="model-config-section-head"');
+  const services = pageSource.search(/className="model-config-section-head(?:\s|\")/);
   const catalogStatus = pageSource.indexOf('className="model-catalog-status"');
   const jev = pageSource.indexOf("<JevSettingsCard");
   assert.ok(services >= 0, "the AI services section is present");

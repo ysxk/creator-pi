@@ -1,6 +1,8 @@
+import { channelTransfer } from "../../channel-transfer.js";
 import { en, type EnglishCatalog } from "../en/index.js";
 
 export const zhCN = {
+  channelTransfer: channelTransfer.zhCN,
   app: {
     shellName: "PI-Desktop",
     tagline: "本地 AI 编程助手",

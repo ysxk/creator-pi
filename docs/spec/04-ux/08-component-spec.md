@@ -1787,11 +1787,14 @@ Single message render — either user (plaintext) or assistant (markdown streami
   conversation (`kind: "session"`) renders as a chat-icon chip labeled with the
   shared reference label and the referenced title; the tooltip and accessible
   name come from the catalog, and activating it opens that conversation
-  (§20B). Bare path tokens in message text recognize Unicode letters and
-  digits. In user-message prose,
-  these are candidates only: show a chip after the existing `fs/resolveRef`
-  lookup confirms a real file. Pending, missing, or failed lookups preserve
-  the exact original text, including `使用llama.cpp`. Explicit `@path` refs
+  (§20B). Automatically inferred file references require a directory separator
+  (`/` or `\\`), including explicit `./` paths. A filename alone, such as
+  `voiceover.wav`, `素材清单.md` or `README.md`, remains text/inline code and
+  does not trigger a resolver request, chip, thumbnail or media player, even
+  when a matching file exists or a surrounding paragraph names a folder.
+  In user-message prose, qualified paths are candidates only: show a chip
+  after `fs/resolveRef` confirms a real file; pending/missing lookups preserve
+  the original text. Explicit `@path` references
   and structured attachments retain their existing chips without speculative
   lookup. At most 32 unique candidates per message are checked, with four
   concurrent lookups across visible rows; additional candidates remain text.
@@ -1833,8 +1836,8 @@ Single message render — either user (plaintext) or assistant (markdown streami
   and chrome buttons are otherwise unselectable.
 - Assistant: transparent surface, left-aligned, markdown rendered at full
   content width. Workspace file paths in that markdown are previewable:
-  inline code, markdown links, and bare path tokens (with a known
-  extension) complete and open like a chip against every folder of the open
+  qualified inline-code paths, authored Markdown links, and unmarked qualified
+  paths complete and open like a chip against every folder of the open
   project (ADR 0263): the resolved file in the bundled
   `pi.file-manager` view (the host `file:` tab without it), a `.html`/`.htm`
   page of the primary folder in the side browser, and nothing plus a report when
@@ -1854,10 +1857,19 @@ Single message render — either user (plaintext) or assistant (markdown streami
   on the file it completes to rather than the file view; a name the host
   cannot find opens as a file, as before (D686). In the viewer the mouse wheel
   or a trackpad pinch zooms around the point under the cursor, and dragging a
-  picture larger than the space scrolls it (D693). A bare name is also looked for in the folders the reply names,
-  a name that matches no file draws nothing, and one file is previewed once
-  per reply. Fenced code, remote URLs and `path:line` references are not
-  mentions.
+  picture larger than the space scrolls it (D693). Bare filenames in prose or
+  inline code never infer media previews, including table descriptions that
+  refer to a prior reply's audio by name. An authored Markdown link or image
+  retains its explicit destination even when its label is only a filename.
+  A reference that matches no file draws nothing, and one file is previewed
+  once per reply. Fenced code, remote URLs and `path:line` references are not
+  media mentions. Structured attachments and tool-row file actions retain
+  their existing behavior; no conversation-history path guessing is performed.
+  A directory-qualified media name resolves exactly or by a suffix retaining
+  every supplied segment; it never drops directories to select another file.
+  Missing previews retry briefly while mounted and new mentions retry
+  independently. A displayed preview's name opens that same selected file,
+  including when a qualified reference matched a complete suffix.
   Unprefixed relative paths
   resolve from the workspace root; `./` and `../` resolve from the workspace
   root in chat, and from the viewed file's directory when previewing a

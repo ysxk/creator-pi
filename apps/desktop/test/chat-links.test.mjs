@@ -301,7 +301,7 @@ test("multi-dot absolute paths keep their final extension", () => {
     splitChatText("see docs/report.v1.md and report.v2.md", ROOT)
       .filter((segment) => segment.kind === "target")
       .map((segment) => segment.text),
-    ["docs/report.v1.md", "report.v2.md"],
+    ["docs/report.v1.md"],
   );
 });
 
@@ -322,7 +322,7 @@ test("suffix characters after extensions stay in path links", () => {
     const segments = splitChatText(source, ROOT);
     assert.deepEqual(
       segments.filter((segment) => segment.kind === "target").map((segment) => segment.text),
-      [path],
+      /[\\/]/.test(path) ? [path] : [],
       path,
     );
     assert.equal(segments.map((segment) => segment.text).join(""), source);
@@ -437,13 +437,13 @@ test("unmarked first-segment spaces stay plain; explicit refs stay whole", () =>
     splitChatText("Open docs/my project/page.md and file.md", ROOT)
       .filter((segment) => segment.kind === "target")
       .map((segment) => segment.text),
-    ["docs/my project/page.md", "file.md"],
+    ["docs/my project/page.md"],
   );
   assert.deepEqual(
     splitChatText("Open docs/page.md and file.md", ROOT)
       .filter((segment) => segment.kind === "target")
       .map((segment) => segment.text),
-    ["docs/page.md", "file.md"],
+    ["docs/page.md"],
   );
   for (const prose of ["see docs/page.md", "and docs/page.md"]) {
     assert.deepEqual(
@@ -493,7 +493,7 @@ test("unmarked first-segment spaces stay plain; explicit refs stay whole", () =>
   );
 });
 
-test("ambiguous bare names stay plain while prose still links single tokens", () => {
+test("bare names stay plain while qualified paths and explicit refs stay linked", () => {
   assert.deepEqual(resolvePreviewTarget("my file.md", ROOT), { kind: "file", path: "my file.md" });
   for (const source of [
     "my file.md", "Open my file.md now", "Please test file.md",
@@ -514,7 +514,7 @@ test("ambiguous bare names stay plain while prose still links single tokens", ()
     const segments = splitChatText(source, ROOT);
     assert.deepEqual(
       segments.filter((segment) => segment.kind === "target").map((segment) => segment.text),
-      source === "This is report.md and file.md" ? ["report.md", "file.md"] : [expected],
+      expected.includes("/") ? [expected] : [],
       source,
     );
     assert.equal(segments.map((segment) => segment.text).join(""), source);
@@ -523,7 +523,7 @@ test("ambiguous bare names stay plain while prose still links single tokens", ()
   linkifyMdastTree(tree, ROOT);
   assert.deepEqual(
     tree.children[0].children.filter((node) => node.type === "link").map((node) => node.url),
-    ["my file.md", "App.tsx"],
+    ["my file.md"],
   );
   const markup = renderToStaticMarkup(
     React.createElement(ReactMarkdown, {
@@ -532,7 +532,7 @@ test("ambiguous bare names stay plain while prose still links single tokens", ()
     }),
   );
   assert.match(markup, /href="my%20file\.md"/);
-  assert.match(markup, /href="App\.tsx"/);
+  assert.doesNotMatch(markup, /href="App\.tsx"/);
 });
 
 test("splitChatText linkifies embedded refs and keeps literals", () => {
@@ -679,13 +679,13 @@ test("parseFileRef accepts unicode filenames and home paths", () => {
   assert.equal(parseFileRef("~/Downloads/x.png"), "~/Downloads/x.png");
 });
 
-test("splitChatText linkifies workspace unicode filenames", () => {
+test("splitChatText links qualified unicode paths but not bare unicode filenames", () => {
   const segments = splitChatText("先看 报告.pdf，再看 docs/规范/架构.md", ROOT);
   assert.deepEqual(
     segments
       .filter((s) => s.kind === "target" && s.target.kind === "file")
       .map((s) => s.target.path),
-    ["报告.pdf", "docs/规范/架构.md"],
+    ["docs/规范/架构.md"],
   );
 });
 
@@ -758,13 +758,13 @@ test("splitChatText keeps unknown extensions literal", () => {
   ]);
 });
 
-test("an ascii filename followed by cjk prose still linkifies", () => {
-  const segments = splitChatText("打开 App.tsx文件 看看", ROOT);
+test("an ascii path followed by cjk prose still linkifies", () => {
+  const segments = splitChatText("打开 src/App.tsx文件 看看", ROOT);
   assert.deepEqual(
     segments
       .filter((s) => s.kind === "target" && s.target.kind === "file")
       .map((s) => s.target.path),
-    ["App.tsx"],
+    ["src/App.tsx"],
   );
 });
 

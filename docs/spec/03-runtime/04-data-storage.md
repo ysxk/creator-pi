@@ -1856,9 +1856,24 @@ parent file, its leaf, and any live runtime are never modified. The child header
 carries `parentSession` with the canonical source path; that path stays inside
 the sidecar.
 
-The first slice has no projection cache or async scan bound; every list still
-reads/parses complete files. Caching by canonical path/file identity/size/mtime
-and bounded asynchronous scanning remain deferred performance work.
+List and search share a sidecar-owned, read-only projection cache keyed by
+canonical path and checked against device, inode, size, nanosecond mtime, and
+nanosecond ctime on every scan. A cold search reads each file once for both its
+summary and active-branch matches. Unchanged files reuse the parsed in-memory
+manager across queries and pages; new or changed files are read again, deleted
+paths are pruned, and service disposal releases the cache. A file that changes
+during its snapshot read is omitted from that scan and retried on refresh.
+
+The cache retains at most 128 files and 16 MiB of source bytes with LRU eviction.
+Entries already visited in the current scan are protected from eviction so a
+catalog larger than the budget retains a warm subset rather than thrashing.
+The byte budget is not a total JavaScript heap limit. Oversized files remain
+searchable but are not retained. Trust, provider/auth, workspace availability,
+and lease/runtime readiness are recomputed rather than cached. Detail, prompt,
+fork, and writer byte/lease validation still take fresh snapshots independently.
+Cold reads and directory traversal remain synchronous; bounded asynchronous
+scanning is deferred. Search ordering, literal matching, counts, duplicate-file
+selection, and the cross-source pagination contract are unchanged.
 
 ### Provider display order
 

@@ -1,6 +1,8 @@
+import { channelTransfer } from "../../channel-transfer.js";
 import { en, type EnglishCatalog } from "../en/index.js";
 
 export const fr = {
+  channelTransfer: channelTransfer.fr,
   "app": {
     "shellName": "PI-Desktop",
     "tagline": "Partenaire de codage IA local",

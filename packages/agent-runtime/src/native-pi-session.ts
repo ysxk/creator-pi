@@ -47,6 +47,7 @@ import {
   type NativePiSnapshot,
 } from "./native-pi-session-lease.js";
 import { NATIVE_PI_SESSION_PREFIX } from "./native-pi-session-id.js";
+import { NativePiSessionCatalog } from "./native-pi-session-catalog.js";
 
 export { NATIVE_PI_SESSION_PREFIX };
 
@@ -466,6 +467,7 @@ export class NativePiSessionService {
   private readonly records = new Map<string, NativeSessionRecord>();
   private readonly runtimes = new Map<string, NativePiRuntime>();
   private readonly opening = new Set<string>();
+  private readonly catalog = new NativePiSessionCatalog();
   private modelRuntime?: ModelRuntime;
   private readonly modelRuntimeFactory: () => Promise<ModelRuntime>;
 
@@ -488,30 +490,36 @@ export class NativePiSessionService {
   }
 
   async list(): Promise<SessionSummary[]> {
+    return this.scanCatalog();
+  }
+
+  private async scanCatalog(
+    visit?: (session: SessionSummary, manager: SessionManager, cwd: string) => void,
+  ): Promise<SessionSummary[]> {
     let root: string;
     try {
       root = realpathSync(this.root);
     } catch {
+      this.catalog.clear();
       return [];
     }
     const modelRuntime = await this.modelRuntimeFactory().catch(() => undefined);
     this.modelRuntime = modelRuntime;
     const trustStore = new ProjectTrustStore(this.agentDir);
+    const paths = new Set<string>();
     const summaries = await Promise.all(
       walkJsonl(root).map(async (candidate) => {
         try {
           const path = realpathSync(candidate);
           if (!inside(root, path) || lstatSync(path).isSymbolicLink()) return undefined;
-          const snap = nativePiSnapshot(path);
-          const entries = parseSessionEntries(snap.bytes.toString("utf8"));
-          const header = entries.find((entry) => entry.type === "session") as any;
-          if (!header || typeof header.id !== "string") return undefined;
-          const manager = SessionManager.inMemory(header.cwd ?? "", undefined, entries);
+          paths.add(path);
+          const { snapshot: snap, header, manager, branch, context } = this.catalog.read(path, paths);
           const id = stableId(path, header.id);
-          const branch = manager.getBranch();
           const messageCount = branch.filter((entry) => entry.type === "message").length;
-          const firstUser = branch.find((entry) => entry.type === "message" && (entry as SessionMessageEntry).message.role === "user") as SessionMessageEntry | undefined;
-          const context = manager.buildSessionContext();
+          const firstUser = branch.find(
+            (entry): entry is SessionMessageEntry & { message: { role: "user" } } =>
+              entry.type === "message" && entry.message.role === "user",
+          );
           const createdAt = typeof header.timestamp === "string" ? header.timestamp : new Date(statSync(path).birthtimeMs).toISOString();
           const updatedAt = branch.at(-1)?.timestamp ?? createdAt;
           const cwd = typeof header.cwd === "string" ? header.cwd : "";
@@ -529,9 +537,9 @@ export class NativePiSessionService {
             reason = "provider-unavailable";
           }
           if (!reason) reason = this.ownershipReadOnlyReason(id, path, snap);
-          return {
+          const summary: SessionSummary = {
             id,
-            title: manager.getSessionName() ?? (firstUser ? textContent((firstUser.message as any).content).text.slice(0, 80) : header.id),
+            title: manager.getSessionName() ?? (firstUser ? textContent(firstUser.message.content).text.slice(0, 80) : header.id),
             messageCount,
             ...(cwd && existsSync(cwd) ? { projectPath: cwd } : {}),
             ...(context.model ? { providerId: context.model.provider, modelId: context.model.modelId } : {}),
@@ -543,12 +551,15 @@ export class NativePiSessionService {
             ...(reason ? { readOnlyReason: reason } : {}),
             updatedAt,
             createdAt,
-          } as SessionSummary;
+          };
+          visit?.(summary, manager, cwd);
+          return summary;
         } catch {
           return undefined;
         }
       }),
     );
+    this.catalog.retain(paths);
     // A copied session file (backup, manual copy) under the scan root must
     // not become a second session: identity follows the header id, not the
     // path. Keep the newest write per native id and drop the stale copies
@@ -606,48 +617,39 @@ export class NativePiSessionService {
     if (!normalized) return { hits: [], nextOffset: null };
     if (normalized.length > 500) throw new Error("query exceeds 500 characters");
 
-    const sessions = await this.list();
-    const hits: SessionSearchPage["hits"] = [];
-    for (const session of sessions) {
-      const record = this.records.get(session.id);
-      if (!record) continue;
-      try {
-        const snapshot = nativePiSnapshot(record.path);
-        const entries = parseSessionEntries(snapshot.bytes.toString("utf8"));
-        const header = entries.find((entry) => entry.type === "session") as any;
-        this.validateIdentity(record, header);
-        const manager = SessionManager.inMemory(record.cwd, undefined, entries);
-        const messages = visibleMessages(manager).filter(
-          (message) =>
-            (message.role === "user" || message.role === "assistant") &&
-            searchContains(message.content, normalized),
-        );
-        const metadataMatch =
-          searchContains(session.title, normalized) || searchContains(record.cwd, normalized);
-        if (!metadataMatch && messages.length === 0) continue;
-        hits.push({
-          session,
-          projectName: null,
-          metadataMatch,
-          messageCount: messages.length,
-          matches: messages
-            .sort(
-              (left, right) =>
-                right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id),
-            )
-            .slice(0, 2)
-            .map((message) => ({
-              messageId: message.id,
-              role: message.role as "user" | "assistant",
-              createdAt: message.createdAt,
-              snippet: searchExcerpt(message.content, normalized),
-            })),
-        });
-      } catch {
-        // A file changing during discovery is omitted from this read-only
-        // projection; the next refresh will retry it from a fresh snapshot.
-      }
-    }
+    const matchesById = new Map<string, SessionSearchPage["hits"][number]>();
+    const sessions = await this.scanCatalog((session, manager, cwd) => {
+      const messages = visibleMessages(manager).filter(
+        (message) =>
+          (message.role === "user" || message.role === "assistant") &&
+          searchContains(message.content, normalized),
+      );
+      const metadataMatch =
+        searchContains(session.title, normalized) || searchContains(cwd, normalized);
+      if (!metadataMatch && messages.length === 0) return;
+      matchesById.set(session.id, {
+        session,
+        projectName: null,
+        metadataMatch,
+        messageCount: messages.length,
+        matches: messages
+          .sort(
+            (left, right) =>
+              right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id),
+          )
+          .slice(0, 2)
+          .map((message) => ({
+            messageId: message.id,
+            role: message.role as "user" | "assistant",
+            createdAt: message.createdAt,
+            snippet: searchExcerpt(message.content, normalized),
+          })),
+      });
+    });
+    const hits = sessions.flatMap((session) => {
+      const hit = matchesById.get(session.id);
+      return hit ? [hit] : [];
+    });
     hits.sort(
       (left, right) =>
         right.session.updatedAt.localeCompare(left.session.updatedAt) ||
@@ -1040,6 +1042,7 @@ export class NativePiSessionService {
   disposeAll(): void {
     for (const runtime of this.runtimes.values()) runtime.dispose();
     this.runtimes.clear();
+    this.catalog.clear();
   }
 
   private ownershipReadOnlyReason(id: string, path: string, snap: NativePiSnapshot): NativePiReadOnlyReason | undefined {

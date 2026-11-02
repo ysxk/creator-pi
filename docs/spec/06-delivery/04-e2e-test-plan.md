@@ -8,6 +8,49 @@
 
 ## 1. Goals
 
+### E2E-CHANNEL-file-transfer
+
+- **Preconditions:** Isolated Electron profile and real Rust Host with synthetic
+  API credentials and model layers; external HTTP(S) requests blocked. Only the
+  native file pickers are redirected to temporary fixture paths.
+- **Steps:** Open Channels, export without credentials, preview/import the same
+  name, verify the new row, repeat with explicit sensitive export, cancel both
+  pickers, reject an unknown-version file, test Escape/focus, switch to Chinese
+  at 720px width, open the existing third-party scanner, and test an empty list.
+- **Expected:** Default files contain no API key/header values. Opt-in keys
+  round-trip through the Host secret store. Imports get new IDs, preserve
+  disabled state and sparse model overrides, inherit target defaults and leave
+  app default selection unchanged. OAuth/plugin rows are disabled. Transfer IPC
+  has no credentials. Existing scanner remains accessible.
+- **Automation:** Build shared/i18n/desktop, then run
+  `node scripts/e2e-provider-transfer.mjs` with `PI_DESKTOP_HOST_BIN` pointing
+  at the compatible host binary. Artifacts and isolated profiles use
+  `PI_SCRATCH_DIR` (or the OS temp directory). `provider-transfer.test.ts` and
+  `provider-transfer.test.mjs` additionally cover hostile input, size limits,
+  snapshot replacement, token ownership/expiry, duplicate execution, disposal,
+  partial failure/rollback and atomic-file cleanup.
+- **Specs:** provider config §Channel transfer files; IPC §Channel file transfer;
+  settings IA §Channel file import and export; security §3.
+
+### E2E-CHAT-explicit-file-paths-only
+
+- **Preconditions:** Isolated Electron renderer, real ChatMarkdown/Markdown
+  components and resolver, synthetic workspace with multiple same-name WAVs.
+- **Steps:** Render bare filenames in prose, inline code and a subtitle table;
+  render a complete audio path, then a later reply with its bare filename;
+  render an authored link with a filename-only code label and an explicit `./`
+  path. Click the authored link. Do not start audio playback.
+- **Expected:** Bare filenames remain readable text/code with no inferred file
+  link, chip, media preview or resolver request, even beside a folder hint or
+  after a full-path reply. Qualified and authored targets still preview the
+  intended synthetic WAV and open the same file. Filename-only link labels do
+  not override their authored destination. Composer `@` refs and structured
+  attachments retain their existing contracts.
+- **Coverage:** `node --test apps/desktop/test/chat-explicit-paths.test.mjs
+  apps/desktop/test/chat-explicit-paths-user-path.test.mjs`; existing chat-links,
+  chat-media, verification-queue and scanner-budget suites cover compatibility.
+- **Specs:** component spec §10 message file/media references; ADR 0262 amendment.
+
 ### E2E-QUEUE-send-now-wakes-subagents
 
 - **Preconditions:** Dedicated request worktree with built workspace packages,
@@ -16288,6 +16331,24 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   `apps/desktop/test/queued-turn-finalization.test.mjs`); desktop journey Draft
   (run only in a capable environment when this surface changes)
 
+### E2E-SESSION-native-pi-search-cache-refresh
+
+- **Preconditions:** An isolated HOME contains synthetic native v3 JSONL files;
+  network calls are denied, and no Desktop database or user credentials are used.
+- **Steps:** Search twice, refresh the list, open a matched message, append a
+  message, replace a file, add a duplicate native id, and delete the files.
+- **Expected:** Cold and warm results agree; opening the hit selects its original
+  message. Later searches reflect appends, replacements, additions and deletions,
+  preserve duplicate selection, and never rewrite source bytes or call Host
+  persistence. Warm scans still recompute dynamic readiness. Unit/integration
+  coverage additionally checks file-read counts, equal-size edits with restored
+  mtime, LRU count/source-byte budgets, oversized bypass, scan races and disposal.
+- **Specs:** storage §12; ADR 0254.
+- **Status:** Automated against the task candidate with
+  `node scripts/e2e-native-session-search.mjs` after building shared and
+  agent-runtime. `native-pi-session-search.test.ts` covers bounded work and
+  invalidation through the service and real temporary filesystem.
+
 ### E2E-SESSION-native-pi-continue-appends-original-jsonl
 
 - **Preconditions:** A synthetic Pi v3 session contains branches, compaction
@@ -17165,6 +17226,10 @@ the latest destination. These assertions measure work counts, not device FPS.
   3. Play a clip and seek in it. Click the drawing.
   4. Receive a reply whose only mention of `out/final.mp4` is inside a fenced
      shell command.
+  5. With `worker/old/audio/voiceover.wav` present, mention the missing
+     `worker/new/audio/voiceover.wav`; create the latter while the reply is
+     mounted, then open its name and remount or mention it again in the session.
+     Also mention both existing qualified paths and a complete suffix shorthand.
 - **Expected**:
   - Step 1: a player sits under the sentence naming the clip and the drawing
     renders under the sentence naming it, each with its file name; nothing is
@@ -17175,11 +17240,16 @@ the latest destination. These assertions measure work counts, not device FPS.
     viewer, fitted to the window, with its file name as the title and a
     download under that name.
   - Step 4: no player.
+  - Step 5: the missing name never previews the old file. Once generated, its
+    player and clicked workbench target identify the new file, including after
+    remount; both qualified paths select their own files and the complete suffix
+    shorthand still resolves. Use synthetic recordings and do not play them.
 - **Specs linked**: `04-ux/08-component-spec.md` §8.3, D663, D656
 - **Acceptance**: C (conversation)
-- **Status**: Draft — the mention pass, folder completion and renderer wiring
-  are unit covered in `apps/desktop/test/chat-media-refs.test.mjs`; the live
-  journey needs the app window.
+- **Status**: Step 5 is covered by the isolated Electron component user path in
+  `apps/desktop/test/chat-media-user-path.test.mjs`; mention parsing and folder
+  completion are covered by `apps/desktop/test/chat-media-refs.test.mjs`. The
+  remaining live journey needs an app window.
 
 ### E2E-IMAGES-result-download
 

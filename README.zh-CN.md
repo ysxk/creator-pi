@@ -102,10 +102,10 @@ Subagent 与 Worker Session 可以承担独立任务并行工作。
 > [!NOTE]
 > **PI-Desktop 目前仍处于 Early Preview。** 已可用于真实开发工作流，部分 API、插件接口与桌面能力仍在持续演进。
 
-> **当前发布线：0.18.x（Early Preview）。**
+> **当前发布线：0.19.x（Early Preview）。**
 
 > [!NOTE]
-> **creator-pi 是 [PI-Desktop](https://github.com/vastsa/PI-Desktop) 的 fork，采用 LGPL-3.0 许可。** 方向是面向自媒体创作者的 Agent 工作台。目前代码仍以 PI-Desktop 为主，自媒体相关功能还在开发中；应用本身仍以 PI-Desktop 名称运行。creator-pi 0.18.0 的 Windows 与 Linux 安装包在 [Releases 页面](https://github.com/ysxk/creator-pi/releases/latest)。本 fork 不发布 macOS 版本：macOS 请使用原项目 PI-Desktop，或参考下文从源码运行。
+> **creator-pi 是 [PI-Desktop](https://github.com/vastsa/PI-Desktop) 的 fork，采用 LGPL-3.0 许可。** 方向是面向自媒体创作者的 Agent 工作台。目前代码仍以 PI-Desktop 为主，自媒体相关功能还在开发中；应用本身仍以 PI-Desktop 名称运行。creator-pi 0.19.0 的 Windows 与 Linux 安装包在 [Releases 页面](https://github.com/ysxk/creator-pi/releases/latest)。本 fork 不发布 macOS 版本：macOS 请使用原项目 PI-Desktop，或参考下文从源码运行。
 
 ---
 

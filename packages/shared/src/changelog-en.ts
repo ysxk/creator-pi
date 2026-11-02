@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const enEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-11-03",
+    highlights: [
+      "Import and export selected API channels as JSON. Keys and custom headers are excluded by default; explicit plaintext export is available. Imports add new channels without replacing existing ones or changing model defaults.",
+      "File names without a path now remain plain text or inline code instead of guessed file links and media players. Qualified paths, explicit links and attachments keep working.",
+      "Directory-qualified media references no longer fall back to unrelated same-name files. Generated audio can be resolved again, and opening a preview uses its selected file.",
+      "Native Pi session lists and searches reuse bounded file projections, avoiding repeated reads and parsing while refreshing changed files and preserving write-time safety checks.",
+    ],
+  },
+  {
     version: "0.18.9",
     date: "2026-10-31",
     highlights: [

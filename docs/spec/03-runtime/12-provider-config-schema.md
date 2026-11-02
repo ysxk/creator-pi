@@ -820,3 +820,37 @@ metadata only: a configured binding keeps the wire ID the service served.
 
 Invalid or credential-bearing URLs still give no advice, and Cancel still does
 not persist draft changes.
+
+## Channel transfer files
+
+Settings → Channels exports selected user-owned API channels to UTF-8 JSON:
+`{ "format": "pi-desktop-channels", "version": 1, "channels": [...] }`.
+The authoritative types and validation are `packages/shared/src/provider-transfer.ts`.
+Files are bounded to 10 MiB, 200 channels, and 1,000 models per channel.
+Unknown versions/fields, duplicate model IDs, invalid enums, URLs, headers,
+model settings, and prototype-pollution keys are rejected before any write.
+Endpoint URLs must be HTTP(S) without userinfo, query parameters or fragments;
+unsupported addresses are rejected, never silently rewritten.
+
+Each channel carries its name, vendor/type/protocol/auth/API style, endpoint,
+enabled state, ordered model list and optional provider-level limits. Each model
+carries its id, baseline, sparse channel overrides and limit provenance. Global
+model defaults, local IDs, timestamps, secret references, OAuth credentials,
+plugin ownership, sessions and application default selections are excluded.
+Inherited values resolve against the destination's model defaults. OAuth and
+plugin-managed channels cannot be exported or imported as ordinary channels.
+
+API keys and custom header values are omitted by default. Explicit sensitive
+export includes `apiKey` and `headers` in plaintext after a visible warning.
+The save dialog precedes secret retrieval; missing secrets or write errors fail
+the export. A same-directory private temporary file and rename prevent partial
+exports; POSIX files use mode 0600. Export order follows the Host channel list.
+
+Import previews are immutable, main-process-owned snapshots. Confirmation adds
+selected channels in file order with new IDs, even when their names already
+exist. It never overwrites existing channels, changes app defaults, discovers
+models, or calls providers. Invalid files write nothing. Each selected channel
+reports imported/failed/cleanupFailed separately. A failure after creation
+deletes only that newly created channel; failed cleanup reports its ID so the
+user can inspect it. Host provider/model/SecretStore APIs remain authoritative;
+there is no database migration or persisted-format change.

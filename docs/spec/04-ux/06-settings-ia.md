@@ -1022,3 +1022,26 @@ the current window width:
 | Card radius | ~14px elevated stroke |
 | Toggle | **32×20** thumb 16, neutral accent on (not green) |
 | Open-target pill | leading VS Code glyph |
+
+### Channel file import and export
+
+Channels retains **Import from other tools** and adds **Import channel file**
+and **Export channels** beside Add provider. The action row wraps below the
+heading on narrow screens. Both dialogs use shared buttons and checkboxes,
+bounded scrolling, focus containment, Escape dismissal and focus restoration;
+in-flight operations disable duplicate submissions and dismissal.
+
+Export lists all channels, disables OAuth/plugin-owned rows with explanations,
+and initially selects eligible API channels. **Include API keys and custom
+header values** is off on every opening. Enabling it reveals a plaintext-risk
+warning before the native save dialog. Cancellation is neutral.
+
+Import opens a file picker then shows a selectable, credential-free preview:
+name, protocol, model count, enabled state, credential/header presence and
+same-name warnings. Confirmation explicitly creates new channels rather than
+overwriting existing ones. The dialog explains that inherited model values use
+destination defaults. Results identify each imported/failed row and any newly
+created channel left after failed cleanup. Successful writes refresh the real
+channel/model store; existing app defaults remain unchanged. Invalid/expired
+previews require selecting the file again. Empty, busy and error states remain
+localized in every supported language.
