@@ -40,9 +40,12 @@ work-panel tab already carries was honoured by main for `pi.browser` only.
      first, the session scratch store second, the attachment store last** — and
      the first root that answers wins, so the project is searched to exhaustion
      before the scratch store is considered;
-   - inside one root, an exact path beats a shorthand; among shorthands the
-     longest matching tail wins, then the shallowest path, so `src/dir/a.ts`
-     beats a second `dir/a.ts` buried deeper;
+   - inside one root, an exact path beats a shorthand; a shorthand matches a
+     file whose path ends with every segment it supplied, and the shallowest
+     such file wins, so `dir/a.ts` opens `src/dir/a.ts` before a second
+     `dir/a.ts` buried deeper. A directory the reference names is never
+     dropped, so a missing `worker/new/a.ts` matches nothing rather than an
+     unrelated `worker/old/a.ts`;
    - the files panel's ignore set applies, so a dependency tree is never
      searched;
    - a reference that matches nothing opens **nothing** and reports itself. No

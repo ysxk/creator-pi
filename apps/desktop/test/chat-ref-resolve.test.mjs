@@ -38,7 +38,7 @@ const resolve = (ref, options) => resolveChatFileRef(ref, roots(options));
  * workspace-root path that does not exist and the panel opened blank. The
  * contract under test is the product priority — the open project answers
  * first, the session scratch store second — plus the "best" rule inside one
- * root: longest matching tail, then shallowest path.
+ * root: a shorthand keeps every segment it names, then the shallowest path.
  */
 
 function tempTree(name, files) {
@@ -88,6 +88,25 @@ test("qualified media never drops directories, but keeps complete suffix and bar
   writeFileSync(target, "new synthetic audio");
   assert.equal((await resolve(ref, { workspace }))?.absolutePath, target);
   assert.equal((await resolve("worker/old/audio/voiceover.wav", { workspace }))?.absolutePath, join(workspace, "worker/old/audio/voiceover.wav"));
+});
+
+test("a qualified reference never drops directories to select another file", async () => {
+  const workspace = tempTree("ws", [
+    "worker/old/src/index.ts",
+    "packages/app/docs/README.md",
+    "a/b/c/d/e/f/g/deep.ts",
+  ]);
+  assert.equal(await resolve("worker/new/src/index.ts", { workspace }), null);
+  assert.equal(await resolve("new/src/index.ts", { workspace }), null);
+  assert.equal(await resolve("src/README.md", { workspace }), null);
+  assert.equal(await resolve("missing/index.ts", { workspace }), null);
+
+  const suffix = await resolve("old/src/index.ts", { workspace });
+  assert.equal(suffix?.matchedBy, "path-suffix");
+  assert.equal(suffix?.relativePath, "worker/old/src/index.ts");
+  assert.equal((await resolve("docs/README.md", { workspace }))?.relativePath, "packages/app/docs/README.md");
+  assert.equal((await resolve("b/c/d/e/f/g/deep.ts", { workspace }))?.relativePath, "a/b/c/d/e/f/g/deep.ts");
+  assert.equal((await resolve("index.ts", { workspace }))?.matchedBy, "basename");
 });
 
 test("a bare leaf name resolves through the workspace index", async () => {
@@ -190,7 +209,7 @@ test("a dangling relative link, including a middle directory, does not fall back
   assert.equal(await resolve("linked/page.md", { scratch }), null);
 });
 
-test("a longer matching tail beats a bare leaf name", async () => {
+test("a qualified shorthand matches only files ending with all its segments", async () => {
   const workspace = tempTree("ws", ["deep/openimage.js", "src/dir/openimage.js"]);
   const match = await resolve("dir/openimage.js", { workspace });
   assert.equal(match?.matchedBy, "path-suffix");

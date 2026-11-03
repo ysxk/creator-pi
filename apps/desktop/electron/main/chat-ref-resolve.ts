@@ -26,9 +26,12 @@ import { getWorkspaceFileIndex } from "./fs-index.js";
  *      first, the session's own scratch store second, the attachment blob
  *      store last — and the first root that answers wins, so the project is
  *      searched to exhaustion before the scratch store is considered;
- *   4. inside one root an exact path beats a shorthand, and among shorthands
- *      the longest matching tail wins, then the shallowest path, so
- *      `src/dir/a.ts` beats a second `dir/a.ts` buried deeper.
+ *   4. inside one root an exact path beats a shorthand. A shorthand matches
+ *      a file whose path ends with every segment the reference supplied, and
+ *      the shallowest such file wins, so `dir/a.ts` opens `src/dir/a.ts`
+ *      before a second `dir/a.ts` buried deeper. A directory the reference
+ *      names is never dropped: a missing `worker/new/a.ts` matches nothing
+ *      rather than an unrelated `worker/old/a.ts`.
  */
 
 export type ChatRefRoots = {
@@ -68,8 +71,6 @@ type CanonicalChatRefRoot = ChatRefRootEntry & { realPath: string | null };
 
 const MAX_REF_LENGTH = 512;
 const ATTACHMENT_HASH_PATTERN = /^[0-9a-f]{64}$/i;
-/** A tail longer than this is a user quoting a full path, not a shorthand. */
-const MAX_FUZZY_TAIL_SEGMENTS = 6;
 /** Bound for the scratch/attachment walk; those trees are small by design. */
 const MAX_ROOT_WALK_ENTRIES = 4000;
 
@@ -256,7 +257,7 @@ function compareCandidates(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-function endsWithTail(fileSegments: string[], tail: string[]): boolean {
+function endsWithTail(fileSegments: readonly string[], tail: readonly string[]): boolean {
   if (fileSegments.length < tail.length) return false;
   const offset = fileSegments.length - tail.length;
   for (let index = 0; index < tail.length; index += 1) {
@@ -265,37 +266,11 @@ function endsWithTail(fileSegments: string[], tail: string[]): boolean {
   return true;
 }
 
-type FuzzyCandidate = { relativePath: string; matchedBy: FsChatRefMatchKind };
-
-/**
- * Longest tail first, so a two-segment shorthand beats a bare leaf name.
- * Within one tail the shallowest file wins.
- */
-function fuzzyCandidates(
-  files: readonly string[],
-  tails: readonly string[][],
-): FuzzyCandidate[] {
-  const parsedFiles = files.map((file) => ({
-    file,
-    segments: segmentsOf(file),
-  }));
-  const candidates: FuzzyCandidate[] = [];
-  const seen = new Set<string>();
-  for (const tail of tails) {
-    const matches = parsedFiles
-      .filter((entry) => endsWithTail(entry.segments, tail))
-      .map((entry) => entry.file)
-      .sort(compareCandidates);
-    for (const file of matches) {
-      if (seen.has(file)) continue;
-      seen.add(file);
-      candidates.push({
-        relativePath: file,
-        matchedBy: tail.length === 1 ? "basename" : "path-suffix",
-      });
-    }
-  }
-  return candidates;
+/** Files ending with every supplied segment, shallowest first. */
+function suffixCandidates(files: readonly string[], segments: readonly string[]): string[] {
+  return files
+    .filter((file) => endsWithTail(segmentsOf(file), segments))
+    .sort(compareCandidates);
 }
 
 async function isContainedRegularFile(root: string, relativePath: string): Promise<boolean> {
@@ -441,16 +416,9 @@ export async function resolveChatFileRef(
   // 3. Roots in product priority order, and the first root that answers wins
   //    outright: the open project is searched to exhaustion before the session
   //    scratch store is considered at all. Inside one root the reference read
-  //    as a path verbatim outranks a tail match.
-  const tails: string[][] = [];
-  const qualifiedMedia = parsed.segments.length > 1 &&
-    /\.(?:mp4|m4v|mov|webm|avi|mkv|mp3|wav|aiff?|m4a|flac|ogg|oga|opus|aac|png|jpe?g|gif|webp|avif|bmp|svg|ico|heic|tiff?)$/i.test(parsed.segments.at(-1) ?? "");
-  const longestTail = qualifiedMedia
-    ? parsed.segments.length
-    : Math.min(parsed.segments.length, MAX_FUZZY_TAIL_SEGMENTS);
-  for (let length = longestTail; length >= (qualifiedMedia ? longestTail : 1); length -= 1) {
-    tails.push(parsed.segments.slice(parsed.segments.length - length));
-  }
+  //    as a path verbatim outranks a suffix match.
+  const matchedBy: FsChatRefMatchKind =
+    parsed.segments.length === 1 ? "basename" : "path-suffix";
   for (const root of rootList) {
     const absolutePath = join(root.path, ...parsed.segments);
     if (await isRegularFile(absolutePath)) {
@@ -464,17 +432,17 @@ export async function resolveChatFileRef(
       };
     }
     if (await hasInvalidLinkAncestor(root.path, parsed.segments)) return null;
-    const candidates = fuzzyCandidates(
+    const candidates = suffixCandidates(
       await listRootFiles(root.kind, root.path),
-      tails,
+      parsed.segments,
     );
-    for (const candidate of candidates) {
-      if (!(await isContainedRegularFile(root.path, candidate.relativePath))) continue;
+    for (const relativePath of candidates) {
+      if (!(await isContainedRegularFile(root.path, relativePath))) continue;
       return {
         root: root.kind,
-        relativePath: candidate.relativePath,
-        absolutePath: join(root.path, ...segmentsOf(candidate.relativePath)),
-        matchedBy: candidate.matchedBy,
+        relativePath,
+        absolutePath: join(root.path, ...segmentsOf(relativePath)),
+        matchedBy,
         ...(root.projectRoot ? { projectRoot: root.projectRoot } : {}),
       };
     }
