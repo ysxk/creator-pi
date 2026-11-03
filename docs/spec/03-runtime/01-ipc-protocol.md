@@ -1924,8 +1924,11 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
   other folders, which are then searched in the group's own order (ADR 0263),
   so a shorthand resolves in a sibling folder as readily as in the primary one,
   and the match names the folder that answered. Inside one root an exact path
-  beats a shorthand; among shorthands the longest matching tail wins, then the
-  shallowest path. Relative and indexed candidates must resolve to regular files
+  beats a shorthand; a shorthand matches a file whose path ends with every
+  segment the reference supplied, and the shallowest such file wins. A
+  directory the reference names is never dropped to select another file, so a
+  missing `worker/new/a.ts` returns `match: null` rather than
+  `worker/old/a.ts`. Relative and indexed candidates must resolve to regular files
   whose real paths remain inside their answering root; an exact path through an
   escaping or dangling link cannot fall back to a same-name indexed file. The
   files-panel ignore set applies. An absolute reference may also name a store

@@ -13272,15 +13272,19 @@ are withdrawn with ADR 0165.
   `attachments/<sha256>` ref. 4) Prompt a turn that names an absolute path to a
   project file whose leaf name also exists in scratch, and click it. 5) Prompt
   a turn that names `missing-helper.js` and click it. 6) Prompt a turn that
-  names `only-here.ts` and click it.
+  names `only-here.ts` and click it. 7) Prompt a turn that names the missing
+  `worker/dir/a.ts` and click it.
 - **Expected**:
   - Clicking `openimage.js` opens the project's `img/openimage.js`, although the
     scratch store holds a file with that same leaf name: the project is
     searched to exhaustion before the scratch store is considered at all.
-  - `dir/a.ts` opens `src/dir/a.ts`: an exact path beats a shorthand, a longer
-    matching tail beats a bare leaf name, and the shallowest candidate wins a
-    tail-length tie, so the deeper `packages/app/dir/a.ts` is never the one
-    that opens.
+  - `dir/a.ts` opens `src/dir/a.ts`: an exact path beats a shorthand, a
+    shorthand matches only files ending with every segment it names, and the
+    shallowest such candidate wins, so the deeper `packages/app/dir/a.ts` is
+    never the one that opens.
+  - The missing `worker/dir/a.ts` raises the no-match toast instead of opening
+    `src/dir/a.ts`: a directory the reference names is never dropped to select
+    another file.
   - A reference the project cannot answer resolves in the session scratch
     store; one that neither answers resolves in the attachment store, and an
     `attachments/<sha256>` ref opens that stored blob.
