@@ -1943,3 +1943,25 @@ unchanged. See [provider configuration](12-provider-config-schema.md).
 只有 owner 验证成功后才会创建 `MessagePort`，之后由 preload 中继到 renderer 窗口。owner 在首个 `hello` 中回送每通电话独有的 nonce；Main 仅在 call ID 和 nonce 均匹配时接受该端口一次。二进制帧包含有界 PCM 音频、采集 epoch、释放确认、播放游标和协议就绪信号。它不是通用 IPC 隧道：不会传输 Provider 凭证、任意命令、工作区路径、Agent 消息或持久化字幕。通话结束或 owner 丢失时会关闭端口。
 
 停靠挂件窗口不是通话 owner，也不可能成为 owner：它在所有经过 owner 校验的通道上都会像任何其他 renderer 一样被以 `PERMISSION_DENIED` 拒绝。Main 只在该窗口作为发送方时响应它的两条通道；owner 自身的错误码经由主窗口传入，因为执行操作的是该 frame。挂件操作本身不会改变通话状态：它被转发给 owner frame，结果状态再通过 owner 收到的同一份权威视图回到挂件。
+
+## 渠道文件迁移
+
+以下新增 preload 通道仅允许主窗口调用，不加入 MCP 或插件桌面控制目录。
+调用方不能提供文件系统路径，文件选择由主进程的原生对话框完成。
+
+| 通道后缀（`pi-desktop/providers/`） | 输入 | 结果 |
+| --- | --- | --- |
+| `importPreview` | 无；打开原生文件选择器 | 取消时返回 null，否则返回 `{ token, channels }` |
+| `importConfirm` | `{ token, indices: number[] }` | `{ items: [{ index, status, providerId? }] }` |
+| `importCancel` | `{ token }` | `{ ok: true }` |
+| `exportFile` | `{ providerIds: string[], includeSecrets: boolean }` | 取消时返回 null，否则返回 `{ exported }` |
+
+预览行仅包含 index、name、protocol、modelCount、enabled、hasApiKey、
+hasHeaders 和 sameName。文件正文、API Key 和请求头值不会出现在这些响应中。
+随机令牌绑定发起请求的 WebContents 和 Host 实例，只能使用一次，五分钟后过期。
+每个窗口最多保留一个预览，同时只允许一个操作。取消、顶层导航和窗口销毁
+都会释放保留的正文；已销毁窗口的异步文件选择或读取结果不能重新建立预览。
+错误使用固定且安全的 `CHANNEL_*` 代码，不回显解析器、文件系统或 Host 的原始错误。
+
+参见[渠道配置英文契约](/spec/03-runtime/12-provider-config-schema#channel-transfer-files)
+与 [ADR channel-transfer](/adr/channel-transfer)。

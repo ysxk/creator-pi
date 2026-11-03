@@ -163,6 +163,9 @@ app.whenReady().then(async()=>{
 `;
     await writeFile(join(fixture, "main.cjs"), main);
     const env = await isolatedEnv(fixture);
+    for (const key of ["DISPLAY", "XAUTHORITY"]) {
+      if (process.env[key]) env[key] = process.env[key];
+    }
     child = spawn(resolveElectronBinary(root).electronBinary, [join(fixture, "main.cjs")], { env, stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     for (const stream of [child.stdout, child.stderr]) stream.on("data", (chunk) => { output += chunk; });

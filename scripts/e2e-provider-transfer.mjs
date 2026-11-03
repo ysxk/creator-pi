@@ -32,6 +32,9 @@ assert.ok(styles.length, "Build the desktop renderer before running this suite")
 await symlink(join(renderer, "assets"), join(directory, "assets"), "dir");
 await writeFile(join(directory, "index.html"), `<!doctype html><html data-theme="dark" data-platform="darwin"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:">${styles.map((path) => `<link rel="stylesheet" href="${path}">`).join("")}<link rel="stylesheet" href="renderer.css"></head><body><div id="root"></div><script type="module" src="renderer.js"></script></body></html>`);
 const env = { ...await isolatedEnv(directory), PI_TRANSFER_FIXTURE: directory, PI_DESKTOP_HOST_BIN: resolveHostBinary() };
+for (const key of ["DISPLAY", "XAUTHORITY"]) {
+  if (process.env[key]) env[key] = process.env[key];
+}
 const child = spawn(resolveElectronBinary(root).electronBinary, [join(directory, "main.mjs")], { env, stdio: ["ignore", "pipe", "pipe"] });
 let output = "";
 for (const stream of [child.stdout, child.stderr]) stream.on("data", (chunk) => { output += chunk; });
