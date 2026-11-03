@@ -1,3 +1,4 @@
+import type { ProviderTransferExportInput, ProviderTransferImportInput, ProviderTransferPreview, ProviderTransferResult } from "@pi-desktop/shared";
 import { projectPlanHistory } from "./plan-history";
 import type {
   ScheduledTaskRun,
@@ -812,6 +813,10 @@ export const api = {
     invoke<ModelSettingsSnapshot>(IPC.invoke.modelSettingsUpdate, input),
   listProviders: () =>
     invoke<{ providers: ProviderPublic[] }>(IPC.invoke.providersList),
+  previewProviderImport: () => invoke<ProviderTransferPreview | null>(IPC.invoke.providersImportPreview),
+  confirmProviderImport: (input: ProviderTransferImportInput) => invoke<ProviderTransferResult>(IPC.invoke.providersImportConfirm, input),
+  cancelProviderImport: (token: string) => invoke<{ ok: true }>(IPC.invoke.providersImportCancel, { token }),
+  exportProvidersFile: (input: ProviderTransferExportInput) => invoke<{ exported: number } | null>(IPC.invoke.providersExportFile, input),
   createProvider: (input: ProviderCreateInput) =>
     invoke<{ provider: ProviderPublic }>(IPC.invoke.providersCreate, input),
   updateProvider: (input: ProviderUpdateInput) =>

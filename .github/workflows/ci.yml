@@ -168,6 +168,12 @@ jobs:
       - name: Build host-core
         run: cargo build -p host-core --locked
 
+      - name: Run channel transfer and media reference E2E
+        run: xvfb-run --auto-servernum sh -c 'node scripts/e2e-provider-transfer.mjs && node --test apps/desktop/test/chat-explicit-paths-user-path.test.mjs apps/desktop/test/chat-media-user-path.test.mjs'
+
+      - name: Run native session search RPC E2E
+        run: node scripts/e2e-native-session-search.mjs
+
       - name: Run trusted extensions E2E
         env:
           DEBUG_E2E: "1"

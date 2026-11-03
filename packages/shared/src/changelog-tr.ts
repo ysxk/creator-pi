@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-11-03",
+    highlights: [
+      "API kanallarını JSON olarak içe ve dışa aktarın. Anahtarlar ve özel başlıklar varsayılan olarak hariçtir; düz metin aktarımı açık seçim gerektirir. İçe aktarma mevcut kanalları veya varsayılanları değiştirmez.",
+      "Yolsuz dosya adları tahmini bağlantılar veya medya oynatıcıları yerine düz metin ya da satır içi kod olarak kalır. Yollar, açık bağlantılar ve ekler çalışmaya devam eder.",
+      "Dizin içeren medya referansları artık başka klasörlerdeki aynı adlı dosyaları seçmez. Oluşturulan ses yeniden çözümlenebilir; önizleme ve açma aynı seçili dosyayı kullanır.",
+      "Yerel Pi oturum listeleri ve aramaları sınırlı dosya projeksiyon önbelleğini kullanarak tekrar okuma ve ayrıştırmayı azaltır. Değişen dosyalar yenilenir ve yazma güvenlik denetimleri korunur.",
+    ],
+  },
+  {
     "version": "0.18.9",
     "date": "2026-10-31",
     "highlights": [

@@ -36,6 +36,7 @@ import { serviceRowKind } from "./service-row-status";
 import { useVendorAccounts } from "./useVendorAccounts";
 import { VendorAccountDialog, type VendorAccountForm } from "./VendorAccountDialog";
 import { ModelConfigImportPanel } from "../../features/settings/imports/ModelConfigImportPanel";
+import { ProviderTransferActions } from "../../features/settings/imports/ProviderTransferActions";
 import { ImportToggleButton } from "../../features/settings/import-workbench";
 import { JevSettingsCard } from "./JevSettingsCard";
 import { JEV_SERVICE } from "./service-catalog";
@@ -372,7 +373,7 @@ export function ProviderConfigPage() {
   return (
     <div className="settings-stack model-config-page">
       <section className="settings-card-block">
-        <div className="model-config-section-head">
+        <div className="model-config-section-head channel-transfer-heading">
           <div className="settings-card-heading-line">
             <h3 className="settings-card-heading">{t("settings.providers")}</h3>
             {providers.length > 0 ? (
@@ -380,6 +381,7 @@ export function ProviderConfigPage() {
             ) : null}
           </div>
           <div className="provider-section-head-actions">
+            <ProviderTransferActions />
             <ImportToggleButton
               open={importOpen}
               controls="model-config-import-panel"

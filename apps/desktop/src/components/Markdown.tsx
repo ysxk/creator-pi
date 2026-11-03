@@ -94,6 +94,7 @@ import {
 import {
   handleMarkdownFileLinkClick,
   remarkChatFileLinks,
+  resolveAutoPreviewTarget,
   resolvePreviewTarget,
   safeDecodeUri,
   toWorkspaceRel,
@@ -561,7 +562,7 @@ function InlineCode({
   const text = typeof children === "string" ? children : null;
   const target =
     text && !className && !text.includes("\n")
-      ? resolvePreviewTarget(text, root, baseDir)
+      ? resolveAutoPreviewTarget(text, root, baseDir)
       : null;
   const fileTitle = usePreviewTitle("file");
   const urlTitle = usePreviewTitle("url");

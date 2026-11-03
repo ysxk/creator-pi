@@ -1,0 +1,20 @@
+.channel-transfer-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.channel-transfer-dialog p { margin: 0; overflow-wrap: anywhere; }
+.channel-transfer-list { overflow-y: auto; min-height: 0; max-height: 40dvh; }
+.channel-transfer-row { padding: 12px 0; border-bottom: 1px solid var(--ds-border-subtle); }
+.channel-transfer-row p { margin-top: 4px; color: var(--ds-text-secondary); }
+.channel-transfer-warning { color: var(--ds-text-primary); font-weight: var(--font-weight-medium); }
+.channel-transfer-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.channel-transfer-dialog .ui-checkbox { display: flex; align-items: baseline; gap: 8px; }
+.channel-transfer-heading { flex-wrap: wrap; }
+.channel-transfer-heading > .settings-card-heading-line { flex-shrink: 0; }
+@media (max-width: 900px) {
+  .channel-transfer-heading > .provider-section-head-actions { flex-basis: 100%; justify-content: flex-start; }
+}

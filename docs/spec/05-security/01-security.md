@@ -71,6 +71,16 @@ Required (all **implemented**):
   `sk-`-style token pattern) in Electron main, `redact_value` in host-core
   audit writes; verified by the no-secret-leak smoke check
 - Error messages must not echo full keys
+- Channel JSON export omits API keys and all custom header values by default.
+  Explicit sensitive export warns that the selected file contains plaintext
+  credentials; OAuth grants/cookies and plugin-owned channels remain excluded.
+  Main owns native pickers, bounded file I/O and transient import snapshots;
+  transfer IPC returns only sanitized summaries/results and fixed error codes.
+  Tokens are window-bound, single-use and expire after five minutes, and are
+  cleared on navigation/destruction. Import never executes a provider request.
+  Transfer operations are excluded from MCP/plugin desktop control. Secrets
+  enter the existing Host SecretStore, never renderer state. Exported files use
+  private temporary files and atomic replacement, with POSIX mode 0600.
 
 ## 4. Workspace sandbox
 

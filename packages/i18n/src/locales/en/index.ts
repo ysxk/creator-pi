@@ -1,4 +1,6 @@
+import { channelTransfer } from "../../channel-transfer.js";
 export const en = {
+  channelTransfer: channelTransfer.en,
   app: {
     shellName: "PI-Desktop",
     tagline: "Local AI coding partner",

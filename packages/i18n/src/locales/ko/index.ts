@@ -1,6 +1,8 @@
+import { channelTransfer } from "../../channel-transfer.js";
 import { en, type EnglishCatalog } from "../en/index.js";
 
 export const ko = {
+  channelTransfer: channelTransfer.ko,
   app: {
     shellName: "PI-Desktop",
     tagline: "로컬 AI 코딩 파트너",

@@ -2565,3 +2565,27 @@ window, and the owner's own failure code arrives through the main window, which
 is the frame that ran the action. A widget action never changes call state by
 itself: it is forwarded to the owner frame, and the resulting state reaches the
 widget through the same authoritative view the owner receives.
+
+## Channel file transfer
+
+These additive main-window-only preload channels are excluded from MCP and
+plugin desktop-control catalogs. No caller supplies a filesystem path.
+
+| Channel suffix (`pi-desktop/providers/`) | Input | Result |
+| --- | --- | --- |
+| `importPreview` | none; opens native file picker | null on cancel, otherwise `{ token, channels }` |
+| `importConfirm` | `{ token, indices: number[] }` | `{ items: [{ index, status, providerId? }] }` |
+| `importCancel` | `{ token }` | `{ ok: true }` |
+| `exportFile` | `{ providerIds: string[], includeSecrets: boolean }` | null on cancel, otherwise `{ exported }` |
+
+Preview rows contain only index, name, protocol, modelCount, enabled, hasApiKey,
+hasHeaders and sameName. File payloads, API keys and header values never appear
+in these responses. Tokens are random, bound to the issuing WebContents and
+Host instance, single-use, and expire after five minutes. One preview and one
+in-flight operation are permitted per owner. Cancellation, top-level navigation
+and window destruction release retained payloads; stale async picker/read
+results cannot create a new preview after disposal. Errors are fixed safe
+`CHANNEL_*` codes, not raw parser, filesystem or Host error text.
+
+See [provider config](12-provider-config-schema.md#channel-transfer-files) and
+[ADR channel-transfer](../../adr/channel-transfer.md).

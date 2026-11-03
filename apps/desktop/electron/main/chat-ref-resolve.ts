@@ -443,8 +443,12 @@ export async function resolveChatFileRef(
   //    scratch store is considered at all. Inside one root the reference read
   //    as a path verbatim outranks a tail match.
   const tails: string[][] = [];
-  const longestTail = Math.min(parsed.segments.length, MAX_FUZZY_TAIL_SEGMENTS);
-  for (let length = longestTail; length >= 1; length -= 1) {
+  const qualifiedMedia = parsed.segments.length > 1 &&
+    /\.(?:mp4|m4v|mov|webm|avi|mkv|mp3|wav|aiff?|m4a|flac|ogg|oga|opus|aac|png|jpe?g|gif|webp|avif|bmp|svg|ico|heic|tiff?)$/i.test(parsed.segments.at(-1) ?? "");
+  const longestTail = qualifiedMedia
+    ? parsed.segments.length
+    : Math.min(parsed.segments.length, MAX_FUZZY_TAIL_SEGMENTS);
+  for (let length = longestTail; length >= (qualifiedMedia ? longestTail : 1); length -= 1) {
     tails.push(parsed.segments.slice(parsed.segments.length - length));
   }
   for (const root of rootList) {

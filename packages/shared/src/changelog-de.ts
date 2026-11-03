@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-11-03",
+    highlights: [
+      "Ausgewählte API-Kanäle als JSON importieren und exportieren. Schlüssel und eigene Header sind standardmäßig ausgeschlossen; Klartext-Export ist ausdrücklich wählbar. Importe ändern weder bestehende Kanäle noch Modellstandards.",
+      "Dateinamen ohne Pfad bleiben Text oder Inline-Code statt automatisch erratener Links und Medienplayer. Vollständige Pfade, explizite Links und Anhänge funktionieren weiterhin.",
+      "Medienreferenzen mit Verzeichnissen verweisen nicht mehr auf gleichnamige Dateien anderer Ordner. Erzeugte Audiodateien werden erneut aufgelöst; Vorschau und Öffnen verwenden dieselbe Datei.",
+      "Listen und Suche nativer Pi-Sitzungen nutzen begrenzte Dateiprojektions-Caches, vermeiden wiederholtes Lesen und Parsen und aktualisieren geänderte Dateien bei unveränderten Schreibschutzprüfungen.",
+    ],
+  },
+  {
     "version": "0.18.9",
     "date": "2026-10-31",
     "highlights": [

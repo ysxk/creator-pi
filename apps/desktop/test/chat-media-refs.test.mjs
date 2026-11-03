@@ -67,7 +67,7 @@ test("a named recording gets a player under the paragraph that names it", () => 
   assert.deepEqual(tree.children.map(preview), ["paragraph", "audio:out/vo.mp3", "audio:out/vo.wav"]);
 });
 
-test("a table of bare file names is followed by one preview per file, in order", () => {
+test("a table of bare filenames has no inferred links or media previews", () => {
   const tree = previewsOf(
     [
       "| # | file |",
@@ -77,11 +77,11 @@ test("a table of bare file names is followed by one preview per file, in order",
       "| 03 | `01_Johnny_Harris_地图.mp4` |",
     ].join("\n"),
   );
-  assert.deepEqual(tree.children.map(preview), [
-    "table",
-    "video:01_Johnny_Harris_地图.mp4",
-    "video:02_Vox_边境线E1.mp4",
-  ]);
+  assert.deepEqual(tree.children.map(preview), ["table"]);
+  for (const row of tree.children[0].children.slice(1)) {
+    assert.deepEqual(cellPreviews(row.children[1]), []);
+    assert.equal(row.children[1].children[0].type, "inlineCode");
+  }
 });
 
 /** Each cell's children, flattened through bold and emphasis, as preview labels. */
@@ -121,7 +121,7 @@ test("a table cell that names a picture holds its thumbnail, right after the nam
     [["link:tmp/final.mp4"], []],
     // One picture is shown once per table.
     [["link:output/full.jpg"], []],
-    [["link:page.html"], []],
+    [[], []],
   ]);
   // The thumbnail sits inside the bold run that held the name.
   const strong = tree.children[0].children[1].children[0].children[0];
@@ -280,8 +280,8 @@ test("the reply lends its Markdown the previews and the viewer; nothing else get
   // the link around the chip does not open it a second time.
   assert.match(markdown, /openReplyFileRef\(text \?\? target\.path, baseDir, event\.currentTarget\)/);
   assert.match(markdown, /if \(e\.defaultPrevented\) return;/);
-  assert.match(mention, /if \(!media \|\| !trigger \|\| !isChatImagePath\(path\)\) \{\s*openFileRef\(path, baseDir\);/);
-  assert.match(mention, /if \(file && trigger\.isConnected\) media\.openImage\(trigger, file\);\s*else openFileRef\(path, baseDir\);/);
+  assert.match(mention, /if \(!media\) \{\s*openFileRef\(path, baseDir\);/);
+  assert.match(mention, /if \(file\) media\.openImage\(trigger, file\);\s*else openFileRef\(path, baseDir\);/);
   // A cell's picture is phrasing content with no caption; the chip names it.
   assert.match(markdown, /variant=\{variant === "thumb" \? "thumb" : "block"\}/);
   assert.match(mention, /if \(variant === "thumb"\) \{\s*return \(\s*<span className="chat-media-thumb"/);

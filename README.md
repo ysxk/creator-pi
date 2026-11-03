@@ -34,10 +34,10 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 
 </div>
 
-> **Current release line: 0.18.x (Early Preview).**
+> **Current release line: 0.19.x (Early Preview).**
 
 > [!NOTE]
-> **creator-pi is a fork of [PI-Desktop](https://github.com/vastsa/PI-Desktop), licensed under LGPL-3.0.** It is being adapted for self-media creators. The code is still largely PI-Desktop's, creator-specific features are in development, and the app still runs under the PI-Desktop name. creator-pi 0.18.0 is on the [Releases page](https://github.com/ysxk/creator-pi/releases/latest) for Windows and Linux. macOS builds are not published by this fork: use upstream PI-Desktop on macOS, or run from source (see [Run from source](#run-from-source)).
+> **creator-pi is a fork of [PI-Desktop](https://github.com/vastsa/PI-Desktop), licensed under LGPL-3.0.** It is being adapted for self-media creators. The code is still largely PI-Desktop's, creator-specific features are in development, and the app still runs under the PI-Desktop name. creator-pi 0.19.0 is on the [Releases page](https://github.com/ysxk/creator-pi/releases/latest) for Windows and Linux. macOS builds are not published by this fork: use upstream PI-Desktop on macOS, or run from source (see [Run from source](#run-from-source)).
 
 ---
 

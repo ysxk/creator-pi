@@ -447,6 +447,10 @@ const CORE_TOOL_SPECS = [
 export const MCP_CONTROL_CATALOG_CHANNEL_KEYS = CONTROL_OPERATION_SPECS.map((entry) => entry.channelKey);
 
 export const MCP_CONTROL_BLOCKED_CHANNEL_KEYS = [
+  "providersImportPreview",
+  "providersImportConfirm",
+  "providersImportCancel",
+  "providersExportFile",
   "secretsSet",
   "secretsDelete",
   "secretsHas",

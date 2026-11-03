@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-11-03",
+    highlights: [
+      "Importa y exporta canales API como JSON. Las claves y cabeceras se excluyen por defecto; puedes autorizar su exportación en texto plano. La importación añade canales sin reemplazar los existentes ni cambiar valores predeterminados.",
+      "Los nombres sin ruta permanecen como texto o código en línea, sin enlaces ni reproductores inferidos. Las rutas, enlaces explícitos y archivos adjuntos siguen funcionando.",
+      "Las referencias multimedia con directorios ya no seleccionan archivos homónimos de otras carpetas. El audio generado puede resolverse de nuevo y la vista previa abre el mismo archivo seleccionado.",
+      "Las listas y búsquedas de sesiones nativas Pi reutilizan proyecciones de archivos con caché limitada, evitando lecturas y análisis repetidos y actualizando archivos modificados sin debilitar las comprobaciones de escritura.",
+    ],
+  },
+  {
     "version": "0.18.9",
     "date": "2026-10-31",
     "highlights": [

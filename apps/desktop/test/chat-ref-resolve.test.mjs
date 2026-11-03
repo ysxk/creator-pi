@@ -72,6 +72,24 @@ test("a multi-segment relative hit is exact before any fuzzy rule", async () => 
   assert.equal(match?.relativePath, "src/dir/a.ts");
 });
 
+test("qualified media never drops directories, but keeps complete suffix and bare-name shorthand", async () => {
+  const workspace = mkdtempSync(join(tmpdir(), "audio-path-fix-qualified-media-"));
+  for (const file of ["worker/old/audio/voiceover.wav", "prefix/clips/intro.wav"]) {
+    const target = join(workspace, file);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, "synthetic audio");
+  }
+  const ref = "worker/new/audio/voiceover.wav";
+  assert.equal(await resolve(ref, { workspace }), null);
+  assert.equal((await resolve("clips/intro.wav", { workspace }))?.absolutePath, join(workspace, "prefix/clips/intro.wav"));
+  assert.equal((await resolve("voiceover.wav", { workspace }))?.absolutePath, join(workspace, "worker/old/audio/voiceover.wav"));
+  const target = join(workspace, ref);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, "new synthetic audio");
+  assert.equal((await resolve(ref, { workspace }))?.absolutePath, target);
+  assert.equal((await resolve("worker/old/audio/voiceover.wav", { workspace }))?.absolutePath, join(workspace, "worker/old/audio/voiceover.wav"));
+});
+
 test("a bare leaf name resolves through the workspace index", async () => {
   const workspace = tempTree("ws", ["src/dir/openimage.js"]);
   const match = await resolve("openimage.js", { workspace });

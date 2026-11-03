@@ -32,7 +32,13 @@ PI-Desktop historically imports Pi sessions by flattening them into Desktop-owne
 - ModelRuntime initializes the local catalog/auth snapshot without model network refresh; the exact saved provider/model/auth is required. Native Composer readiness uses `canPrompt`, independently of Desktop provider secrets.
 - Desktop terminal completion follows SDK prompt settlement (after `agent_settled` hooks and final persistence), not intermediate `agent_end`. Durable user acknowledgements reconcile caller optimistic IDs to SDK IDs without changing native entry IDs or deduplicating text. Abort refreshes native detail and never rewrites/restores a durable user row.
 - Native compact and session-addressed queue push/list fail with `NATIVE_PI_UNSUPPORTED` before host access. Queue remove/prioritize retain the existing opaque **host turnId** contract, not a session/source contract. Native paths never create host queue entries; future native queue support requires an explicit source/session protocol extension.
-- Listing still synchronously parses complete changed and unchanged files. Projection caching and bounded async scanning are deferred; no responsiveness bound is claimed for large catalogs in this slice.
+- List/search now share a bounded read-only projection cache (128 files,
+  16 MiB of source bytes), validated by canonical path, device/inode, size,
+  mtime, and ctime. Search consumes the same snapshot as discovery instead of
+  reading each file twice. This trades bounded retained parsed state for less
+  repeated I/O and parsing; oversized or evicted files still use cold reads.
+  Dynamic readiness and all writer byte/lease checks remain uncached. Cold
+  scanning is still synchronous; bounded async scanning remains deferred.
 
 ## Amendment: native side-chat forks (2026-09-14)
 

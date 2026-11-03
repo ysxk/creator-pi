@@ -150,3 +150,18 @@ the same reason, and one contract is easier to reason about than two.
 Rejected: it is not the right panel, and it is what the request replaces. The
 action survives in the file view's context menu, which is where the file is
 already on screen.
+
+## Amendment: Do not infer clickable targets from filenames alone
+
+Ordinary prose and inline code must contain a directory separator to become
+an inferred file link or media preview. A bare filename cannot identify which
+of several same-name artifacts a message means; sorting a search result or
+retrying it does not establish that identity. Bare filenames therefore remain
+ordinary text/code without filesystem lookups, including when a reply names
+nearby folders or an earlier reply used a complete path.
+
+Explicit Markdown link/image destinations, composer `@` references and
+structured attachments/tool actions remain supported. Qualified references
+retain the opener and permission contracts above. This changes automatic
+transcript recognition, not the public resolver contract, and deliberately
+avoids adding conversation-history inference or another artifact index.

@@ -10,14 +10,14 @@ const ROOT = "/Users/dev/project";
 const targets = (segments) => segments.filter((segment) => segment.kind === "target");
 
 test("file candidates stop at 512 UTF-16 units without linking a suffix", () => {
-  const max = `${"a".repeat(509)}.ts`;
-  const over = `${"b".repeat(510)}.ts`;
+  const max = `./${"a".repeat(507)}.ts`;
+  const over = `./${"b".repeat(508)}.ts`;
   assert.equal(max.length, 512);
   assert.equal(over.length, 513);
 
-  const accepted = splitChatText(`${max} ${over} safe.ts`, ROOT);
-  assert.deepEqual(targets(accepted).map((segment) => segment.text), [max, "safe.ts"]);
-  assert.equal(accepted.map((segment) => segment.text).join(""), `${max} ${over} safe.ts`);
+  const accepted = splitChatText(`${max}\n${over}\n./safe.ts`, ROOT);
+  assert.deepEqual(targets(accepted).map((segment) => segment.text), [max, "./safe.ts"]);
+  assert.equal(accepted.map((segment) => segment.text).join(""), `${max}\n${over}\n./safe.ts`);
 });
 
 test("long URLs remain eligible under the independent URL limit", () => {
@@ -35,9 +35,9 @@ test("the file candidate and link caps are independent and reconstruct source", 
   assert.equal(scan.stats.fileCandidateCount, 512);
   assert.equal(scan.stats.linkCount, 0);
 
-  const linked = splitChatText(Array.from({ length: 400 }, (_, i) => `f${i}.ts`).join(" "), ROOT);
+  const linked = splitChatText(Array.from({ length: 400 }, (_, i) => `./f${i}.ts`).join(" "), ROOT);
   assert.equal(targets(linked).length, 256);
-  assert.equal(linked.map((segment) => segment.text).join(""), Array.from({ length: 400 }, (_, i) => `f${i}.ts`).join(" "));
+  assert.equal(linked.map((segment) => segment.text).join(""), Array.from({ length: 400 }, (_, i) => `./f${i}.ts`).join(" "));
 });
 
 test("Markdown text nodes in one tree share scan work while later trees get fresh budgets", () => {
@@ -48,7 +48,7 @@ test("Markdown text nodes in one tree share scan work while later trees get fres
       type: "paragraph",
       children: [
         { type: "text", value: source },
-        { type: "text", value: " safe.ts" },
+        { type: "text", value: " ./safe.ts" },
       ],
     }],
   };
@@ -57,7 +57,7 @@ test("Markdown text nodes in one tree share scan work while later trees get fres
 
   const nextTree = {
     type: "root",
-    children: [{ type: "paragraph", children: [{ type: "text", value: "safe.ts" }] }],
+    children: [{ type: "paragraph", children: [{ type: "text", value: "./safe.ts" }] }],
   };
   linkifyMdastTree(nextTree, ROOT);
   assert.equal(nextTree.children[0].children[0].type, "link");
@@ -66,6 +66,6 @@ test("Markdown text nodes in one tree share scan work while later trees get fres
 test("CRLF and Unicode source survive bounded linkification unchanged", () => {
   const source = "查看 报告.pdf\r\n😀 and docs/规范/架构.md";
   const linked = splitChatText(source, ROOT);
-  assert.deepEqual(targets(linked).map((segment) => segment.text), ["报告.pdf", "docs/规范/架构.md"]);
+  assert.deepEqual(targets(linked).map((segment) => segment.text), ["docs/规范/架构.md"]);
   assert.equal(linked.map((segment) => segment.text).join(""), source);
 });

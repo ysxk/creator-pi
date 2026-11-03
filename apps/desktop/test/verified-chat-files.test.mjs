@@ -19,25 +19,22 @@ function deferred() {
   return { promise, resolve };
 }
 
-test("dotted prose stays text until a lookup confirms the file", () => {
+test("bare dotted prose stays text even when a same-name file was verified", () => {
   const segments = splitChatText(ISSUE_PROSE, ROOT);
-  assert.deepEqual(
-    segments
-      .filter((segment) => segment.kind === "target" && segment.target.kind === "file")
-      .map((segment) => segment.target.path),
-    ["使用llama.cpp"],
-  );
-  assert.deepEqual(chatFileCandidates(segments), ["使用llama.cpp"]);
+  assert.deepEqual(segments, [{ kind: "text", text: ISSUE_PROSE }]);
+  assert.deepEqual(chatFileCandidates(segments), []);
+  assert.deepEqual(verifiedChatSegments(segments, new Set(["使用llama.cpp"])), segments);
+});
 
+test("qualified paths stay text until a lookup confirms the file", () => {
+  const source = "see src/llama.cpp";
+  const segments = splitChatText(source, ROOT);
+  assert.deepEqual(chatFileCandidates(segments), ["src/llama.cpp"]);
   const pending = verifiedChatSegments(segments, new Set());
   assert.ok(pending.every((segment) => segment.kind === "text"));
-  assert.equal(pending.map((segment) => segment.text).join(""), ISSUE_PROSE);
-
-  const confirmed = verifiedChatSegments(segments, new Set(["使用llama.cpp"]));
-  assert.equal(
-    confirmed.find((segment) => segment.kind === "target")?.target.path,
-    "使用llama.cpp",
-  );
+  assert.equal(pending.map((segment) => segment.text).join(""), source);
+  const confirmed = verifiedChatSegments(segments, new Set(["src/llama.cpp"]));
+  assert.equal(confirmed.find((segment) => segment.kind === "target")?.target.path, "src/llama.cpp");
 });
 
 test("explicit @ refs and URLs skip speculative lookup", () => {
@@ -59,7 +56,7 @@ test("explicit @ refs and URLs skip speculative lookup", () => {
 });
 
 test("structured attachment refs keep their chip without a lookup", () => {
-  const segments = splitChatText("see App.tsx please", ROOT);
+  const segments = splitChatText("see ./App.tsx please", ROOT);
   const trusted = new Set(["App.tsx"]);
   assert.deepEqual(chatFileCandidates(segments, trusted), []);
   assert.ok(
@@ -70,13 +67,13 @@ test("structured attachment refs keep their chip without a lookup", () => {
 });
 
 test("candidate lookup is unique and capped at 32", () => {
-  const text = Array.from({ length: 40 }, (_, index) => `file${index}.ts`).join(" ");
+  const text = Array.from({ length: 40 }, (_, index) => `./file${index}.ts`).join(" ");
   const segments = splitChatText(text, ROOT);
   const paths = chatFileCandidates(segments);
   assert.equal(paths.length, 32);
   assert.equal(paths[0], "file0.ts");
   assert.equal(paths[31], "file31.ts");
-  assert.equal(chatFileCandidates(splitChatText("a.ts and a.ts again", ROOT)).length, 1);
+  assert.equal(chatFileCandidates(splitChatText("./a.ts and ./a.ts again", ROOT)).length, 1);
 });
 
 test("verifyChatFiles keeps hits, skips misses, and survives a thrown lookup", async () => {
